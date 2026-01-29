@@ -26,7 +26,10 @@ export const restockProduct = async (
   supplierId?: string,
   isOwnPurchase?: boolean,
   isCredit?: boolean,
-  notes?: string
+  notes?: string,
+  locationType?: 'shop' | 'warehouse',
+  shopId?: string,
+  warehouseId?: string
 ): Promise<void> => {
   const batch = writeBatch(db);
   
@@ -46,9 +49,36 @@ export const restockProduct = async (
   // Get userId from product for audit
   const userId = currentProduct.userId || companyId;
   
+  // Validate location if provided
+  if (locationType === 'shop' && shopId) {
+    const shopRef = doc(db, 'shops', shopId);
+    const shopSnap = await getDoc(shopRef);
+    if (shopSnap.exists()) {
+      const shopData = shopSnap.data();
+      if (shopData.companyId !== companyId) {
+        throw new Error('La boutique sélectionnée n\'appartient pas à cette entreprise.');
+      }
+      if (shopData.isActive === false) {
+        throw new Error('La boutique sélectionnée est désactivée. Veuillez sélectionner une boutique active.');
+      }
+    }
+  } else if (locationType === 'warehouse' && warehouseId) {
+    const warehouseRef = doc(db, 'warehouses', warehouseId);
+    const warehouseSnap = await getDoc(warehouseRef);
+    if (warehouseSnap.exists()) {
+      const warehouseData = warehouseSnap.data();
+      if (warehouseData.companyId !== companyId) {
+        throw new Error('L\'entrepôt sélectionné n\'appartient pas à cette entreprise.');
+      }
+      if (warehouseData.isActive === false) {
+        throw new Error('L\'entrepôt sélectionné est désactivé. Veuillez sélectionner un entrepôt actif.');
+      }
+    }
+  }
+  
   // Create new stock batch
   const stockBatchRef = doc(collection(db, 'stockBatches'));
-  const stockBatchData = {
+  const stockBatchData: any = {
     id: stockBatchRef.id,
     type: 'product' as const, // Always product for product restock
     productId,
@@ -64,6 +94,17 @@ export const restockProduct = async (
     status: 'active',
     ...(notes && { notes })
   };
+  
+  // Add location information if provided
+  if (locationType) {
+    stockBatchData.locationType = locationType;
+    if (locationType === 'shop' && shopId) {
+      stockBatchData.shopId = shopId;
+    } else if (locationType === 'warehouse' && warehouseId) {
+      stockBatchData.warehouseId = warehouseId;
+    }
+  }
+  
   batch.set(stockBatchRef, stockBatchData);
   
   // Don't update product.stock - batches are the source of truth
@@ -71,24 +112,26 @@ export const restockProduct = async (
     updatedAt: serverTimestamp()
   });
   
-  // Create stock change record
-  const stockChangeRef = doc(collection(db, 'stockChanges'));
-  const stockChangeData = {
-    id: stockChangeRef.id,
-    type: 'product' as const, // Always product for product restock
+  // Create stock change record using createStockChange helper
+  createStockChange(
+    batch,
     productId,
-    change: quantity,
-    reason: 'restock' as StockChange['reason'],
-    ...(supplierId && { supplierId }),
-    ...(isOwnPurchase !== undefined && { isOwnPurchase }),
-    ...(isCredit !== undefined && { isCredit }),
-    costPrice,
-    batchId: stockBatchRef.id,
-    createdAt: serverTimestamp(),
+    quantity,
+    'restock',
     userId,
-    companyId // Ensure companyId is set
-  };
-  batch.set(stockChangeRef, stockChangeData);
+    companyId,
+    'product', // Always product for product restock
+    supplierId,
+    isOwnPurchase,
+    isCredit,
+    costPrice,
+    stockBatchRef.id,
+    undefined, // saleId
+    undefined, // batchConsumptions
+    locationType, // locationType
+    shopId, // shopId
+    warehouseId // warehouseId
+  );
   
   await batch.commit();
   
@@ -122,7 +165,10 @@ export const restockMatiere = async (
   costPrice?: number,
   supplierId?: string,
   isOwnPurchase?: boolean,
-  isCredit?: boolean
+  isCredit?: boolean,
+  locationType?: 'shop' | 'warehouse',
+  shopId?: string,
+  warehouseId?: string
 ): Promise<void> => {
   const batch = writeBatch(db);
   
@@ -141,6 +187,33 @@ export const restockMatiere = async (
   
   // Get userId from matiere for audit
   const userId = currentMatiere.userId || companyId;
+  
+  // Validate location if provided
+  if (locationType === 'shop' && shopId) {
+    const shopRef = doc(db, 'shops', shopId);
+    const shopSnap = await getDoc(shopRef);
+    if (shopSnap.exists()) {
+      const shopData = shopSnap.data();
+      if (shopData.companyId !== companyId) {
+        throw new Error('La boutique sélectionnée n\'appartient pas à cette entreprise.');
+      }
+      if (shopData.isActive === false) {
+        throw new Error('La boutique sélectionnée est désactivée. Veuillez sélectionner une boutique active.');
+      }
+    }
+  } else if (locationType === 'warehouse' && warehouseId) {
+    const warehouseRef = doc(db, 'warehouses', warehouseId);
+    const warehouseSnap = await getDoc(warehouseRef);
+    if (warehouseSnap.exists()) {
+      const warehouseData = warehouseSnap.data();
+      if (warehouseData.companyId !== companyId) {
+        throw new Error('L\'entrepôt sélectionné n\'appartient pas à cette entreprise.');
+      }
+      if (warehouseData.isActive === false) {
+        throw new Error('L\'entrepôt sélectionné est désactivé. Veuillez sélectionner un entrepôt actif.');
+      }
+    }
+  }
   
   // Use provided costPrice, or get latest batch cost price, or fallback to matiere's costPrice, or 0
   let actualCostPrice = 0;
@@ -166,7 +239,7 @@ export const restockMatiere = async (
   
   // Create new stock batch
   const stockBatchRef = doc(collection(db, 'stockBatches'));
-  const stockBatchData = {
+  const stockBatchData: any = {
     id: stockBatchRef.id,
     type: 'matiere' as const, // Always matiere for matiere restock
     matiereId,
@@ -182,6 +255,17 @@ export const restockMatiere = async (
     status: 'active',
     ...(notes && { notes })
   };
+  
+  // Add location information if provided
+  if (locationType) {
+    stockBatchData.locationType = locationType;
+    if (locationType === 'shop' && shopId) {
+      stockBatchData.shopId = shopId;
+    } else if (locationType === 'warehouse' && warehouseId) {
+      stockBatchData.warehouseId = warehouseId;
+    }
+  }
+  
   batch.set(stockBatchRef, stockBatchData);
   
   // Create stock change record
@@ -197,7 +281,12 @@ export const restockMatiere = async (
     isOwnPurchase, // Include own purchase flag
     isCredit, // Include credit flag
     actualCostPrice > 0 ? actualCostPrice : undefined, // Include cost price if provided
-    stockBatchRef.id
+    stockBatchRef.id,
+    undefined, // saleId
+    undefined, // batchConsumptions
+    locationType, // locationType
+    shopId, // shopId
+    warehouseId // warehouseId
   );
   
   // Create finance entry if cost price is provided

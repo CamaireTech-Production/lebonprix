@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useCart } from '../../contexts/CartContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { getCompanyByUserId, getSellerSettings } from '@services/firestore/firestore';
 import { createOrder } from '@services/firestore/orders/orderService';
+// NOTE: ensureCustomerExists is NOT imported here - customers are created only when order is converted to sale
+import { logError } from '@utils/core/logger';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import type { Company } from '../../types/models';
 import type { CustomerInfo, OrderData, SellerSettings, OrderPaymentMethod, OrderPricing, DeliveryInfo, Order } from '../../types/order';
@@ -18,6 +21,7 @@ interface CheckoutModalProps {
 
 const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyId }) => {
   const { cart, getCartTotal, clearCart } = useCart();
+  const { user } = useAuth();
   const [company, setCompany] = useState<Company | null>(null);
   const [sellerSettings, setSellerSettings] = useState<SellerSettings | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
@@ -25,10 +29,20 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
 
   // Customer information form state
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
+    // Contact info
     name: '',
     phone: '',
-    location: '',
-    deliveryInstructions: ''
+    quarter: '',
+    email: '',
+    // Delivery info
+    deliveryName: '',
+    deliveryPhone: '',
+    deliveryAddressLine1: '',
+    deliveryAddressLine2: '',
+    deliveryQuarter: '',
+    deliveryCity: '',
+    deliveryInstructions: '',
+    deliveryCountry: 'CM'
   });
 
   // Form validation state
@@ -67,10 +81,20 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
       console.log('Resetting form data');
       setCurrentStep(1);
       setCustomerInfo({
+        // Contact info
         name: '',
         phone: '',
-        location: '',
-        deliveryInstructions: ''
+        quarter: '',
+        email: '',
+        // Delivery info
+        deliveryName: '',
+        deliveryPhone: '',
+        deliveryAddressLine1: '',
+        deliveryAddressLine2: '',
+        deliveryQuarter: '',
+        deliveryCity: '',
+        deliveryInstructions: '',
+        deliveryCountry: 'CM'
       });
       setErrors({});
     }
@@ -81,6 +105,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
     console.log('validateForm called with customerInfo:', customerInfo);
     const newErrors: Partial<CustomerInfo> = {};
 
+    // Contact info validation
     if (!customerInfo.name.trim()) {
       console.log('Name validation failed');
       newErrors.name = 'Name is required';
@@ -94,9 +119,23 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
       newErrors.phone = 'Please enter a valid phone number';
     }
 
-    if (!customerInfo.location.trim()) {
-      console.log('Location validation failed');
-      newErrors.location = 'Location is required';
+    // Delivery info validation
+    if (!(customerInfo.deliveryName || customerInfo.name)?.trim()) {
+      newErrors.deliveryName = 'Delivery name is required';
+    }
+
+    if (!(customerInfo.deliveryPhone || customerInfo.phone)?.trim()) {
+      newErrors.deliveryPhone = 'Delivery phone is required';
+    }
+
+    if (!customerInfo.deliveryAddressLine1?.trim()) {
+      console.log('Delivery address validation failed');
+      newErrors.deliveryAddressLine1 = 'Delivery address is required';
+    }
+
+    if (!customerInfo.deliveryQuarter?.trim()) {
+      console.log('Delivery quarter validation failed');
+      newErrors.deliveryQuarter = 'Delivery quarter/zone is required';
     }
 
     console.log('Validation errors:', newErrors);
@@ -215,11 +254,15 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
         total: finalTotal
       };
 
-      // Create delivery info
+      // Create delivery info with new structure
       const deliveryInfo: DeliveryInfo = {
-        method: 'pickup',
+        method: 'delivery',
+        address: customerInfo.deliveryAddressLine1 + (customerInfo.deliveryAddressLine2 ? ', ' + customerInfo.deliveryAddressLine2 : ''),
         instructions: customerInfo.deliveryInstructions
       };
+
+      // NOTE: Customer is NOT created here - it will be created only when order is converted to sale
+      // This ensures we don't create duplicate customers for orders that may never be converted
 
       // Create order in database
       const order = await createOrder(
@@ -312,7 +355,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
     
     message += `👤 Client: ${customerInfo.name}\n`;
     message += `📞 Téléphone: ${customerInfo.phone}\n`;
-    message += `📍 Adresse: ${customerInfo.location}\n`;
+    message += `📍 Adresse: ${customerInfo.deliveryAddressLine1 || ''}${customerInfo.deliveryAddressLine2 ? ', ' + customerInfo.deliveryAddressLine2 : ''}\n`;
+    message += `📍 Quartier: ${customerInfo.deliveryQuarter || ''}\n`;
     
     if (customerInfo.deliveryInstructions) {
       message += `📝 Instructions de livraison: ${customerInfo.deliveryInstructions}\n`;
@@ -468,69 +512,172 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
               </div>
               
               <div className="space-y-3">
-                {/* Name */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <User className="inline h-4 w-4 mr-1" />
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={customerInfo.name}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-theme-brown focus:border-theme-brown ${
-                      errors.name ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Enter your full name"
-                  />
-                  {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+                {/* Contact Section */}
+                <div className="border-b pb-3 mb-3">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Contact Information</h3>
+                  
+                  {/* Name */}
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <User className="inline h-4 w-4 mr-1" />
+                      Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={customerInfo.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-theme-brown focus:border-theme-brown ${
+                        errors.name ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="Enter your full name"
+                    />
+                    {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+                  </div>
+
+                  {/* Phone */}
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <Phone className="inline h-4 w-4 mr-1" />
+                      Phone Number *
+                    </label>
+                    <PhoneInput
+                      value={customerInfo.phone}
+                      onChange={(value) => handleInputChange('phone', value)}
+                      error={errors.phone}
+                      placeholder="Enter phone number"
+                    />
+                  </div>
+
+                  {/* Quarter (optional) */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <MapPin className="inline h-4 w-4 mr-1" />
+                      Quarter/Residence (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={customerInfo.quarter || ''}
+                      onChange={(e) => handleInputChange('quarter', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-theme-brown focus:border-theme-brown"
+                      placeholder="Your quarter or residence"
+                    />
+                  </div>
                 </div>
 
-                {/* Phone */}
+                {/* Delivery Section */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <Phone className="inline h-4 w-4 mr-1" />
-                    Phone Number *
-                  </label>
-                  <PhoneInput
-                    value={customerInfo.phone}
-                    onChange={(value) => handleInputChange('phone', value)}
-                    error={errors.phone}
-                    placeholder="Enter phone number"
-                  />
-                </div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Delivery Information</h3>
+                  
+                  {/* Delivery Name */}
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <User className="inline h-4 w-4 mr-1" />
+                      Delivery Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={customerInfo.deliveryName || customerInfo.name || ''}
+                      onChange={(e) => handleInputChange('deliveryName', e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-theme-brown focus:border-theme-brown ${
+                        errors.deliveryName ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="Name for delivery"
+                    />
+                    {errors.deliveryName && <p className="text-red-500 text-xs mt-1">{errors.deliveryName}</p>}
+                  </div>
 
-                {/* Location */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <MapPin className="inline h-4 w-4 mr-1" />
-                    Delivery Location *
-                  </label>
-                  <input
-                    type="text"
-                    value={customerInfo.location}
-                    onChange={(e) => handleInputChange('location', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-theme-brown focus:border-theme-brown ${
-                      errors.location ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Enter your delivery address"
-                  />
-                  {errors.location && <p className="text-red-500 text-xs mt-1">{errors.location}</p>}
-                </div>
+                  {/* Delivery Phone */}
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <Phone className="inline h-4 w-4 mr-1" />
+                      Delivery Phone *
+                    </label>
+                    <PhoneInput
+                      value={customerInfo.deliveryPhone || customerInfo.phone || ''}
+                      onChange={(value) => handleInputChange('deliveryPhone', value)}
+                      error={errors.deliveryPhone}
+                      placeholder="Phone for delivery"
+                    />
+                  </div>
 
-                {/* Delivery Instructions */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <MessageSquare className="inline h-4 w-4 mr-1" />
-                    Delivery Instructions (Optional)
-                  </label>
-                  <textarea
-                    value={customerInfo.deliveryInstructions}
-                    onChange={(e) => handleInputChange('deliveryInstructions', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-theme-brown focus:border-theme-brown resize-none"
-                    placeholder="Any special delivery instructions..."
-                    rows={2}
-                  />
+                  {/* Delivery Address Line 1 */}
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <MapPin className="inline h-4 w-4 mr-1" />
+                      Address (Street + Number) *
+                    </label>
+                    <input
+                      type="text"
+                      value={customerInfo.deliveryAddressLine1 || ''}
+                      onChange={(e) => handleInputChange('deliveryAddressLine1', e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-theme-brown focus:border-theme-brown ${
+                        errors.deliveryAddressLine1 ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="Ex: 123 Rue de la Paix"
+                    />
+                    {errors.deliveryAddressLine1 && <p className="text-red-500 text-xs mt-1">{errors.deliveryAddressLine1}</p>}
+                  </div>
+
+                  {/* Delivery Address Line 2 */}
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Address Complement (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={customerInfo.deliveryAddressLine2 || ''}
+                      onChange={(e) => handleInputChange('deliveryAddressLine2', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-theme-brown focus:border-theme-brown"
+                      placeholder="Ex: Appartement 4B, Bâtiment C"
+                    />
+                  </div>
+
+                  {/* Delivery Quarter */}
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <MapPin className="inline h-4 w-4 mr-1" />
+                      Delivery Quarter/Zone *
+                    </label>
+                    <input
+                      type="text"
+                      value={customerInfo.deliveryQuarter || ''}
+                      onChange={(e) => handleInputChange('deliveryQuarter', e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-theme-brown focus:border-theme-brown ${
+                        errors.deliveryQuarter ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="Ex: Mvog-Ada, Bastos"
+                    />
+                    {errors.deliveryQuarter && <p className="text-red-500 text-xs mt-1">{errors.deliveryQuarter}</p>}
+                  </div>
+
+                  {/* Delivery City */}
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      City (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={customerInfo.deliveryCity || ''}
+                      onChange={(e) => handleInputChange('deliveryCity', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-theme-brown focus:border-theme-brown"
+                      placeholder="Ex: Yaoundé, Douala"
+                    />
+                  </div>
+
+                  {/* Delivery Instructions */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <MessageSquare className="inline h-4 w-4 mr-1" />
+                      Delivery Instructions (Optional)
+                    </label>
+                    <textarea
+                      value={customerInfo.deliveryInstructions || ''}
+                      onChange={(e) => handleInputChange('deliveryInstructions', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-theme-brown focus:border-theme-brown resize-none"
+                      placeholder="Any special delivery instructions..."
+                      rows={2}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

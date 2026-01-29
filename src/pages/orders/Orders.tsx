@@ -14,6 +14,9 @@ import { formatPrice } from '@utils/formatting/formatPrice';
 import { usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
 import { Order, OrderFilters, OrderStats } from '../../types/order';
+import { useProducts } from '@hooks/data/useFirestore';
+import { generatePurchaseOrderPDF } from '@utils/orders/purchaseOrderPDF';
+import { generatePurchaseOrderNumber } from '@services/firestore/orders/orderService';
 import { 
   ShoppingBag, 
   Search, 
@@ -28,10 +31,17 @@ import {
   Phone,
   MapPin,
   User,
-  RefreshCw
+  RefreshCw,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  MoreVertical,
+  ShoppingCart
 } from 'lucide-react';
 import { Button, Input, Modal, Badge, Card, SyncIndicator, SkeletonOrders } from '@components/common';
 import OrderActionsMenu from '@components/orders/OrderActionsMenu';
+import ConvertOrderToSaleModal from '@components/orders/ConvertOrderToSaleModal';
+import DeliveryAlerts from '@components/orders/DeliveryAlerts';
 import { toast } from 'react-hot-toast';
 import { logError } from '@utils/core/logger';
 
@@ -39,6 +49,7 @@ const Orders: React.FC = () => {
   const { t } = useTranslation();
   const { user, company } = useAuth();
   const { canDelete } = usePermissionCheck(RESOURCES.ORDERS);
+  const { products } = useProducts();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<OrderStats | null>(null);
@@ -53,6 +64,7 @@ const Orders: React.FC = () => {
   // Selected order for details
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   
   // Order actions
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -61,6 +73,7 @@ const Orders: React.FC = () => {
   const [showDeliveredConfirmModal, setShowDeliveredConfirmModal] = useState(false);
   const [showCancelledConfirmModal, setShowCancelledConfirmModal] = useState(false);
   const [showPaidConfirmModal, setShowPaidConfirmModal] = useState(false);
+  const [showConvertModal, setShowConvertModal] = useState(false);
   const [newStatus, setNewStatus] = useState<Order['status']>('pending');
   const [newNote, setNewNote] = useState('');
 
@@ -226,6 +239,34 @@ const Orders: React.FC = () => {
     }
   };
 
+  // Handle generate purchase order PDF
+  const handleGeneratePurchaseOrder = async (order: Order) => {
+    if (!order || !company || !products) return;
+
+    try {
+      setSyncing(true);
+      
+      // Generate purchase order number if not exists
+      let purchaseOrderNumber = order.purchaseOrderNumber;
+      if (!purchaseOrderNumber) {
+        purchaseOrderNumber = await generatePurchaseOrderNumber(order.id, company.id);
+      }
+      
+      // Generate filename
+      const filename = `Bon-de-Commande-${purchaseOrderNumber || order.orderNumber}`;
+      
+      // Generate PDF
+      await generatePurchaseOrderPDF(order, products, company, filename);
+      
+      toast.success(t('orders.messages.purchaseOrderGenerated') || 'Bon de commande généré avec succès');
+    } catch (error) {
+      logError('Error generating purchase order PDF', error);
+      toast.error(t('orders.messages.purchaseOrderGenerationFailed') || 'Erreur lors de la génération du bon de commande');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   // Get status badge color
   const getStatusBadgeColor = (status: Order['status']): 'success' | 'warning' | 'error' | 'info' | 'default' => {
     switch (status) {
@@ -277,6 +318,193 @@ const Orders: React.FC = () => {
     }).format(dateObj);
   };
 
+  // Get order product details for accordion
+  const getOrderProductDetails = (order: Order) => {
+    return order.items.map((item, idx) => {
+      const product = products?.find((p) => p.id === item.productId);
+      return (
+        <tr key={item.productId + idx} className="bg-gray-50">
+          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 font-medium">
+            {product ? product.name : item.name || t('orders.table.unknownProduct') || 'Produit inconnu'}
+          </td>
+          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{item.quantity}</td>
+          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+            {formatPrice(item.price)} XAF
+          </td>
+          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+            {formatPrice(item.price * item.quantity)} XAF
+          </td>
+          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+            {product ? product.reference : '-'}
+          </td>
+        </tr>
+      );
+    });
+  };
+
+  // Render table rows with accordion
+  const renderRows = (data: Order[]) => {
+    return data.map((order) => {
+      const isExpanded = expandedOrderId === order.id;
+      return [
+        <tr 
+          key={order.id} 
+          className="group transition cursor-pointer hover:bg-gray-50"
+          onClick={() => {
+            setSelectedOrder(order);
+            setShowOrderModal(true);
+          }}
+        >
+          <td
+            className="px-2 py-4 text-center align-middle cursor-pointer w-8"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpandedOrderId(isExpanded ? null : order.id);
+            }}
+          >
+            {isExpanded ? (
+              <ChevronDown size={18} className="mx-auto text-emerald-600" />
+            ) : (
+              <ChevronRight size={18} className="mx-auto text-gray-400 group-hover:text-emerald-600" />
+            )}
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+            <div className="font-medium">{order.orderNumber}</div>
+            <div className="text-xs text-gray-600 mt-1">{order.customerInfo.name}</div>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm">
+            <a href={`tel:${order.customerInfo.phone}`} className="text-blue-600 hover:underline">
+              {order.customerInfo.phone}
+            </a>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+            {order.items.length} {order.items.length !== 1 ? t('orders.orderDetails.itemsPlural') : t('orders.orderDetails.items')}
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm">
+            {formatPrice(order.pricing.total)} XAF
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+            {formatDate(order.createdAt)}
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm">
+            <Badge variant={getStatusBadgeColor(order.status)}>
+              {getStatusIcon(order.status)}
+              <span className="ml-1 capitalize">{t(`orders.status.${order.status}`)}</span>
+            </Badge>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm">
+            <Badge variant={getPaymentStatusBadgeColor(order.paymentStatus)}>
+              <span className="capitalize">{t(`orders.paymentStatus.${order.paymentStatus}`)}</span>
+            </Badge>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+            {formatCreatorName(order.createdBy)}
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm">
+            <div className="flex space-x-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedOrder(order);
+                  setShowOrderModal(true);
+                }}
+                className="text-blue-600 hover:text-blue-900"
+                title={t('orders.quickActions.viewDetails')}
+              >
+                <Eye size={16} />
+              </button>
+              {order.status !== 'converted' && order.status !== 'cancelled' && !order.convertedToSaleId && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedOrder(order);
+                    setShowConvertModal(true);
+                  }}
+                  className="text-green-600 hover:text-green-900"
+                  title={t('orders.quickActions.convertToSale')}
+                >
+                  <ShoppingCart size={16} />
+                </button>
+              )}
+              <div onClick={(e) => e.stopPropagation()}>
+                <OrderActionsMenu
+                  order={order}
+                  onViewDetails={() => {
+                    setSelectedOrder(order);
+                    setShowOrderModal(true);
+                  }}
+                  onEditStatus={() => {
+                    setSelectedOrder(order);
+                    setNewStatus(order.status);
+                    setShowStatusModal(true);
+                  }}
+                  onAddNote={() => {
+                    setSelectedOrder(order);
+                    setShowNoteModal(true);
+                  }}
+                  onDelete={() => {
+                    setSelectedOrder(order);
+                    setShowDeleteModal(true);
+                  }}
+                  onMarkAsDelivered={() => {
+                    setSelectedOrder(order);
+                    setShowDeliveredConfirmModal(true);
+                  }}
+                  onMarkAsCancelled={() => {
+                    setSelectedOrder(order);
+                    setShowCancelledConfirmModal(true);
+                  }}
+                  onMarkAsPaid={() => {
+                    setSelectedOrder(order);
+                    setShowPaidConfirmModal(true);
+                  }}
+                  onConvertToSale={() => {
+                    setSelectedOrder(order);
+                    setShowConvertModal(true);
+                  }}
+                  onGeneratePurchaseOrder={() => {
+                    handleGeneratePurchaseOrder(order);
+                  }}
+                  disabled={syncing}
+                  canDelete={canDelete}
+                />
+              </div>
+            </div>
+          </td>
+        </tr>,
+        isExpanded && (
+          <tr key={order.id + '-details'}>
+            <td colSpan={10} className="p-0 bg-white border-t-0">
+              <div className="overflow-x-auto custom-scrollbar border-t border-gray-100">
+                <table className="min-w-[600px] w-full text-sm">
+                  <thead className="bg-emerald-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left font-semibold text-emerald-700">
+                        {t('products.table.columns.name')}
+                      </th>
+                      <th className="px-4 py-2 text-left font-semibold text-emerald-700">
+                        {t('orders.orderDetails.quantity')}
+                      </th>
+                      <th className="px-4 py-2 text-left font-semibold text-emerald-700">
+                        {t('products.table.columns.sellingPrice')}
+                      </th>
+                      <th className="px-4 py-2 text-left font-semibold text-emerald-700">
+                        {t('orders.orderDetails.total')}
+                      </th>
+                      <th className="px-4 py-2 text-left font-semibold text-emerald-700">
+                        {t('products.table.columns.reference')}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>{getOrderProductDetails(order)}</tbody>
+                </table>
+              </div>
+            </td>
+          </tr>
+        ),
+      ];
+    }).flat();
+  };
 
   if (loading) {
     return <SkeletonOrders />;
@@ -362,6 +590,15 @@ const Orders: React.FC = () => {
         </div>
       )}
 
+      {/* Delivery Alerts */}
+      <DeliveryAlerts
+        daysAhead={2}
+        onOrderClick={(order) => {
+          setSelectedOrder(order);
+          setShowOrderModal(true);
+        }}
+      />
+
       {/* Search and Filters */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="flex-1">
@@ -377,112 +614,62 @@ const Orders: React.FC = () => {
         </div>
       </div>
 
-      {/* Orders List */}
-      <div className="space-y-4 pb-[10vh]">
-        {filteredOrders.length === 0 ? (
-          <Card className="p-12 text-center border-2 border-dashed border-gray-200">
-            <div className="flex flex-col items-center">
-              <div className="p-4 bg-gray-50 rounded-full mb-4">
-                <ShoppingBag className="w-12 h-12 text-gray-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('orders.noOrders')}</h3>
-              <p className="text-gray-600 max-w-md">
-                {searchTerm ? t('orders.noOrdersSearch') : t('orders.noOrdersMessage')}
-              </p>
-            </div>
-          </Card>
-        ) : (
-          filteredOrders.map((order) => (
-            <Card key={order.id} className="p-5 hover:shadow-lg transition-all duration-200 border border-gray-100">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-3 flex-wrap">
-                    <h3 className="font-semibold text-lg text-gray-900">
-                      {order.orderNumber}
-                    </h3>
-                    <Badge variant={getStatusBadgeColor(order.status)} className="flex items-center gap-1">
-                      {getStatusIcon(order.status)}
-                      <span className="capitalize">{t(`orders.status.${order.status}`)}</span>
-                    </Badge>
-                    <Badge variant={getPaymentStatusBadgeColor(order.paymentStatus)}>
-                      <span className="capitalize">{t(`orders.paymentStatus.${order.paymentStatus}`)}</span>
-                    </Badge>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3 text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate">{order.customerInfo.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate">{order.customerInfo.phone}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate">{order.customerInfo.location}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-600">
-                    <div className="flex items-center gap-1.5">
-                      <Calendar className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-700">{formatDate(order.createdAt)}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <DollarSign className="w-4 h-4 text-gray-400" />
-                      <span className="font-semibold text-gray-900">{formatPrice(order.pricing.total)} XAF</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Package className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-700">{order.items.length} {order.items.length !== 1 ? t('orders.orderDetails.itemsPlural') : t('orders.orderDetails.items')}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <User className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-500 text-xs">{t('orders.orderDetails.createdBy')}: {formatCreatorName(order.createdBy)}</span>
-                    </div>
-                  </div>
+      {/* Orders Table */}
+      <Card>
+        <div className="overflow-x-auto custom-scrollbar">
+          {filteredOrders.length === 0 ? (
+            <div className="p-12 text-center border-2 border-dashed border-gray-200">
+              <div className="flex flex-col items-center">
+                <div className="p-4 bg-gray-50 rounded-full mb-4">
+                  <ShoppingBag className="w-12 h-12 text-gray-400" />
                 </div>
-                
-                <OrderActionsMenu
-                  order={order}
-                  onViewDetails={() => {
-                    setSelectedOrder(order);
-                    setShowOrderModal(true);
-                  }}
-                  onEditStatus={() => {
-                    setSelectedOrder(order);
-                    setNewStatus(order.status);
-                    setShowStatusModal(true);
-                  }}
-                  onAddNote={() => {
-                    setSelectedOrder(order);
-                    setShowNoteModal(true);
-                  }}
-                  onDelete={() => {
-                    setSelectedOrder(order);
-                    setShowDeleteModal(true);
-                  }}
-                  onMarkAsDelivered={() => {
-                    setSelectedOrder(order);
-                    setShowDeliveredConfirmModal(true);
-                  }}
-                  onMarkAsCancelled={() => {
-                    setSelectedOrder(order);
-                    setShowCancelledConfirmModal(true);
-                  }}
-                  onMarkAsPaid={() => {
-                    setSelectedOrder(order);
-                    setShowPaidConfirmModal(true);
-                  }}
-                  disabled={syncing}
-                  canDelete={canDelete}
-                />
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('orders.noOrders')}</h3>
+                <p className="text-gray-600 max-w-md">
+                  {searchTerm ? t('orders.noOrdersSearch') : t('orders.noOrdersMessage')}
+                </p>
               </div>
-            </Card>
-          ))
-        )}
-      </div>
+            </div>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="w-8"></th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {t('orders.table.columns.orderNumber') || 'N° Commande'}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {t('orders.table.columns.phone') || 'Téléphone'}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {t('orders.table.columns.products') || 'Produits'}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {t('orders.table.columns.amount') || 'Montant'}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {t('orders.table.columns.date') || 'Date'}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {t('orders.table.columns.status') || 'Statut'}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {t('orders.table.columns.paymentStatus') || 'Paiement'}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {t('orders.table.columns.createdBy') || 'Créé par'}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {t('orders.table.columns.actions') || 'Actions'}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {renderRows(filteredOrders)}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </Card>
 
       {/* Order Details Modal */}
       <Modal
@@ -541,6 +728,13 @@ const Orders: React.FC = () => {
                   onMarkAsPaid={() => {
                     setShowOrderModal(false);
                     setShowPaidConfirmModal(true);
+                  }}
+                  onConvertToSale={() => {
+                    setShowOrderModal(false);
+                    setShowConvertModal(true);
+                  }}
+                  onGeneratePurchaseOrder={() => {
+                    handleGeneratePurchaseOrder(selectedOrder);
                   }}
                   disabled={syncing}
                   canDelete={canDelete}
@@ -885,6 +1079,20 @@ const Orders: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Convert Order to Sale Modal */}
+      <ConvertOrderToSaleModal
+        isOpen={showConvertModal}
+        onClose={() => {
+          setShowConvertModal(false);
+          setSelectedOrder(null);
+        }}
+        order={selectedOrder}
+        onSuccess={() => {
+          // Refresh orders list
+          setSyncing(true);
+        }}
+      />
     </div>
   );
 };

@@ -1856,15 +1856,32 @@
     "saveDraft": "Save Draft",
     "fields": {
       "name": "Full Name",
+      "namePlaceholder": "Enter your full name",
       "firstName": "First Name",
       "lastName": "Last Name",
       "phone": "Phone Number",
       "email": "Email Address",
+      "quarter": "Quarter/Residence",
+      "quarterPlaceholder": "Your quarter or residence",
       "address": "Address",
       "city": "City",
       "country": "Country",
       "postalCode": "Postal Code",
-      "notes": "Delivery Notes"
+      "notes": "Delivery Notes",
+      "deliveryName": "Delivery Name",
+      "deliveryNamePlaceholder": "Name for delivery",
+      "deliveryPhone": "Delivery Phone",
+      "deliveryPhonePlaceholder": "Phone for delivery",
+      "deliveryAddressLine1": "Address (Street + Number)",
+      "deliveryAddressLine1Placeholder": "Ex: 123 Rue de la Paix",
+      "deliveryAddressLine2": "Address Complement",
+      "deliveryAddressLine2Placeholder": "Ex: Apartment 4B, Building C",
+      "deliveryQuarter": "Delivery Quarter/Zone",
+      "deliveryQuarterPlaceholder": "Ex: Mvog-Ada, Bastos",
+      "deliveryCity": "Delivery City",
+      "deliveryCityPlaceholder": "Ex: Yaoundé, Douala",
+      "deliveryInstructions": "Delivery Instructions",
+      "deliveryInstructionsPlaceholder": "Special delivery instructions..."
     },
     "paymentMethods": {
       "mtnMoney": "MTN Money",
@@ -2116,7 +2133,8 @@
       "ready": "Ready",
       "delivered": "Delivered",
       "cancelled": "Cancelled",
-      "commande": "Order"
+      "commande": "Order",
+      "converted": "Converted to Sale"
     },
     "paymentStatus": {
       "pending": "Pending",
@@ -2124,6 +2142,19 @@
       "failed": "Failed",
       "awaiting_payment": "Awaiting Payment",
       "cancelled": "Cancelled"
+    },
+    "table": {
+      "columns": {
+        "orderNumber": "Order Number",
+        "phone": "Phone",
+        "products": "Products",
+        "amount": "Amount",
+        "date": "Date",
+        "status": "Status",
+        "paymentStatus": "Payment Status",
+        "createdBy": "Created By",
+        "actions": "Actions"
+      }
     },
     "orderDetails": {
       "title": "Order Details",
@@ -2137,6 +2168,7 @@
       "color": "Color",
       "size": "Size",
       "qty": "Qty",
+      "quantity": "Quantity",
       "pricing": "Pricing",
       "subtotal": "Subtotal",
       "deliveryFee": "Delivery Fee",
@@ -2164,7 +2196,8 @@
       "deleteConfirm": "Are you sure you want to delete order",
       "deleteWarning": "This action cannot be undone. The order will be permanently deleted.",
       "deleting": "Deleting...",
-      "deleteButton": "Delete Order"
+      "deleteButton": "Delete Order",
+      "convertToSale": "Convert to Sale"
     },
     "quickActions": {
       "menu": "Actions",
@@ -2174,7 +2207,9 @@
       "editStatus": "Edit Status",
       "addNote": "Add Note",
       "delete": "Delete",
-      "viewDetails": "View Details"
+      "viewDetails": "View Details",
+      "convertToSale": "Convert to Sale",
+      "generatePurchaseOrder": "Generate Purchase Order"
     },
     "confirmations": {
       "markAsDelivered": {
@@ -2208,7 +2243,34 @@
       "orderMarkedAsPaid": "Order marked as paid successfully. Amount added to cash register.",
       "orderMarkedAsCancelled": "Order cancelled successfully",
       "deliveredAtUpdated": "Delivery date updated",
-      "paymentStatusUpdateFailed": "Failed to update payment status"
+      "paymentStatusUpdateFailed": "Failed to update payment status",
+      "purchaseOrderGenerated": "Purchase order generated successfully",
+      "purchaseOrderGenerationFailed": "Failed to generate purchase order",
+      "convertedToSale": "Order converted to sale successfully"
+    },
+    "convert": {
+      "orderPreview": "Order Preview",
+      "saleStatus": "Sale Status",
+      "status": {
+        "paid": "Paid",
+        "credit": "Credit",
+        "commande": "Order",
+        "under_delivery": "Under Delivery"
+      },
+      "statusHelp": {
+        "paid": "The sale is paid and stock will be debited immediately",
+        "credit": "The sale is on credit, stock will be debited but payment is deferred",
+        "commande": "The sale is an order, stock will not be debited",
+        "under_delivery": "The sale is under delivery, stock will be debited"
+      },
+      "paymentMethod": "Payment Method",
+      "paymentMethods": {
+        "cash": "Cash",
+        "mobile_money": "Mobile Money",
+        "card": "Card"
+      },
+      "convert": "Convert",
+      "converting": "Converting..."
     }
   },
   "invitations": {
