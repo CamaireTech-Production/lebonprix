@@ -166,7 +166,7 @@ export const normalizeSaleData = (
     status: (data.status || 'paid') as OrderStatus,
     paymentStatus: (data.paymentStatus || 'paid') as PaymentStatus,
     customerInfo: {
-      name: (data.customerInfo?.name || 'divers') as string,
+      name: (data.customerInfo?.name || 'Client de passage') as string,
       phone: (data.customerInfo?.phone || '') as string,
       quarter: data.customerInfo?.quarter,
     },

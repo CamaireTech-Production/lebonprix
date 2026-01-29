@@ -945,16 +945,18 @@ export const convertOrderToSale = async (
     
     // Create customer in company database when converting order to sale
     // This is the only time we create the customer - not during order creation
-    if (order.customerInfo.phone && userId) {
+    // Save customer if name OR phone is provided (not both empty)
+    const hasCustomerInfo = (order.customerInfo.name && order.customerInfo.name.trim()) || (order.customerInfo.phone && order.customerInfo.phone.trim());
+    if (hasCustomerInfo && userId) {
       try {
         await ensureCustomerExists(
           {
-            phone: order.customerInfo.phone,
-            name: order.customerInfo.name || 'Client de passage',
+            phone: order.customerInfo.phone || '',
+            name: order.customerInfo.name || '',
             quarter: order.customerInfo.quarter || order.customerInfo.location || '',
             address: order.customerInfo.deliveryAddressLine1 || order.customerInfo.address,
-            city: order.customerInfo.deliveryCity || order.customerInfo.city,
-            email: order.customerInfo.email
+            town: order.customerInfo.deliveryCity || order.customerInfo.city,
+            customerSourceId: undefined // Orders don't have customerSourceId
           },
           companyId,
           userId

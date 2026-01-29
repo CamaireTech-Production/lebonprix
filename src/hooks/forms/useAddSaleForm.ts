@@ -383,10 +383,12 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
         } as SaleProduct));
       
       // Récupérer les données client AVANT de créer la vente
-      const customerName = formData.customerName.trim() || t('sales.modals.add.customerInfo.divers');
+      const customerName = formData.customerName.trim() || '';
       const customerPhone = formData.customerPhone.trim() || '';
       const customerQuarter = formData.customerQuarter || '';
-      const customerInfo = { name: customerName, phone: customerPhone, ...(customerQuarter && { quarter: customerQuarter }) };
+      // Use "Client de passage" for name only if phone exists but name doesn't
+      const finalCustomerName = customerName || (customerPhone ? 'Client de passage' : '');
+      const customerInfo = { name: finalCustomerName, phone: customerPhone, ...(customerQuarter && { quarter: customerQuarter }) };
       
       // Determine payment status based on sale status
       const saleStatus = formData.status;
@@ -444,7 +446,9 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
       showSuccessToast(t('sales.messages.saleAdded') + ` - ${totalAmount.toLocaleString()} XAF`);
       
       // Sauvegarder le client AVANT de réinitialiser le formulaire
-      if (autoSaveCustomer && customerPhone && company?.id && user?.uid) {
+      // Save customer if name OR phone is provided (not both empty)
+      const hasCustomerInfo = customerName || customerPhone;
+      if (autoSaveCustomer && hasCustomerInfo && company?.id && user?.uid) {
         try {
           // Use ensureCustomerExists to handle duplicate detection and creation/update
           await ensureCustomerExists(

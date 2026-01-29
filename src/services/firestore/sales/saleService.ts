@@ -333,7 +333,7 @@ export const createSale = async (
     const normalizedPaymentStatus = data.paymentStatus || (normalizedStatus === 'credit' ? 'pending' : 'paid');
     const quarterValue = data.customerInfo?.quarter?.trim();
     // Build customerInfo without quarter first, then conditionally add it
-    const baseCustomerInfo = data.customerInfo || { name: 'divers', phone: '' };
+    const baseCustomerInfo = data.customerInfo || { name: 'Client de passage', phone: '' };
     const { quarter: _, ...customerInfoWithoutQuarter } = baseCustomerInfo;
     const normalizedCustomerInfo = {
       ...customerInfoWithoutQuarter,
