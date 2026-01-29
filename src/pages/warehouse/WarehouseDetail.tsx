@@ -158,7 +158,7 @@ const WarehouseDetail: React.FC = () => {
               <span>{warehouse.location}</span>
             </div>
           )}
-          {warehouse.address && (
+          {warehouse.address && warehouse.address !== warehouse.location && (
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <MapPin size={14} />
               <span>{warehouse.address}</span>
