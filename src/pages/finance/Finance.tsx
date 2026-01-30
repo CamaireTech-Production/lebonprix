@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Button, Modal, ModalFooter, CreatableSelect, PriceInput, LoadingScreen, DateRangePicker } from '@components/common';
+import { SkeletonFinance, Button, DateRangePicker, Modal, ModalFooter, CreatableSelect, PriceInput } from "@components/common";
 import { useFinanceEntries, useProducts, useSales, useExpenses, useCustomers, useStockChanges, useSuppliers } from '@hooks/data/useFirestore';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 // Removed useFinancialData import - back to direct calculations
@@ -52,9 +52,9 @@ const Finance: React.FC = () => {
   
   // 🚀 REVERTED: Back to direct calculations without localStorage
 
-  useCustomers(); // Only call the hook for side effects if needed, but don't destructure unused values
+  // OPTIMIZATION: Removed unused hooks (useCustomers, useObjectives) to reduce Firebase reads
+  // These hooks were creating subscriptions but their data was never used
   const { user, company } = useAuth();
-  useObjectives();
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.FINANCE);
   
   // Add Entry Form (for deposits, loans, refunds, etc.)
@@ -308,7 +308,7 @@ const Finance: React.FC = () => {
 
   // 🚀 HYBRID APPROACH: Only show loading screen if essential data is loading
   if (loading || productsLoading || salesLoading || expensesLoading) {
-    return <LoadingScreen />;
+    return <SkeletonFinance />;
   }
 
   // Stat cards with direct calculations

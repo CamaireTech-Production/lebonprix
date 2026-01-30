@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronRight, ChevronLeft, ChevronDown, RefreshCcw, Package, AlertCircle, Search, Trash2, Settings, AlertTriangle } from 'lucide-react';
-import { Button, Input, Modal, LoadingScreen } from '@components/common';
+import { SkeletonStocks, Button, Input, Modal } from "@components/common";
 import { useInfiniteProducts } from '@hooks/data/useInfiniteProducts';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
-import { useStockChanges, useSuppliers } from '@hooks/data/useFirestore';
+import { useStockChanges, useSuppliers, useShops, useWarehouses } from '@hooks/data/useFirestore';
 import ProductRestockModal from '../../components/products/ProductRestockModal';
 import UnifiedBatchAdjustmentModal from '../../components/products/UnifiedBatchAdjustmentModal';
 import BatchDeleteModal from '../../components/common/BatchDeleteModal';
 import { usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
 import { getUserById } from '@services/utilities/userService';
+import { canDeleteBatch } from '@services/firestore/stock/stockAdjustments';
 import type { Product, StockBatch, StockChange } from '../../types/models';
 
 const PAGE_SIZES = [10, 20, 50];
@@ -47,15 +48,15 @@ const SkeletonRow = () => (
 const SkeletonExpanded = () => (
   <div className="animate-pulse bg-gray-50 px-10 py-4">
     <div className="overflow-x-auto">
-      <div className="min-w-[720px]">
-        <div className="grid grid-cols-7 gap-4 mb-3">
-          {[1, 2, 3, 4, 5, 6, 7].map((col) => (
+      <div className="min-w-[960px]">
+        <div className="grid grid-cols-8 gap-4 mb-3">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((col) => (
             <div key={col} className="h-3 bg-gray-200 rounded" />
           ))}
         </div>
         {[1, 2, 3].map((key) => (
-          <div key={key} className="grid grid-cols-7 gap-4 py-2 border-b border-gray-200">
-            {[1, 2, 3, 4, 5, 6, 7].map((col) => (
+          <div key={key} className="grid grid-cols-8 gap-4 py-2 border-b border-gray-200">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((col) => (
               <div key={col} className="h-3 bg-gray-200 rounded" />
             ))}
           </div>
@@ -74,6 +75,8 @@ const Stocks = () => {
   const { batches, loading: batchesLoading, error: batchesError } = useAllStockBatches('product');
   const { stockChanges } = useStockChanges('product');
   const { suppliers } = useSuppliers();
+  const { shops } = useShops();
+  const { warehouses } = useWarehouses();
   const { canDelete } = usePermissionCheck(RESOURCES.PRODUCTS);
 
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
@@ -134,6 +137,38 @@ const Stocks = () => {
     });
     return map;
   }, [suppliers]);
+
+  const shopsMap = useMemo(() => {
+    const map = new Map<string, string>();
+    shops.forEach((shop) => {
+      map.set(shop.id, shop.name);
+    });
+    return map;
+  }, [shops]);
+
+  const warehousesMap = useMemo(() => {
+    const map = new Map<string, string>();
+    warehouses.forEach((warehouse) => {
+      map.set(warehouse.id, warehouse.name);
+    });
+    return map;
+  }, [warehouses]);
+
+  // Helper function to get location display for a batch
+  const getBatchLocationDisplay = (batch: StockBatch): string => {
+    if (batch.locationType === 'shop' && batch.shopId) {
+      const shopName = shopsMap.get(batch.shopId);
+      return shopName ? `Boutique: ${shopName}` : `Boutique (ID: ${batch.shopId.slice(-8)})`;
+    } else if (batch.locationType === 'warehouse' && batch.warehouseId) {
+      const warehouseName = warehousesMap.get(batch.warehouseId);
+      return warehouseName ? `Entrepôt: ${warehouseName}` : `Entrepôt (ID: ${batch.warehouseId.slice(-8)})`;
+    } else if (batch.locationType === 'production' && batch.productionId) {
+      return `Production (ID: ${batch.productionId.slice(-8)})`;
+    } else if (batch.locationType === 'global') {
+      return 'Stock global';
+    }
+    return '—';
+  };
 
   const handleRestock = (product: Product) => {
     setSelectedProduct(product);
@@ -240,7 +275,7 @@ const Stocks = () => {
 
   // Show loading screen on initial load
   if (loading && products.length === 0) {
-    return <LoadingScreen />;
+    return <SkeletonStocks />;
   }
 
   // Show error state
@@ -400,7 +435,7 @@ const Stocks = () => {
                           </div>
                         ) : (
                           <div className="overflow-x-auto">
-                            <table className="w-full min-w-[960px] table-fixed text-sm text-left text-gray-700">
+                            <table className="w-full min-w-[1200px] table-fixed text-sm text-left text-gray-700">
                               <thead>
                                 <tr className="text-xs uppercase text-gray-500 border-b bg-white/60">
                                   <th className="py-3 pr-4 w-52">{t('products.stocksPage.batchTable.batchId')}</th>
@@ -408,7 +443,8 @@ const Stocks = () => {
                                   <th className="py-3 pr-4 w-32">{t('products.stocksPage.batchTable.costPrice')}</th>
                                   <th className="py-3 pr-4 w-48">{t('products.stocksPage.batchTable.supplier')}</th>
                                   <th className="py-3 pr-4 w-28">{t('products.stocksPage.batchTable.payment')}</th>
-                                  <th className="py-3 pr-4 w-28">{t('products.stocksPage.batchTable.status')}</th>
+                                  <th className="py-3 pr-4 w-32">{t('products.stocksPage.batchTable.status')}</th>
+                                  <th className="py-3 pr-4 w-48">Localisation</th>
                                   <th className="py-3 pr-4 text-right w-48">{t('products.stocksPage.batchTable.actions')}</th>
                                 </tr>
                               </thead>
@@ -433,6 +469,9 @@ const Stocks = () => {
                                       {batch.isCredit ? t('products.stocksPage.payment.credit') : t('products.stocksPage.payment.paid')}
                                     </td>
                                     <td className="py-3 pr-4 capitalize">{batch.status === 'active' ? t('products.stocksPage.status.active') : t('products.stocksPage.status.depleted')}</td>
+                                    <td className="py-3 pr-4 text-xs text-gray-600">
+                                      {getBatchLocationDisplay(batch)}
+                                    </td>
                                     <td className="py-3 pr-4 text-right space-x-3">
                                       {batch.status === 'active' ? (
                                         <>
@@ -451,8 +490,8 @@ const Stocks = () => {
                                               variant="outline"
                                               className="px-3 py-1.5 text-sm text-red-600 border-red-300 hover:bg-red-50"
                                               onClick={() => handleDelete(product, batch)}
-                                              disabled={batch.remainingQuantity > 0}
-                                              title={batch.remainingQuantity > 0 ? "Can only delete batches with zero remaining stock" : "Delete batch"}
+                                              disabled={!canDeleteBatch(batch)}
+                                              title={!canDeleteBatch(batch) ? "Cannot delete this batch. It must be unused or consolidated/destocked." : "Delete batch"}
                                             >
                                               <Trash2 size={14} />
                                             </Button>
@@ -469,7 +508,8 @@ const Stocks = () => {
                                               variant="outline"
                                               className="px-3 py-1.5 text-sm text-red-600 border-red-300 hover:bg-red-50"
                                               onClick={() => handleDelete(product, batch)}
-                                              title="Delete batch"
+                                              disabled={!canDeleteBatch(batch)}
+                                              title={!canDeleteBatch(batch) ? "Cannot delete this batch. It must be unused or consolidated/destocked." : "Delete batch"}
                                             >
                                               <Trash2 size={14} />
                                             </Button>

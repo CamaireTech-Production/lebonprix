@@ -46,7 +46,11 @@ export class CampayService {
       const campayConfig = await getCampayConfig(companyId);
 
       if (!campayConfig) {
-        throw new Error('Campay configuration not found');
+        // Campay is not configured - this is normal, not an error
+        // Set config to null and return silently
+        this.config = null;
+        this.appId = null;
+        return;
       }
 
       // Decrypt App ID using companyId as encryption key

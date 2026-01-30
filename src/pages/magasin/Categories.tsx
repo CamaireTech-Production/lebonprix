@@ -1,7 +1,7 @@
 // Magasin Categories page - shows only matiere categories
 import { useState, useEffect } from 'react';
 import { Plus, Search, Edit2, Trash2, Grid, List, Upload, X } from 'lucide-react';
-import { Card, Button, Badge, Modal, Input, ImageWithSkeleton, LoadingScreen, SyncIndicator } from '@components/common';
+import { SkeletonCategories, Card, Button, Input, Modal, ImageWithSkeleton, Badge, SyncIndicator, SkeletonLoader } from "@components/common";
 import { useAuth } from '@contexts/AuthContext';
 import { FirebaseStorageService } from '@services/core/firebaseStorage';
 import { getCurrentEmployeeRef, formatCreatorName } from '@utils/business/employeeUtils';
@@ -356,7 +356,7 @@ const MagasinCategories = () => {
   };
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonCategories viewMode={viewMode} />;
   }
 
   if (error) {
@@ -664,7 +664,7 @@ const MagasinCategories = () => {
             
             {isUploadingImage && (
               <div className="flex items-center space-x-2 text-sm text-gray-600 mt-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-500"></div>
+                <div className="animate-pulse bg-gray-200 w-4 h-4 rounded-full"></div>
                 <span>Uploading image...</span>
               </div>
             )}
@@ -778,7 +778,7 @@ const MagasinCategories = () => {
             
             {isUploadingImage && (
               <div className="flex items-center space-x-2 text-sm text-gray-600 mt-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-500"></div>
+                <div className="animate-pulse bg-gray-200 w-4 h-4 rounded-full"></div>
                 <span>Uploading image...</span>
               </div>
             )}

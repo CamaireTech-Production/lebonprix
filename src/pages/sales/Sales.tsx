@@ -18,11 +18,10 @@ import {
   RotateCcw
 } from 'lucide-react';
 import Select from 'react-select';
-import { Modal, ModalFooter, Input, PriceInput, Badge, Button, Card, ImageWithSkeleton, LoadingScreen, SyncIndicator, DateRangePicker } from '@components/common';
-import { useProducts, useCustomers, useSales } from '@hooks/data/useFirestore';
+import { Modal, ModalFooter, Input, PriceInput, Badge, Button, Card, ImageWithSkeleton, SkeletonSalesList, SyncIndicator, DateRangePicker } from '@components/common';
+import { useProducts, useCustomers } from '@hooks/data/useFirestore';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
 import { useInfiniteSales } from '@hooks/data/useInfiniteSales';
-import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import type { Product, OrderStatus, Sale, SaleProduct, Customer } from '../../types/models';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
@@ -32,10 +31,10 @@ import { generateInvoiceFileName } from '@utils/core/fileUtils';
 import { useAuth } from '@contexts/AuthContext';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
-import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
+import { normalizePhoneForComparison, normalizePhoneNumber } from '@utils/core/phoneUtils';
 import { logError } from '@utils/core/logger';
 import { useTranslation } from 'react-i18next';
-import { softDeleteSale, updateSaleStatus, cancelCreditSale, refundCreditSale } from '@services/firestore/sales/saleService';
+import { softDeleteSale, updateSaleStatus, cancelCreditSale, refundCreditSale, updateSaleDocument } from '@services/firestore/sales/saleService';
 import { formatCreatorName } from '@utils/business/employeeUtils';
 import { createPortal } from 'react-dom';
 import AddSaleModal from '../../components/sales/AddSaleModal';
@@ -80,7 +79,9 @@ const Sales: React.FC = () => {
   const { customers } = useCustomers();
   const { activeSources } = useCustomerSources();
   const { user, company } = useAuth();
-  const { updateSale } = useSales();
+  // OPTIMIZATION: Removed useSales() hook to avoid duplicate subscription
+  // useInfiniteSales() already provides real-time updates via subscription
+  // We'll use updateSaleDocument directly from service instead
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.SALES);
   const { batches: allBatches } = useAllStockBatches();
 
@@ -89,13 +90,6 @@ const Sales: React.FC = () => {
     [allBatches]
   );
 
-  // Infinite scroll for sales
-  useInfiniteScroll({
-    hasMore: salesHasMore,
-    loading: salesLoadingMore,
-    onLoadMore: loadMoreSales,
-    threshold: 300 // Load more when 300px from bottom
-  });
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -470,9 +464,11 @@ const Sales: React.FC = () => {
           profitMargin,
         };
       });
+      // Normalize phone number to ensure consistent format (+237XXXXXXXXX)
+      const normalizedPhone = formData.customerPhone ? normalizePhoneNumber(formData.customerPhone) : '';
       const customerInfo = {
         name: formData.customerName,
-        phone: formData.customerPhone,
+        phone: normalizedPhone,
         ...(formData.customerQuarter && { quarter: formData.customerQuarter }),
       };
       const updateData: Partial<Sale> = {};
@@ -485,7 +481,9 @@ const Sales: React.FC = () => {
       if (formData.customerSourceId) updateData.customerSourceId = formData.customerSourceId;
       if (formData.deliveryFee !== undefined && formData.deliveryFee !== '')
         updateData.deliveryFee = parseFloat(formData.deliveryFee);
-      await updateSale(currentSale.id, updateData);
+      // OPTIMIZATION: Use updateSaleDocument directly instead of useSales() hook
+      // This avoids duplicate subscription (useInfiniteSales already provides real-time updates)
+      await updateSaleDocument(currentSale.id, updateData, company?.id || '');
       
       // Update the sale in the local list immediately
       // Merge current sale data with updates to ensure all fields are preserved
@@ -512,9 +510,11 @@ const Sales: React.FC = () => {
 
   const handleEditClick = (sale: Sale): void => {
     setCurrentSale(sale);
+    // Normalize phone number when loading into edit form to ensure consistency
+    const normalizedPhone = sale.customerInfo.phone ? normalizePhoneNumber(sale.customerInfo.phone) : '';
     setFormData({
       customerName: sale.customerInfo.name,
-      customerPhone: sale.customerInfo.phone,
+      customerPhone: normalizedPhone,
       customerQuarter: sale.customerInfo.quarter || '',
       customerSourceId: sale.customerSourceId || '',
       status: sale.status,
@@ -856,8 +856,9 @@ const Sales: React.FC = () => {
     [products, stockMap]
   );
 
+  // Show skeleton only while loading
   if (salesLoading || productsLoading) {
-    return <LoadingScreen />;
+    return <SkeletonSalesList rows={15} />;
   }
 
   if (salesError) {
@@ -1132,16 +1133,22 @@ const Sales: React.FC = () => {
           </div>
         </div>
 
-        {/* Infinite Scroll Loading Indicator */}
-        {salesLoadingMore && (
-          <div className="flex justify-center items-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
-            <span className="ml-3 text-gray-600">Loading more sales...</span>
+        {/* Load More Button */}
+        {salesHasMore && (
+          <div className="flex justify-center py-6">
+            <Button
+              onClick={loadMoreSales}
+              disabled={salesLoadingMore}
+              variant="outline"
+              icon={salesLoadingMore ? <Loader2 className="animate-spin" size={16} /> : <ChevronDown size={16} />}
+            >
+              {salesLoadingMore ? t('common.loading') : t('common.loadMore')}
+            </Button>
           </div>
         )}
         {!salesHasMore && sales.length > 0 && (
           <div className="text-center py-6 text-gray-500">
-            <p>✅ All sales loaded ({sales.length} total)</p>
+            <p>✅ {t('sales.messages.allLoaded', { count: sales.length }) || `All sales loaded (${sales.length} total)`}</p>
           </div>
         )}
       </Card>

@@ -9,7 +9,8 @@ import {
   deleteDoc,
   query, 
   where, 
-  orderBy, 
+  orderBy,
+  limit,
   onSnapshot, 
   serverTimestamp,
   Timestamp,
@@ -33,6 +34,12 @@ import {
 } from '../../../types/order';
 import { logError } from '@utils/core/logger';
 import { createFinanceEntry, updateFinanceEntry } from '../finance/financeService';
+import { getAvailableStockBatches } from '../stock/stockService';
+import { createSale } from '../sales/saleService';
+import { ensureCustomerExists } from '../customers/customerService';
+import { normalizePhoneNumber } from '@utils/core/phoneUtils';
+import type { Product } from '../../../types/models';
+import type { Sale } from '../../../types/models';
 
 const COLLECTION_NAME = 'orders';
 
@@ -70,12 +77,12 @@ const convertCartToOrderItems = (cartItems: CartItem[]): OrderItem[] => {
 };
 
 // Create initial order event
-const createInitialOrderEvent = (userId: string): OrderEvent => {
+const createInitialOrderEvent = (userId: string, status: OrderStatus = 'commande', paymentStatus: PaymentStatus = 'pending'): OrderEvent => {
   return {
     id: `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     type: 'created',
-    status: 'pending',
-    paymentStatus: 'pending',
+    status,
+    paymentStatus,
     timestamp: new Date(),
     userId: userId || '',
     metadata: {}
@@ -102,14 +109,26 @@ export const createOrder = async (
     const orderNumber = generateOrderNumber();
     
     // Sanitize customer info to prevent undefined values
+    // Support both new structure and legacy structure for backward compatibility
     const sanitizedCustomerInfo: CustomerInfo = {
+      // Contact info
       name: orderData.customerInfo.name || '',
       phone: orderData.customerInfo.phone || '',
-      location: orderData.customerInfo.location || '',
-      deliveryInstructions: orderData.customerInfo.deliveryInstructions || '',
+      quarter: orderData.customerInfo.quarter || orderData.customerInfo.location || '',
       email: orderData.customerInfo.email || '',
-      address: orderData.customerInfo.address || '',
-      city: orderData.customerInfo.city || '',
+      // Delivery info
+      deliveryName: orderData.customerInfo.deliveryName || orderData.customerInfo.name || '',
+      deliveryPhone: orderData.customerInfo.deliveryPhone || orderData.customerInfo.phone || '',
+      deliveryAddressLine1: orderData.customerInfo.deliveryAddressLine1 || orderData.customerInfo.address || orderData.customerInfo.location || '',
+      deliveryAddressLine2: orderData.customerInfo.deliveryAddressLine2 || '',
+      deliveryQuarter: orderData.customerInfo.deliveryQuarter || orderData.customerInfo.location || '',
+      deliveryCity: orderData.customerInfo.deliveryCity || orderData.customerInfo.city || '',
+      deliveryInstructions: orderData.customerInfo.deliveryInstructions || '',
+      deliveryCountry: orderData.customerInfo.deliveryCountry || 'CM',
+      // Legacy fields for backward compatibility
+      location: orderData.customerInfo.deliveryQuarter || orderData.customerInfo.location || '',
+      address: orderData.customerInfo.deliveryAddressLine1 || orderData.customerInfo.address || '',
+      city: orderData.customerInfo.deliveryCity || orderData.customerInfo.city || '',
       zipCode: orderData.customerInfo.zipCode || ''
     };
 
@@ -125,12 +144,38 @@ export const createOrder = async (
       total: orderData.pricing.total || 0
     };
 
-    // Determine initial status based on payment method
-    // For Campay: if payment is successful, order should be confirmed
-    // For other methods: start as pending
+    // Check stock availability for all items (without debiting)
+    for (const item of orderData.cartItems) {
+      const productRef = doc(db, 'products', item.productId);
+      const productSnap = await getDoc(productRef);
+      
+      if (!productSnap.exists()) {
+        throw new Error(`Product with ID ${item.productId} not found`);
+      }
+      
+      const productData = productSnap.data() as Product;
+      if (productData.companyId !== companyId) {
+        throw new Error(`Unauthorized to order product ${productData.name}`);
+      }
+      
+      // Check available stock from batches (without debiting)
+      const availableBatches = await getAvailableStockBatches(
+        item.productId,
+        companyId,
+        'product'
+      );
+      const availableStock = availableBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+      
+      if (availableStock < item.quantity) {
+        throw new Error(`Insufficient stock for product ${productData.name}. Available: ${availableStock}, Requested: ${item.quantity}`);
+      }
+    }
+
+    // Determine initial status: always 'commande' for orders created from catalogue
+    // Stock is NOT debited at this stage
     const isCampayPaymentSuccessful = orderData.paymentMethod === 'campay' && 
                                       orderData.campayPaymentDetails?.status === 'SUCCESS';
-    const initialStatus: OrderStatus = isCampayPaymentSuccessful ? 'confirmed' : 'pending';
+    const initialStatus: OrderStatus = 'commande';
     
     // For Campay: if campayPaymentDetails is provided with status 'SUCCESS', payment is already completed
     // For CinetPay: payment status starts as 'awaiting_payment' since payment happens after order creation
@@ -144,8 +189,8 @@ export const createOrder = async (
     // Get userId from orderData metadata if available, otherwise use companyId
     const userId = orderData.metadata?.userId || companyId;
     
-    // Create initial order event
-    const initialEvent = createInitialOrderEvent(userId);
+    // Create initial order event with correct status
+    const initialEvent = createInitialOrderEvent(userId, initialStatus, initialPaymentStatus);
 
     // Sanitize delivery info
     const sanitizedDeliveryInfo: DeliveryInfo = {
@@ -220,12 +265,38 @@ export const createOrder = async (
 
     const docRef = await addDoc(collection(db, COLLECTION_NAME), orderDoc);
     
-    return {
+    const createdOrder = {
       id: docRef.id,
       ...orderDoc,
       createdAt: new Date(),
       updatedAt: new Date()
     } as Order;
+
+    // If order is paid, create finance entry with isPending: true (stock not debited yet)
+    if (initialPaymentStatus === 'paid') {
+      try {
+        await syncFinanceEntryWithOrder(createdOrder);
+        // Mark finance entry as pending since stock is not debited yet
+        const financeQuery = query(
+          collection(db, 'finances'),
+          where('sourceType', '==', 'order'),
+          where('sourceId', '==', createdOrder.id)
+        );
+        const financeSnap = await getDocs(financeQuery);
+        if (!financeSnap.empty) {
+          const financeDoc = financeSnap.docs[0];
+          await updateDoc(doc(db, 'finances', financeDoc.id), {
+            isPending: true,
+            description: `Order ${createdOrder.orderNumber} (Pending conversion) - ${createdOrder.customerInfo.name}`
+          });
+        }
+      } catch (error) {
+        logError('Error creating finance entry for paid order', error);
+        // Don't throw - order was created successfully
+      }
+    }
+    
+    return createdOrder;
   } catch (error) {
     logError('Error creating order', error);
     throw error;
@@ -259,8 +330,10 @@ export const getOrderById = async (orderId: string): Promise<Order | null> => {
 export const subscribeToOrders = (
   companyId: string, 
   callback: (orders: Order[]) => void,
-  filters?: OrderFilters
+  filters?: OrderFilters,
+  limitCount?: number
 ): Unsubscribe => {
+  const defaultLimit = 100; // OPTIMIZATION: Default limit to reduce Firebase reads
   let q = query(
     collection(db, COLLECTION_NAME),
     where('companyId', '==', companyId),
@@ -287,6 +360,9 @@ export const subscribeToOrders = (
   if (filters?.dateTo) {
     q = query(q, where('createdAt', '<=', Timestamp.fromDate(filters.dateTo)));
   }
+
+  // Add limit at the end (after all filters)
+  q = query(q, limit(limitCount || defaultLimit));
 
   return onSnapshot(q, (snapshot) => {
     const orders: Order[] = [];
@@ -645,6 +721,62 @@ export const getOrderStats = async (companyId: string): Promise<OrderStats> => {
   }
 };
 
+// Generate and save purchase order number
+export const generatePurchaseOrderNumber = async (
+  orderId: string,
+  companyId: string
+): Promise<string> => {
+  try {
+    const orderRef = doc(db, COLLECTION_NAME, orderId);
+    const orderSnap = await getDoc(orderRef);
+    
+    if (!orderSnap.exists()) {
+      throw new Error('Order not found');
+    }
+    
+    const orderData = orderSnap.data() as Order;
+    if (orderData.companyId !== companyId) {
+      throw new Error('Unauthorized to update this order');
+    }
+    
+    // If purchase order number already exists, return it
+    if (orderData.purchaseOrderNumber) {
+      return orderData.purchaseOrderNumber;
+    }
+    
+    // Generate new purchase order number (BC-YYYY-NNNN)
+    const now = new Date();
+    const year = now.getFullYear();
+    
+    // Get count of purchase orders for this year to generate sequence
+    const yearStart = new Date(year, 0, 1);
+    const yearEnd = new Date(year + 1, 0, 1);
+    
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where('companyId', '==', companyId),
+      where('purchaseOrderNumber', '!=', null),
+      where('createdAt', '>=', Timestamp.fromDate(yearStart)),
+      where('createdAt', '<', Timestamp.fromDate(yearEnd))
+    );
+    
+    const snapshot = await getDocs(q);
+    const sequenceNumber = snapshot.size + 1;
+    const purchaseOrderNumber = `BC-${year}-${String(sequenceNumber).padStart(4, '0')}`;
+    
+    // Update order with purchase order number
+    await updateDoc(orderRef, {
+      purchaseOrderNumber,
+      updatedAt: serverTimestamp()
+    });
+    
+    return purchaseOrderNumber;
+  } catch (error) {
+    logError('Error generating purchase order number', error);
+    throw error;
+  }
+};
+
 // Delete order
 export const deleteOrder = async (
   orderId: string,
@@ -686,6 +818,199 @@ export const deleteOrder = async (
     await deleteDoc(orderRef);
   } catch (error) {
     logError('Error deleting order', error);
+    throw error;
+  }
+};
+
+/**
+ * Convert order to sale
+ * Creates a sale from order data, debits stock according to sale status, creates finance entry if paid
+ * @param orderId - Order ID to convert
+ * @param saleStatus - Status for the created sale ('paid', 'credit', 'commande', 'under_delivery')
+ * @param companyId - Company ID
+ * @param userId - User ID performing the conversion
+ * @param createdBy - Employee reference who is converting
+ * @param paymentMethod - Payment method if sale status is 'paid' ('cash', 'mobile_money', 'card')
+ * @param creditDueDate - Optional due date if sale status is 'credit'
+ * @returns Created sale
+ */
+export const convertOrderToSale = async (
+  orderId: string,
+  saleStatus: 'paid' | 'credit' | 'commande' | 'under_delivery',
+  companyId: string,
+  userId: string,
+  createdBy?: import('../../../types/models').EmployeeRef | null,
+  paymentMethod?: 'cash' | 'mobile_money' | 'card',
+  creditDueDate?: Date
+): Promise<Sale> => {
+  try {
+    // Get order
+    const orderRef = doc(db, COLLECTION_NAME, orderId);
+    const orderSnap = await getDoc(orderRef);
+    
+    if (!orderSnap.exists()) {
+      throw new Error('Order not found');
+    }
+    
+    const order = { id: orderSnap.id, ...orderSnap.data() } as Order;
+    
+    // Verify companyId matches
+    if (order.companyId !== companyId) {
+      throw new Error('Unauthorized to convert this order');
+    }
+    
+    // Check if order is already converted
+    if (order.status === 'converted' || order.convertedToSaleId) {
+      throw new Error('Order is already converted to sale');
+    }
+    
+    // Check if order is cancelled
+    if (order.status === 'cancelled') {
+      throw new Error('Cannot convert cancelled order');
+    }
+    
+    // Validate stock availability for all items
+    for (const item of order.items) {
+      const productRef = doc(db, 'products', item.productId);
+      const productSnap = await getDoc(productRef);
+      
+      if (!productSnap.exists()) {
+        throw new Error(`Product with ID ${item.productId} not found`);
+      }
+      
+      const productData = productSnap.data() as Product;
+      if (productData.companyId !== companyId) {
+        throw new Error(`Unauthorized to sell product ${productData.name}`);
+      }
+      
+      // Check available stock from batches
+      const availableBatches = await getAvailableStockBatches(
+        item.productId,
+        companyId,
+        'product'
+      );
+      const availableStock = availableBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+      
+      if (availableStock < item.quantity) {
+        throw new Error(`Insufficient stock for product ${productData.name}. Available: ${availableStock}, Requested: ${item.quantity}`);
+      }
+    }
+    
+    // Map order items to sale products
+    const saleProducts = order.items.map(item => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      basePrice: item.price,
+      negotiatedPrice: item.price
+    }));
+    
+    // Determine payment status based on sale status
+    const paymentStatus: 'pending' | 'paid' | 'cancelled' = 
+      saleStatus === 'paid' ? 'paid' :
+      saleStatus === 'credit' ? 'pending' :
+      'pending';
+    
+    // Prepare sale data
+    const saleData: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'> = {
+      products: saleProducts as any,
+      totalAmount: order.pricing.total,
+      status: saleStatus,
+      paymentStatus,
+      customerInfo: {
+        name: order.customerInfo.name || 'Client de passage',
+        phone: order.customerInfo.phone ? normalizePhoneNumber(order.customerInfo.phone) : '',
+        quarter: order.customerInfo.quarter || order.customerInfo.location || ''
+      },
+      deliveryFee: order.pricing.deliveryFee || 0,
+      inventoryMethod: 'FIFO', // Default, can be customized
+      userId,
+      companyId,
+      saleDate: order.createdAt instanceof Date 
+        ? order.createdAt.toISOString() 
+        : new Date((order.createdAt as any).seconds * 1000).toISOString()
+    };
+    
+    // Add payment method if paid
+    if (saleStatus === 'paid' && paymentMethod) {
+      saleData.paymentMethod = paymentMethod;
+    }
+    
+    // Add credit fields if credit sale
+    if (saleStatus === 'credit') {
+      saleData.remainingAmount = order.pricing.total;
+      saleData.paidAmount = 0;
+      if (creditDueDate) {
+        saleData.creditDueDate = Timestamp.fromDate(creditDueDate);
+      }
+    }
+    
+    // Create customer in company database when converting order to sale
+    // This is the only time we create the customer - not during order creation
+    // Save customer if name OR phone is provided (not both empty)
+    const hasCustomerInfo = (order.customerInfo.name && order.customerInfo.name.trim()) || (order.customerInfo.phone && order.customerInfo.phone.trim());
+    if (hasCustomerInfo && userId) {
+      try {
+        await ensureCustomerExists(
+          {
+            phone: order.customerInfo.phone || '',
+            name: order.customerInfo.name || '',
+            quarter: order.customerInfo.quarter || order.customerInfo.location || '',
+            address: order.customerInfo.deliveryAddressLine1 || order.customerInfo.address,
+            town: order.customerInfo.deliveryCity || order.customerInfo.city,
+            customerSourceId: undefined // Orders don't have customerSourceId
+          },
+          companyId,
+          userId
+        );
+      } catch (error) {
+        logError('Error ensuring customer exists during order conversion', error);
+        // Don't throw - continue with sale creation even if customer creation fails
+      }
+    }
+    
+    // Create sale (will handle stock debiting based on status)
+    const createdSale = await createSale(saleData, companyId, createdBy);
+    
+    // Update order to mark as converted
+    await updateDoc(orderRef, {
+      status: 'converted' as OrderStatus,
+      convertedToSaleId: createdSale.id,
+      updatedAt: serverTimestamp(),
+      timeline: arrayUnion({
+        id: `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        type: 'status_changed',
+        status: 'converted',
+        timestamp: new Date(),
+        userId,
+        metadata: { convertedToSaleId: createdSale.id }
+      } as OrderEvent)
+    });
+    
+    // Update finance entry if order was paid (remove isPending flag)
+    if (order.paymentStatus === 'paid') {
+      try {
+        const financeQuery = query(
+          collection(db, 'finances'),
+          where('sourceType', '==', 'order'),
+          where('sourceId', '==', order.id)
+        );
+        const financeSnap = await getDocs(financeQuery);
+        if (!financeSnap.empty) {
+          const financeDoc = financeSnap.docs[0];
+          await updateDoc(doc(db, 'finances', financeDoc.id), {
+            isPending: false,
+            description: `Order ${order.orderNumber} (Converted to sale) - ${order.customerInfo.name}`
+          });
+        }
+      } catch (error) {
+        logError('Error updating finance entry after conversion', error);
+        // Don't throw - sale was created successfully
+      }
+    }
+    
+    return createdSale;
+  } catch (error) {
+    logError('Error converting order to sale', error);
     throw error;
   }
 };

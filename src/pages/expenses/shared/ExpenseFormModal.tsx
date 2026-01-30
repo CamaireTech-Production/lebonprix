@@ -486,7 +486,7 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
           
           {isUploadingImage && (
             <div className="flex items-center space-x-2 text-sm text-gray-600 mt-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-500"></div>
+              <div className="animate-pulse bg-gray-200 h-4 w-4 rounded-full"></div>
               <span>Uploading image...</span>
             </div>
           )}

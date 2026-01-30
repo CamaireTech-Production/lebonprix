@@ -10,7 +10,8 @@ import { getUserById } from '@services/utilities/userService';
 import { validateSaleData, normalizeSaleData } from '@utils/calculations/saleUtils';
 import type { OrderStatus, SaleProduct, Customer, Product, Sale } from '../../types/models';
 import { logError } from '@utils/core/logger';
-import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
+import { normalizePhoneForComparison, normalizePhoneNumber } from '@utils/core/phoneUtils';
+import { ensureCustomerExists } from '@services/firestore/customers/customerService';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
 
@@ -68,6 +69,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
   const [isSavingCustomer, setIsSavingCustomer] = useState(false);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
+  const [activeSearchField, setActiveSearchField] = useState<'phone' | 'name' | null>(null);
 
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
@@ -139,33 +141,43 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     
-    // Allow searching/selecting customer when typing name
+    // Improved unified search: search by both name AND phone simultaneously
     if (name === 'customerName') {
-      const searchTerm = value.toLowerCase().trim();
+      // Mark that we're searching in the name field
+      setActiveSearchField('name');
       
-      // Filter customers by name match
+      const searchTerm = value.toLowerCase().trim();
+      const normalizedSearch = normalizePhone(value);
+      
+      // Search by both name and phone simultaneously
       const matchingCustomers = customers.filter(c => {
-        if (!c.name) {
-          return false;
-        }
-        const customerName = (c.name || '').toLowerCase();
-        return customerName.includes(searchTerm);
+        // Search by name (case-insensitive, partial match)
+        const nameMatch = c.name?.toLowerCase().includes(searchTerm) || false;
+        
+        // Search by phone (normalized comparison for partial match)
+        const phoneMatch = c.phone && normalizedSearch.length >= 1
+          ? normalizePhone(c.phone).includes(normalizedSearch) || 
+            normalizedSearch.includes(normalizePhone(c.phone))
+          : false;
+        
+        // Return true if EITHER name OR phone matches
+        return nameMatch || phoneMatch;
       });
       
-      // Show dropdown only if there are results AND user has typed something
-      // Only set customerSearch if the value doesn't contain digits (to avoid conflicts with phone search)
-      if (!/\d/.test(value)) {
-        setCustomerSearch(value);
-        setShowCustomerDropdown(searchTerm.length >= 2 && matchingCustomers.length > 0);
-      } else {
-        // If name contains digits, don't show name dropdown
-        setShowCustomerDropdown(false);
-      }
+      // Show dropdown if there are results AND user has typed at least 1 character
+      setCustomerSearch(value);
+      setShowCustomerDropdown(searchTerm.length >= 1 && matchingCustomers.length > 0);
+    } else {
+      // If typing in other fields, clear the active search field
+      setActiveSearchField(null);
     }
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
+    
+    // Mark that we're searching in the phone field
+    setActiveSearchField('phone');
     
     // Ne pas normaliser la valeur dans le champ (garder les caractères pour l'affichage)
     setFormData(prev => ({ ...prev, customerPhone: value }));
@@ -199,6 +211,10 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
     // Delay hiding the dropdown to allow for clicks on dropdown items
     setTimeout(() => {
       setShowCustomerDropdown(false);
+      // Clear active search field if it was phone
+      if (activeSearchField === 'phone') {
+        setActiveSearchField(null);
+      }
     }, 300);
   };
 
@@ -367,10 +383,22 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
         } as SaleProduct));
       
       // Récupérer les données client AVANT de créer la vente
-      const customerName = formData.customerName.trim() || t('sales.modals.add.customerInfo.divers');
+      const customerName = formData.customerName.trim() || '';
       const customerPhone = formData.customerPhone.trim() || '';
       const customerQuarter = formData.customerQuarter || '';
-      const customerInfo = { name: customerName, phone: customerPhone, ...(customerQuarter && { quarter: customerQuarter }) };
+      // Use "Client de passage" for name only if phone exists but name doesn't
+      const finalCustomerName = customerName || (customerPhone ? 'Client de passage' : '');
+      // Normalize phone number to ensure consistent format (+237XXXXXXXXX)
+      const normalizedPhone = customerPhone ? normalizePhoneNumber(customerPhone) : '';
+      const customerInfo = { name: finalCustomerName, phone: normalizedPhone, ...(customerQuarter && { quarter: customerQuarter }) };
+      
+      // Determine payment status based on sale status
+      const saleStatus = formData.status;
+      const isCreditSale = saleStatus === 'credit';
+      const paymentStatus: 'pending' | 'paid' | 'cancelled' = 
+        isCreditSale ? 'pending' :
+        saleStatus === 'paid' ? 'paid' :
+        'pending';
       
       // Prepare raw sale data for validation
       const rawSaleData = {
@@ -378,11 +406,11 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
         totalAmount,
         userId: user.uid,
         companyId: company.id,
-        status: formData.status,
+        status: saleStatus,
         customerInfo,
         customerSourceId: formData.customerSourceId || '',
         deliveryFee: formData.deliveryFee ? parseFloat(formData.deliveryFee) : 0,
-        paymentStatus: 'pending' as const,
+        paymentStatus,
         inventoryMethod: formData.inventoryMethod,
         saleDate: formData.saleDate || new Date().toISOString(),
         // Location fields
@@ -419,73 +447,47 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
       // Show success toast notification for sale completion
       showSuccessToast(t('sales.messages.saleAdded') + ` - ${totalAmount.toLocaleString()} XAF`);
       
-      return newSale;
-      
       // Sauvegarder le client AVANT de réinitialiser le formulaire
-      if (autoSaveCustomer && customerPhone && customerName && company?.id) {
+      // Save customer if name OR phone is provided (not both empty)
+      const hasCustomerInfo = customerName || customerPhone;
+      if (autoSaveCustomer && hasCustomerInfo && company?.id && user?.uid) {
         try {
-          const existing = customers.find(c => normalizePhone(c.phone) === normalizePhone(customerPhone));
-          
-          if (!existing) {
-            const customerData: Omit<Customer, 'id'> = { 
-              phone: customerPhone, 
-              name: customerName, 
+          // Use ensureCustomerExists to handle duplicate detection and creation/update
+          await ensureCustomerExists(
+            {
+              phone: customerPhone,
+              name: customerName,
               quarter: customerQuarter,
-              firstName: formData.customerFirstName || undefined,
-              lastName: formData.customerLastName || undefined,
-              address: formData.customerAddress || undefined,
-              town: formData.customerTown || undefined,
-              birthdate: formData.customerBirthdate || undefined,
-              howKnown: formData.customerHowKnown || undefined,
-              userId: user.uid,
-              companyId: company.id,
-              createdAt: {
-                seconds: Math.floor(new Date().getTime() / 1000),
-                nanoseconds: (new Date().getTime() % 1000) * 1000000
-              } // Will be replaced by serverTimestamp() in addCustomer
-            };
-            
-            await addCustomer(customerData);
-            
-            // Réinitialiser les champs client après l'ajout réussi
-            setFormData(prev => ({
-              ...prev,
-              customerName: '',
-              customerPhone: '',
-              customerQuarter: '',
-              customerFirstName: '',
-              customerLastName: '',
-              customerAddress: '',
-              customerTown: '',
-              customerBirthdate: '',
-              customerHowKnown: '',
-              customerSourceId: ''
-            }));
-            setFoundCustomer(null);
-            setShowCustomerDropdown(false);
-            setCustomerSearch('');
-          } else {
-            
-            // Réinitialiser les champs client même si le client existe déjà
-            setFormData(prev => ({
-              ...prev,
-              customerName: '',
-              customerPhone: '',
-              customerQuarter: '',
-              customerFirstName: '',
-              customerLastName: '',
-              customerAddress: '',
-              customerTown: '',
-              customerBirthdate: '',
-              customerHowKnown: ''
-            }));
-            setFoundCustomer(null);
-            setShowCustomerDropdown(false);
-            setCustomerSearch('');
-          }
+              firstName: formData.customerFirstName,
+              lastName: formData.customerLastName,
+              address: formData.customerAddress,
+              town: formData.customerTown,
+              customerSourceId: formData.customerSourceId
+            },
+            company.id,
+            user.uid
+          );
+          
+          // Réinitialiser les champs client après l'ajout réussi
+          setFormData(prev => ({
+            ...prev,
+            customerName: '',
+            customerPhone: '',
+            customerQuarter: '',
+            customerFirstName: '',
+            customerLastName: '',
+            customerAddress: '',
+            customerTown: '',
+            customerBirthdate: '',
+            customerHowKnown: '',
+            customerSourceId: ''
+          }));
+          setFoundCustomer(null);
+          setShowCustomerDropdown(false);
+          setCustomerSearch('');
         } catch (error: any) {
-          logError('Error adding customer during sale', error);
-          /* ignore duplicate errors */
+          logError('Error ensuring customer exists during sale', error);
+          /* ignore duplicate errors - sale was successful */
         }
       }
       
@@ -586,6 +588,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
     // Update search state and hide dropdown
     setCustomerSearch(customer.phone);
     setShowCustomerDropdown(false);
+    setActiveSearchField(null); // Clear active search field
     setFoundCustomer(customer);
   };
 
@@ -601,6 +604,8 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
     showCustomerDropdown,
     setShowCustomerDropdown,
     customerSearch,
+    activeSearchField,
+    setActiveSearchField,
 
     phoneInputRef,
     products,

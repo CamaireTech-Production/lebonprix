@@ -1,7 +1,7 @@
 import React, { useState, FormEvent, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
-import { Button, Input, LoadingScreen } from '@components/common';
+import { Button, Input, SkeletonTable } from '@components/common';
 import { LoginPWAInstallButton } from '@components/pwa';
 import { getUserSession, hasActiveSession } from '@utils/storage/userSession';
 import { showErrorToast, showSuccessToast } from '@utils/core/toast';
@@ -104,7 +104,7 @@ const Login = () => {
   }, [user, isLoading, companyLoading, inviteId, navigate]);
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonTable rows={3} />;
   }
 
   const handleSubmit = async (e: FormEvent) => {

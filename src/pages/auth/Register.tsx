@@ -1,7 +1,7 @@
 import { useState, FormEvent, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
-import { Button, Input, LoadingScreen } from '@components/common';
+import { Button, Input, SkeletonTable } from '@components/common';
 import { FirebaseError } from 'firebase/app';
 import { signUpUser } from '@services/auth/authService';
 import { showErrorToast, showSuccessToast } from '@utils/core/toast';
@@ -52,7 +52,7 @@ const Register = () => {
 
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonTable rows={3} />;
   }
 
   const validateForm = () => {

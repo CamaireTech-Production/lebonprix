@@ -140,7 +140,7 @@ export default function CreateCompany() {
       const timePattern = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
       if (!timePattern.test(reportTime)) {
         reportTime = '08:00';
-        showWarningToast(t('settings.messages.reportTimeDefault'));
+        showWarningToast(t('settingsPage.messages.reportTimeDefault'));
       }
       
       // Import the correct createCompany function
@@ -300,7 +300,7 @@ export default function CreateCompany() {
               <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4 relative">
                 {isUploadingLogo ? (
                   <div className="flex flex-col items-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+                    <div className="animate-pulse bg-gray-200 w-6 h-6 rounded-full" />
                     <span className="text-xs text-gray-500 mt-1">Upload...</span>
                   </div>
                 ) : formData.logo ? (
@@ -462,7 +462,7 @@ export default function CreateCompany() {
             {/* Report Time */}
             <div>
               <label htmlFor="report_time" className="block text-sm font-medium text-gray-700 mb-2">
-                {t('settings.account.reportTime')}
+                {t('settingsPage.account.reportTime')}
               </label>
               <input
                 type="time"
@@ -474,7 +474,7 @@ export default function CreateCompany() {
                 required
               />
               <p className="mt-1 text-sm text-gray-500">
-                {t('settings.account.reportTimeHelp')}
+                {t('settingsPage.account.reportTimeHelp')}
               </p>
             </div>
 

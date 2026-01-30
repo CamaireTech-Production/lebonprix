@@ -22,6 +22,7 @@ export interface Company extends BaseModel {
   website?: string; // Company website URL
   report_mail?: string; // Email pour les rapports de vente
   report_time?: string | number; // Format: "HH:mm" (e.g., "19:30") or number (0-23) for backward compatibility
+  emailReportsEnabled?: boolean; // Active/désactive l'envoi automatique des rapports par email (par défaut: true)
   
   // Color customization for catalogue
   catalogueColors?: {
@@ -155,6 +156,14 @@ export interface SaleProduct {
 export interface Sale extends BaseModel {
   products: SaleProduct[];
   totalAmount: number;
+  /**
+   * Sale status with business rules:
+   * - 'paid': Stock DEBITED, Finance entry CREATED (if paymentStatus === 'paid')
+   * - 'credit': Stock DEBITED, Finance entry NOT CREATED (debt tracked separately)
+   * - 'commande': Stock NOT DEBITED, Finance entry NOT CREATED (reservation only)
+   * - 'under_delivery': Stock DEBITED, Finance entry NOT CREATED (delivery in progress)
+   * - 'draft': Stock NOT DEBITED, Finance entry NOT CREATED (draft/saved for later)
+   */
   status: 'commande' | 'under_delivery' | 'paid' | 'draft' | 'credit';
   paymentStatus: 'pending' | 'paid' | 'cancelled';
   customerInfo: {
@@ -436,6 +445,7 @@ export interface FinanceEntry {
   description?: string;
   date: Timestamp;
   isDeleted: boolean;
+  isPending?: boolean; // true if entry is pending (e.g., order paid but not yet converted to sale)
   createdAt: Timestamp;
   updatedAt: Timestamp;
   refundedDebtId?: string; // for refunds, links to a specific debt entry

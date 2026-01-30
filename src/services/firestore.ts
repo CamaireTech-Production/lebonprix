@@ -339,10 +339,12 @@ export const updateCategoryProductCount = async (categoryName: string, companyId
 export const recalculateCategoryProductCounts = async (companyId: string): Promise<void> => {
   try {
     // Get all categories for the company
+    // OPTIMIZATION: Added limit to reduce Firebase reads
     const categoriesQuery = query(
       collection(db, 'categories'),
       where('companyId', '==', companyId),
-      where('isActive', '==', true)
+      where('isActive', '==', true),
+      limit(100) // OPTIMIZATION: Limit categories to 100
     );
 
     const categoriesSnapshot = await getDocs(categoriesQuery);
@@ -352,11 +354,14 @@ export const recalculateCategoryProductCounts = async (companyId: string): Promi
     })) as Category[];
 
     // Get all products for the company
+    // OPTIMIZATION: Added limit to reduce Firebase reads
+    // Note: This function recalculates counts, so we limit to active products
     const productsQuery = query(
       collection(db, 'products'),
       where('companyId', '==', companyId),
       where('isDeleted', '==', false),
-      where('isVisible', '!=', false) // Include products where isVisible is true or undefined
+      where('isVisible', '!=', false), // Include products where isVisible is true or undefined
+      limit(500) // OPTIMIZATION: Limit to 500 products for recalculation
     );
 
     const productsSnapshot = await getDocs(productsQuery);
@@ -2276,10 +2281,10 @@ export const createFinanceEntry = async (entry: Omit<FinanceEntry, 'id' | 'creat
   }
   
   // FIXED: Use batch for manual entries (with audit log) and ensure proper commit
-  // With includeMetadataChanges: true in onSnapshot, batch writes will trigger immediately
+  // Real-time listener will catch this write once it's committed to server
   if (entry.sourceType === 'manual') {
     // For manual entries, we need audit log, so use batch
-    // The onSnapshot listener with includeMetadataChanges will catch this write immediately
+    // The onSnapshot listener will catch this write once committed
     const batch = writeBatch(db);
     batch.set(ref, data);
     await createAuditLog(
@@ -2290,8 +2295,8 @@ export const createFinanceEntry = async (entry: Omit<FinanceEntry, 'id' | 'creat
       { all: { oldValue: null, newValue: data } },
       entry.userId
     );
-    
-    // Commit batch - with includeMetadataChanges: true, onSnapshot will fire immediately
+
+    // Commit batch - onSnapshot will fire once committed to server
     await batch.commit();
   } else {
     // For non-manual entries, simple write is faster

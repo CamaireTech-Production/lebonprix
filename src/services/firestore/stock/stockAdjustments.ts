@@ -26,7 +26,10 @@ export const restockProduct = async (
   supplierId?: string,
   isOwnPurchase?: boolean,
   isCredit?: boolean,
-  notes?: string
+  notes?: string,
+  locationType?: 'shop' | 'warehouse',
+  shopId?: string,
+  warehouseId?: string
 ): Promise<void> => {
   const batch = writeBatch(db);
   
@@ -46,9 +49,36 @@ export const restockProduct = async (
   // Get userId from product for audit
   const userId = currentProduct.userId || companyId;
   
+  // Validate location if provided
+  if (locationType === 'shop' && shopId) {
+    const shopRef = doc(db, 'shops', shopId);
+    const shopSnap = await getDoc(shopRef);
+    if (shopSnap.exists()) {
+      const shopData = shopSnap.data();
+      if (shopData.companyId !== companyId) {
+        throw new Error('La boutique sélectionnée n\'appartient pas à cette entreprise.');
+      }
+      if (shopData.isActive === false) {
+        throw new Error('La boutique sélectionnée est désactivée. Veuillez sélectionner une boutique active.');
+      }
+    }
+  } else if (locationType === 'warehouse' && warehouseId) {
+    const warehouseRef = doc(db, 'warehouses', warehouseId);
+    const warehouseSnap = await getDoc(warehouseRef);
+    if (warehouseSnap.exists()) {
+      const warehouseData = warehouseSnap.data();
+      if (warehouseData.companyId !== companyId) {
+        throw new Error('L\'entrepôt sélectionné n\'appartient pas à cette entreprise.');
+      }
+      if (warehouseData.isActive === false) {
+        throw new Error('L\'entrepôt sélectionné est désactivé. Veuillez sélectionner un entrepôt actif.');
+      }
+    }
+  }
+  
   // Create new stock batch
   const stockBatchRef = doc(collection(db, 'stockBatches'));
-  const stockBatchData = {
+  const stockBatchData: any = {
     id: stockBatchRef.id,
     type: 'product' as const, // Always product for product restock
     productId,
@@ -64,6 +94,17 @@ export const restockProduct = async (
     status: 'active',
     ...(notes && { notes })
   };
+  
+  // Add location information if provided
+  if (locationType) {
+    stockBatchData.locationType = locationType;
+    if (locationType === 'shop' && shopId) {
+      stockBatchData.shopId = shopId;
+    } else if (locationType === 'warehouse' && warehouseId) {
+      stockBatchData.warehouseId = warehouseId;
+    }
+  }
+  
   batch.set(stockBatchRef, stockBatchData);
   
   // Don't update product.stock - batches are the source of truth
@@ -71,24 +112,26 @@ export const restockProduct = async (
     updatedAt: serverTimestamp()
   });
   
-  // Create stock change record
-  const stockChangeRef = doc(collection(db, 'stockChanges'));
-  const stockChangeData = {
-    id: stockChangeRef.id,
-    type: 'product' as const, // Always product for product restock
+  // Create stock change record using createStockChange helper
+  createStockChange(
+    batch,
     productId,
-    change: quantity,
-    reason: 'restock' as StockChange['reason'],
-    ...(supplierId && { supplierId }),
-    ...(isOwnPurchase !== undefined && { isOwnPurchase }),
-    ...(isCredit !== undefined && { isCredit }),
-    costPrice,
-    batchId: stockBatchRef.id,
-    createdAt: serverTimestamp(),
+    quantity,
+    'restock',
     userId,
-    companyId // Ensure companyId is set
-  };
-  batch.set(stockChangeRef, stockChangeData);
+    companyId,
+    'product', // Always product for product restock
+    supplierId,
+    isOwnPurchase,
+    isCredit,
+    costPrice,
+    stockBatchRef.id,
+    undefined, // saleId
+    undefined, // batchConsumptions
+    locationType, // locationType
+    shopId, // shopId
+    warehouseId // warehouseId
+  );
   
   await batch.commit();
   
@@ -122,7 +165,10 @@ export const restockMatiere = async (
   costPrice?: number,
   supplierId?: string,
   isOwnPurchase?: boolean,
-  isCredit?: boolean
+  isCredit?: boolean,
+  locationType?: 'shop' | 'warehouse',
+  shopId?: string,
+  warehouseId?: string
 ): Promise<void> => {
   const batch = writeBatch(db);
   
@@ -141,6 +187,33 @@ export const restockMatiere = async (
   
   // Get userId from matiere for audit
   const userId = currentMatiere.userId || companyId;
+  
+  // Validate location if provided
+  if (locationType === 'shop' && shopId) {
+    const shopRef = doc(db, 'shops', shopId);
+    const shopSnap = await getDoc(shopRef);
+    if (shopSnap.exists()) {
+      const shopData = shopSnap.data();
+      if (shopData.companyId !== companyId) {
+        throw new Error('La boutique sélectionnée n\'appartient pas à cette entreprise.');
+      }
+      if (shopData.isActive === false) {
+        throw new Error('La boutique sélectionnée est désactivée. Veuillez sélectionner une boutique active.');
+      }
+    }
+  } else if (locationType === 'warehouse' && warehouseId) {
+    const warehouseRef = doc(db, 'warehouses', warehouseId);
+    const warehouseSnap = await getDoc(warehouseRef);
+    if (warehouseSnap.exists()) {
+      const warehouseData = warehouseSnap.data();
+      if (warehouseData.companyId !== companyId) {
+        throw new Error('L\'entrepôt sélectionné n\'appartient pas à cette entreprise.');
+      }
+      if (warehouseData.isActive === false) {
+        throw new Error('L\'entrepôt sélectionné est désactivé. Veuillez sélectionner un entrepôt actif.');
+      }
+    }
+  }
   
   // Use provided costPrice, or get latest batch cost price, or fallback to matiere's costPrice, or 0
   let actualCostPrice = 0;
@@ -166,7 +239,7 @@ export const restockMatiere = async (
   
   // Create new stock batch
   const stockBatchRef = doc(collection(db, 'stockBatches'));
-  const stockBatchData = {
+  const stockBatchData: any = {
     id: stockBatchRef.id,
     type: 'matiere' as const, // Always matiere for matiere restock
     matiereId,
@@ -182,6 +255,17 @@ export const restockMatiere = async (
     status: 'active',
     ...(notes && { notes })
   };
+  
+  // Add location information if provided
+  if (locationType) {
+    stockBatchData.locationType = locationType;
+    if (locationType === 'shop' && shopId) {
+      stockBatchData.shopId = shopId;
+    } else if (locationType === 'warehouse' && warehouseId) {
+      stockBatchData.warehouseId = warehouseId;
+    }
+  }
+  
   batch.set(stockBatchRef, stockBatchData);
   
   // Create stock change record
@@ -197,7 +281,12 @@ export const restockMatiere = async (
     isOwnPurchase, // Include own purchase flag
     isCredit, // Include credit flag
     actualCostPrice > 0 ? actualCostPrice : undefined, // Include cost price if provided
-    stockBatchRef.id
+    stockBatchRef.id,
+    undefined, // saleId
+    undefined, // batchConsumptions
+    locationType, // locationType
+    shopId, // shopId
+    warehouseId // warehouseId
   );
   
   // Create finance entry if cost price is provided
@@ -1460,6 +1549,33 @@ const handleBatchDebtManagement = async (
 };
 
 /**
+ * Check if a batch can be deleted based on consumption and status
+ * Rules:
+ * - Can delete if batch has never been consumed (remainingQuantity === quantity)
+ * - Can delete if batch has been consumed but is consolidated (status === 'corrected') or destocked (remainingQuantity === 0)
+ */
+export const canDeleteBatch = (batch: StockBatch): boolean => {
+  // Batch must not be already deleted
+  if (batch.isDeleted || batch.status === 'deleted') {
+    return false;
+  }
+
+  // Case 1: Batch has never been consumed (remainingQuantity === quantity)
+  if (batch.remainingQuantity === batch.quantity) {
+    return true;
+  }
+
+  // Case 2: Batch has been consumed but is consolidated or destocked
+  // Consolidated: status === 'corrected'
+  // Destocked: remainingQuantity === 0 (status can be 'depleted' or 'corrected')
+  if (batch.remainingQuantity === 0 && (batch.status === 'corrected' || batch.status === 'depleted')) {
+    return true;
+  }
+
+  return false;
+};
+
+/**
  * Delete a stock batch with proper validation and cleanup
  * Uses soft delete to preserve data integrity and audit trail
  */
@@ -1483,9 +1599,20 @@ export const deleteStockBatch = async (
     throw new Error('Unauthorized: Batch belongs to different company');
   }
   
-  // Validation: Can only delete batches with no remaining stock
-  if (batchData.remainingQuantity > 0) {
-    throw new Error('Cannot delete batch with remaining stock. Please adjust stock to 0 first.');
+  // Validation: Check if batch can be deleted using the new validation rules
+  if (!canDeleteBatch(batchData)) {
+    const hasRemainingStock = batchData.remainingQuantity > 0;
+    const hasBeenConsumed = batchData.remainingQuantity < batchData.quantity;
+    const isNotConsolidatedOrDestocked = batchData.remainingQuantity > 0 || 
+      (batchData.status !== 'corrected' && batchData.status !== 'depleted');
+    
+    if (hasRemainingStock) {
+      throw new Error('Cannot delete batch with remaining stock. Please adjust stock to 0 first.');
+    }
+    if (hasBeenConsumed && isNotConsolidatedOrDestocked) {
+      throw new Error('Cannot delete batch that has been consumed. Batch must be consolidated (corrected) or destocked (remainingQuantity = 0) first.');
+    }
+    throw new Error('Cannot delete this batch. Batch may already be deleted or does not meet deletion criteria.');
   }
   
   // Get product/matiere details for descriptions
@@ -1543,22 +1670,38 @@ export const deleteStockBatch = async (
   await batch.commit();
   
   // Handle supplier debt cleanup (after batch commit)
+  // Automatically delete all debt entries linked to this batch if it was purchased on credit
   if (batchData.supplierId && batchData.isCredit && !batchData.isOwnPurchase) {
     try {
-      // Check if there's outstanding debt for this batch
       const supplierDebt = await getSupplierDebt(batchData.supplierId, companyId);
-      if (supplierDebt && supplierDebt.outstanding > 0) {
-        // Note: We don't automatically clear debt on batch deletion to preserve financial records
-        // The debt remains as a financial obligation even if the batch is deleted
-        logError('Batch deletion warning: Outstanding supplier debt remains for deleted batch', {
-          batchId,
-          supplierId: batchData.supplierId,
-          outstandingDebt: supplierDebt.outstanding
-        });
+      if (supplierDebt && supplierDebt.entries) {
+        // Find all debt entries linked to this batch
+        const batchDebtEntries = supplierDebt.entries.filter(
+          entry => entry.batchId === batchId && entry.type === 'debt'
+        );
+        
+        // Remove each debt entry linked to this batch
+        for (const entry of batchDebtEntries) {
+          try {
+            await removeSupplierDebtEntry(batchData.supplierId, entry.id, companyId);
+          } catch (entryError) {
+            logError(`Error removing supplier debt entry ${entry.id} for batch ${batchId}`, entryError);
+            // Continue with other entries even if one fails
+          }
+        }
+        
+        if (batchDebtEntries.length > 0) {
+          // Log successful debt cleanup
+          logError('Batch deletion: Removed supplier debt entries', {
+            batchId,
+            supplierId: batchData.supplierId,
+            removedEntries: batchDebtEntries.length
+          });
+        }
       }
     } catch (error) {
-      logError('Error checking supplier debt for deleted batch', error);
-      // Don't throw - batch was deleted successfully
+      logError('Error handling supplier debt cleanup for deleted batch', error);
+      // Don't throw - batch was deleted successfully, debt cleanup can be done manually if needed
     }
   }
 };

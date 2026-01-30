@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Card, Button, SkeletonTable } from '@components/common';
 
 /**
  * InviteActivate - Legacy redirect page
@@ -137,7 +138,7 @@ export default function InviteActivate() {
   };
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonTable rows={5} />;
   }
 
   if (error) {

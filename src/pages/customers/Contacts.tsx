@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, MapPin, Calendar, User, Search, CheckSquare, Square } from 'lucide-react';
-import { Card, Button, Badge, Modal, Input, Textarea, Table, LoadingScreen } from '@components/common';
+import { Card, Button, Badge, Modal, Input, Textarea, Table, SkeletonCustomersList } from '@components/common';
 import { useInfiniteCustomers } from '@hooks/data/useInfiniteCustomers';
 import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
 import { useCustomers } from '@hooks/data/useFirestore';
@@ -288,7 +288,7 @@ const Contacts = () => {
   };
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonCustomersList rows={12} />;
   }
 
   if (error) {

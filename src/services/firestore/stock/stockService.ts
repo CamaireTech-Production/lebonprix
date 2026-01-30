@@ -166,6 +166,8 @@ export const getAvailableStockBatches = async (
   // If no location filters, get all batches (backward compatibility)
 
   constraints.push(orderBy('createdAt', 'asc'));
+  // OPTIMIZATION: Added limit to reduce Firebase reads
+  constraints.push(limit(200)); // OPTIMIZATION: Default limit to reduce Firebase reads
 
   const q = query(collection(db, 'stockBatches'), ...constraints);
   
@@ -511,7 +513,8 @@ export const getProductStockBatches = async (productId: string, companyId: strin
     where('companyId', '==', companyId),
     where('type', '==', 'product'),
     where('productId', '==', productId),
-    orderBy('createdAt', 'desc')
+    orderBy('createdAt', 'desc'),
+    limit(100) // OPTIMIZATION: Added limit to reduce Firebase reads
   );
   
   const snapshot = await getDocs(q);

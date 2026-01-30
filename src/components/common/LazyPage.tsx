@@ -1,5 +1,5 @@
 import { Suspense, ReactNode } from 'react';
-import PageLoader from './PageLoader';
+import SkeletonPageLoading from './SkeletonPageLoading';
 
 interface LazyPageProps {
   children: ReactNode;
@@ -7,7 +7,7 @@ interface LazyPageProps {
 
 const LazyPage = ({ children }: LazyPageProps) => {
   return (
-    <Suspense fallback={<PageLoader />}>
+    <Suspense fallback={<SkeletonPageLoading />}>
       {children}
     </Suspense>
   );

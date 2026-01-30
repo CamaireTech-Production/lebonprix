@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@contexts/AuthContext';
-import { Card, Button, Input } from '@components/common';
+import { Card, Button, Input, SkeletonProfile } from '@components/common';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { User, Building2, Mail, Phone, Calendar, Briefcase, Save } from 'lucide-react';
 import { getUserById, updateUser } from '@services/utilities/userService';
@@ -101,11 +101,7 @@ const Profile = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
-      </div>
-    );
+    return <SkeletonProfile />;
   }
 
   return (

@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Warehouse as WarehouseIcon, MapPin, Users, Package, ArrowRight } from 'lucide-react';
-import { Card, Button, LoadingScreen, Badge } from '@components/common';
+import { SkeletonTable, Card, Button, Badge } from "@components/common";
 import { useWarehouses, useStockTransfers, useProducts } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
@@ -95,7 +95,7 @@ const WarehouseDetail: React.FC = () => {
   }
 
   if (warehousesLoading || transfersLoading || loadingStock) {
-    return <LoadingScreen />;
+    return <SkeletonTable rows={5} />;
   }
 
   if (warehousesError) {
@@ -158,7 +158,7 @@ const WarehouseDetail: React.FC = () => {
               <span>{warehouse.location}</span>
             </div>
           )}
-          {warehouse.address && (
+          {warehouse.address && warehouse.address !== warehouse.location && (
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <MapPin size={14} />
               <span>{warehouse.address}</span>

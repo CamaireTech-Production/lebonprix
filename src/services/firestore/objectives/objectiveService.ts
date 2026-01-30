@@ -5,6 +5,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   getDoc,
   onSnapshot,
   serverTimestamp,
@@ -18,11 +19,13 @@ import { createAuditLog } from '../shared';
 // OBJECTIVE SUBSCRIPTIONS
 // ============================================================================
 
-export const subscribeToObjectives = (companyId: string, callback: (objectives: Objective[]) => void): (() => void) => {
+export const subscribeToObjectives = (companyId: string, callback: (objectives: Objective[]) => void, limitCount?: number): (() => void) => {
+  const defaultLimit = 50; // OPTIMIZATION: Default limit to reduce Firebase reads
   const q = query(
     collection(db, 'objectives'),
     where('companyId', '==', companyId),
-    orderBy('createdAt', 'desc')
+    orderBy('createdAt', 'desc'),
+    limit(limitCount || defaultLimit)
   );
   return onSnapshot(q, (snapshot) => {
     const objectives = snapshot.docs.map(doc => ({

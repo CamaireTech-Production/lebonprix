@@ -10,7 +10,8 @@ import { getUserById } from '@services/utilities/userService';
 import { validateSaleData, normalizeSaleData } from '@utils/calculations/saleUtils';
 import type { OrderStatus, Customer, Product } from '../../types/models';
 import { logError } from '@utils/core/logger';
-import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
+import { normalizePhoneForComparison, normalizePhoneNumber } from '@utils/core/phoneUtils';
+import { ensureCustomerExists } from '@services/firestore/customers/customerService';
 import { saveDraft as saveDraftToStorage, getDrafts, deleteDraft, type POSDraft } from '@utils/pos/posDraftStorage';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
@@ -407,7 +408,7 @@ export function usePOS(shopId?: string) {
             : 'pending' as const),
         customerInfo: {
           name: customerInfo.name || 'Client de passage',
-          phone: customerInfo.phone || '',
+          phone: customerInfo.phone ? normalizePhoneNumber(customerInfo.phone) : '',
           quarter: customerInfo.quarter || '',
         },
         deliveryFee: paymentData?.deliveryFee ?? state.deliveryFee ?? 0,
@@ -457,32 +458,26 @@ export function usePOS(shopId?: string) {
 
       const newSale = await addSale(normalizedData, createdBy);
 
-      // Auto-save customer if enabled (only when phone is provided)
-      if (autoSaveCustomer && customerInfo.phone && company?.id) {
+      // Auto-save customer if enabled (when name OR phone is provided)
+      const hasCustomerInfo = (customerInfo.name && customerInfo.name.trim()) || (customerInfo.phone && customerInfo.phone.trim());
+      if (autoSaveCustomer && hasCustomerInfo && company?.id && user?.uid) {
         try {
-          // Only check for existing customer if phone is provided
-          const existing = customers.find(c => 
-            c.phone && normalizePhoneForComparison(c.phone) === normalizePhoneForComparison(customerInfo.phone)
+          // Use ensureCustomerExists to handle duplicate detection and creation/update
+          await ensureCustomerExists(
+            {
+              phone: customerInfo.phone || '',
+              name: customerInfo.name || '',
+              quarter: customerInfo.quarter || paymentData?.customerQuarter,
+              address: customerInfo.address || paymentData?.customerAddress,
+              town: customerInfo.town || paymentData?.customerTown,
+              customerSourceId: paymentData?.customerSourceId || state.customer?.sourceId
+            },
+            company.id,
+            user.uid
           );
-
-          if (!existing) {
-            await addCustomer({
-              phone: customerInfo.phone,
-              name: customerInfo.name || 'Divers',
-              quarter: customerInfo.quarter || paymentData?.customerQuarter || '',
-              address: customerInfo.address || paymentData?.customerAddress || '',
-              town: customerInfo.town || paymentData?.customerTown || '',
-              customerSourceId: paymentData?.customerSourceId || state.customer?.sourceId || '',
-              userId: user.uid,
-              companyId: company.id,
-              createdAt: {
-                seconds: Math.floor(Date.now() / 1000),
-                nanoseconds: (Date.now() % 1000) * 1000000
-              },
-            });
-          }
         } catch (error: any) {
-          logError('Error adding customer during sale', error);
+          logError('Error ensuring customer exists during sale', error);
+          // Don't throw - sale was successful, customer save is secondary
         }
       }
 
@@ -608,32 +603,25 @@ export function usePOS(shopId?: string) {
         }
       );
 
-      // Auto-save customer if enabled (only when phone is provided)
-      if (autoSaveCustomer && customerInfo && customerInfo.phone && company?.id) {
+      // Auto-save customer if enabled (when name OR phone is provided)
+      const hasCustomerInfo = customerInfo && ((customerInfo.name && customerInfo.name.trim()) || (customerInfo.phone && customerInfo.phone.trim()));
+      if (autoSaveCustomer && hasCustomerInfo && company?.id && user?.uid) {
         try {
-          // Only check for existing customer if phone is provided
-          const existing = customers.find(c => 
-            c.phone && normalizePhoneForComparison(c.phone) === normalizePhoneForComparison(customerInfo.phone)
-          );
-
-          if (!existing) {
-            await addCustomer({
-              phone: customerInfo.phone,
-              name: customerInfo.name || 'Divers',
+          // Use ensureCustomerExists to handle duplicate detection and creation/update
+          await ensureCustomerExists(
+            {
+              phone: customerInfo.phone || '',
+              name: customerInfo.name || '',
               quarter: customerInfo.quarter || '',
               address: customerInfo.address || '',
               town: customerInfo.town || '',
-              customerSourceId: customerInfo.sourceId || '',
-              userId: user.uid,
-              companyId: company.id,
-              createdAt: {
-                seconds: Math.floor(Date.now() / 1000),
-                nanoseconds: (Date.now() % 1000) * 1000000
-              },
-            });
-          }
+              customerSourceId: customerInfo.sourceId || ''
+            },
+            company.id,
+            user.uid
+          );
         } catch (error: any) {
-          logError('Error adding customer during draft save', error);
+          logError('Error ensuring customer exists during draft save', error);
         }
       }
 

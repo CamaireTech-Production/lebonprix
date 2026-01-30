@@ -229,6 +229,8 @@ export const getNotifications = async (
   }
 ): Promise<Notification[]> => {
   try {
+    // OPTIMIZATION: Default limit to reduce Firebase reads if no limit specified
+    const defaultLimit = 100; // OPTIMIZATION: Default limit to reduce Firebase reads
     let q = query(
       collection(db, 'notifications'),
       where('userId', '==', userId),
@@ -247,9 +249,8 @@ export const getNotifications = async (
       q = query(q, where('type', '==', filters.type));
     }
 
-    if (filters?.limit) {
-      q = query(q, limit(filters.limit));
-    }
+    // Apply limit - use filter limit if provided, otherwise use default
+    q = query(q, limit(filters?.limit || defaultLimit));
 
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => doc.data() as Notification);

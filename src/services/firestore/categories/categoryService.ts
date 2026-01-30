@@ -94,11 +94,13 @@ export const updateCategoryProductCount = async (categoryName: string, companyId
 export const recalculateCategoryProductCounts = async (companyId: string): Promise<void> => {
   try {
     // Get only product type categories for the company
+    // OPTIMIZATION: Added limit to reduce Firebase reads
     const categoriesQuery = query(
       collection(db, 'categories'),
       where('companyId', '==', companyId),
       where('type', '==', 'product'),
-      where('isActive', '==', true)
+      where('isActive', '==', true),
+      limit(100) // OPTIMIZATION: Limit categories to 100
     );
 
     const categoriesSnapshot = await getDocs(categoriesQuery);
@@ -108,11 +110,14 @@ export const recalculateCategoryProductCounts = async (companyId: string): Promi
     })) as Category[];
 
     // Get all products for the company
+    // OPTIMIZATION: Added limit to reduce Firebase reads
+    // Note: This function recalculates counts, so we limit to active products
     const productsQuery = query(
       collection(db, 'products'),
       where('companyId', '==', companyId),
       where('isDeleted', '==', false),
-      where('isVisible', '!=', false) // Include products where isVisible is true or undefined
+      where('isVisible', '!=', false), // Include products where isVisible is true or undefined
+      limit(500) // OPTIMIZATION: Limit to 500 products for recalculation
     );
 
     const productsSnapshot = await getDocs(productsQuery);
