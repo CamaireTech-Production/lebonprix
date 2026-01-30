@@ -69,6 +69,6 @@ jobs:
         password: ${{ secrets.FTP_PASSWORD_PROD }}
         local-dir: dist/
         server-dir: /
-        protocol: ftps
-        timeout: 30000
+        protocol: ftp
         dangerous-clean-slate: false
+        log-level: verbose

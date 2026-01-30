@@ -67,6 +67,7 @@ export default defineConfig(({ mode }) => {
           ]
         },
         workbox: {
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
           // Enable immediate activation of new service worker
           skipWaiting: true,
@@ -182,6 +183,20 @@ export default defineConfig(({ mode }) => {
         }
       })
     ],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+            'chart': ['chart.js', 'react-chartjs-2'],
+            'vendor': ['react', 'react-dom'],
+            'utils': ['date-fns'],
+            'ui': ['lucide-react', 'react-select', 'react-day-picker']
+          }
+        }
+      },
+      chunkSizeWarningLimit: 1000
+    },
     optimizeDeps: {
       exclude: ['lucide-react'],
       include: ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
