@@ -1358,17 +1358,24 @@
       "other": "Other Expenses"
     }
   },
-  "settings": {
+  "settingsPage": {
     "title": "Settings",
     "subtitle": "Manage your account settings and preferences",
     "tabs": {
       "colors": "🎨 Colors",
-      "account": "Account Settings",
+      "account": "Company & Account",
       "activity": "Activity Logs",
       "ordering": "Order & Delivery Settings",
       "checkout": "Order Settings",
       "paymentMethodsAndGateways": "Payment Gateways",
       "catalogue": "Catalogue Links"
+    },
+    "sections": {
+      "companyInfo": "Company Information",
+      "reportSettings": "Report Settings",
+      "personalInfo": "Personal Information",
+      "security": "Security",
+      "preferences": "Preferences"
     },
     "account": {
       "companyLogo": "Company Logo",
@@ -1382,6 +1389,8 @@
       "location": "Location",
       "locationHelp": "Optional",
       "emailAddress": "Email Address",
+      "googleEmailHelp": "Email is managed by your Google account. To change it, please update your email in your Google account settings.",
+      "currentEmailHelp": "This is your current email address. Use the form below to change it.",
       "reportMail": "Email for sales reports",
       "reportMailHelp": "Email address where sales reports will be sent",
       "reportTime": "Report reception time",
@@ -1415,11 +1424,27 @@
       "passwordTooShort": "Password must be at least 6 characters",
       "passwordTooWeak": "Password must contain at least one uppercase letter, one lowercase letter, and one digit",
       "passwordAdded": "Password added successfully! You can now sign in with your email and password.",
-      "addPasswordError": "Error adding password"
+      "addPasswordError": "Error adding password",
+      "changeEmail": "Change Email Address",
+      "newEmailAddress": "New Email Address",
+      "newEmailHelp": "Enter your new email address",
+      "confirmNewEmail": "Confirm New Email Address",
+      "confirmNewEmailHelp": "Re-enter your new email address to confirm",
+      "currentPasswordForEmail": "Current Password",
+      "currentPasswordForEmailHelp": "Enter your current password to confirm the email change",
+      "emailChangeNote": "A verification email will be sent to your new email address after the change.",
+      "updateEmailInGoogleAccount": "Update email in my Google account"
     },
     "messages": {
       "settingsUpdated": "Settings updated successfully",
       "updateFailed": "Failed to update settings",
+      "emailUpdated": "Email updated successfully. Please check your new email for verification.",
+      "emailUpdateFailed": "Failed to update email address",
+      "currentPasswordRequiredForEmail": "Current password is required to change email",
+      "newEmailRequired": "New email address is required",
+      "invalidEmailFormat": "Invalid email format",
+      "emailsDoNotMatch": "Email addresses do not match",
+      "emailSameAsCurrent": "New email must be different from current email",
       "reportTimeDefault": "Report time not set, default value 8h used",
       "currentPasswordRequired": "Current password is required to change password",
       "passwordsDoNotMatch": "New passwords do not match",

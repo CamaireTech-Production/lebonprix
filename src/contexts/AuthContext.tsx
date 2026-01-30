@@ -6,7 +6,9 @@ import {
   signInWithEmailAndPassword, 
   signOut as firebaseSignOut, 
   onAuthStateChanged,
-  updatePassword
+  updatePassword,
+  updateEmail,
+  sendEmailVerification
 } from 'firebase/auth';
 import { doc, getDoc, getDocFromCache, updateDoc, Timestamp, onSnapshot, type DocumentReference } from 'firebase/firestore';
 import type { Company, UserRole, UserCompanyRef, CompanyEmployee } from '../types/models';
@@ -15,7 +17,7 @@ import CompanyManager from '@services/storage/CompanyManager';
 import FinanceTypesManager from '@services/storage/FinanceTypesManager';
 import BackgroundSyncService from '@services/utilities/backgroundSync';
 import { saveCompanyToCache, getCompanyFromCache, clearCompanyCache } from '@utils/storage/companyCache';
-import { getUserById, updateUserLastLogin, createUser } from '@services/utilities/userService';
+import { getUserById, updateUserLastLogin, createUser, updateUser } from '@services/utilities/userService';
 import { saveUserSession, getUserSession, clearUserSession} from '@utils/storage/userSession';
 import { clearUserDataOnLogout } from '@utils/core/logoutCleanup';
 import { logError, logWarning } from '@utils/core/logger';
@@ -38,9 +40,11 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   updateCompany: (data: Partial<Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'companyId'>>) => Promise<void>;
   updateUserPassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  updateUserEmail: (newEmail: string, currentPassword: string) => Promise<void>;
   selectCompany: (companyId: string) => Promise<void>;
   getUserAuthProvider: () => string | null; // Get the authentication provider (password, google.com, etc.)
   canChangePassword: () => boolean; // Check if user can change password (only email/password users)
+  canChangeEmail: () => boolean; // Check if user can change email (only email/password users, not Google)
   refreshUser: () => Promise<void>; // Refresh user data from Firebase (e.g., after linking a new provider)
 }
 
@@ -747,6 +751,67 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     await updatePassword(credential.user, newPassword);
   };
 
+  const updateUserEmail = async (newEmail: string, currentPassword: string) => {
+    if (!user) {
+      throw new Error('No user logged in');
+    }
+
+    // Check if user can change email (must have password provider)
+    if (!canChangeEmail()) {
+      throw new Error('Email cannot be changed for Google-authenticated accounts. Please change your email in your Google account settings.');
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newEmail)) {
+      throw new Error('Invalid email format');
+    }
+
+    // Check if email is different
+    if (user.email?.toLowerCase() === newEmail.toLowerCase()) {
+      throw new Error('New email must be different from current email');
+    }
+
+    // Reauthenticate user before changing email
+    const credential = await signInWithEmailAndPassword(auth, user.email!, currentPassword);
+    
+    // Update email in Firebase Auth
+    await updateEmail(credential.user, newEmail);
+    
+    // Send verification email to the new address
+    await sendEmailVerification(credential.user);
+    
+    // Update email in Firestore user document
+    try {
+      await updateUser(user.uid, { email: newEmail });
+    } catch (error) {
+      logError('Error updating email in user document', error);
+      // Don't throw - email was updated in Auth, Firestore update can be retried
+    }
+    
+    // Update email in Firestore company document if company exists
+    if (company && selectedCompanyId) {
+      try {
+        const companyRef = doc(db, 'companies', selectedCompanyId);
+        await updateDoc(companyRef, {
+          email: newEmail,
+          updatedAt: Timestamp.now()
+        });
+        
+        // Update local company state
+        const updatedCompany = { ...company, email: newEmail };
+        setCompany(updatedCompany);
+        CompanyManager.save(user.uid, updatedCompany);
+      } catch (error) {
+        logError('Error updating email in company document', error);
+        // Don't throw - email was updated in Auth, Firestore update can be retried
+      }
+    }
+    
+    // Refresh user data to get updated email
+    await refreshUser();
+  };
+
   // Sélectionner une entreprise
   const selectCompany = async (companyId: string) => {
     if (!user) {
@@ -789,6 +854,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   /**
+   * Check if the current user can change their email
+   * Users can only change email if they use email/password authentication (not Google)
+   * Google users must change their email through Google account settings
+   */
+  const canChangeEmail = (): boolean => {
+    if (!user) return false;
+
+    // Can only change email if primary provider is password (email/password auth)
+    // Google users cannot change email through the app
+    const primaryProvider = getUserAuthProvider();
+    return primaryProvider === 'password';
+  };
+
+  /**
    * Refresh the current user's data from Firebase
    * Useful after operations that modify user data (e.g., linking a new provider)
    */
@@ -818,9 +897,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     signOut,
     updateCompany,
     updateUserPassword,
+    updateUserEmail,
     selectCompany,
     getUserAuthProvider,
     canChangePassword,
+    canChangeEmail,
     refreshUser
   };
 

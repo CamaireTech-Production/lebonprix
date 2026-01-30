@@ -140,7 +140,7 @@ export default function CreateCompany() {
       const timePattern = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
       if (!timePattern.test(reportTime)) {
         reportTime = '08:00';
-        showWarningToast(t('settings.messages.reportTimeDefault'));
+        showWarningToast(t('settingsPage.messages.reportTimeDefault'));
       }
       
       // Import the correct createCompany function
@@ -462,7 +462,7 @@ export default function CreateCompany() {
             {/* Report Time */}
             <div>
               <label htmlFor="report_time" className="block text-sm font-medium text-gray-700 mb-2">
-                {t('settings.account.reportTime')}
+                {t('settingsPage.account.reportTime')}
               </label>
               <input
                 type="time"
@@ -474,7 +474,7 @@ export default function CreateCompany() {
                 required
               />
               <p className="mt-1 text-sm text-gray-500">
-                {t('settings.account.reportTimeHelp')}
+                {t('settingsPage.account.reportTimeHelp')}
               </p>
             </div>
 
