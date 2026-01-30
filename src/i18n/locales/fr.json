@@ -1179,6 +1179,42 @@
           "costPrice": "Prix d'achat"
         },
         "noHistoryFound": "Aucun historique de stock trouvé pour ce produit."
+      },
+      "batchDeleteModal": {
+        "title": "Supprimer un Lot de Stock",
+        "batchDetails": {
+          "title": "Détails du Lot",
+          "item": "Article :",
+          "batchId": "ID du Lot :",
+          "remainingStock": "Stock Restant :",
+          "status": "Statut :"
+        },
+        "confirmQuestion": "Êtes-vous sûr de vouloir supprimer ce lot de stock ?",
+        "notes": {
+          "unused": "Note : Ce lot n'a jamais été consommé ({{remaining}} / {{total}} unités). Il peut être supprimé en toute sécurité.",
+          "consolidated": "Note : Ce lot a été consommé mais est consolidé. Il peut être supprimé.",
+          "destocked": "Note : Ce lot a été consommé mais est déstocké. Il peut être supprimé."
+        },
+        "warning": "Avertissement : Cette action supprimera le lot de manière logicielle et préservera tous les enregistrements historiques. Le lot n'apparaîtra plus dans l'inventaire actif mais restera dans les journaux d'audit.",
+        "supplierDebtNote": "Note : Ce lot a été acheté à crédit. La dette fournisseur associée sera automatiquement supprimée lors de la suppression de ce lot.",
+        "cannotDelete": {
+          "title": "Impossible de Supprimer le Lot",
+          "partiallyConsumed": "Ce lot a été partiellement consommé ({{remaining}} / {{total}} unités restantes).",
+          "instructions": "Pour supprimer ce lot, vous devez soit :",
+          "destockOption": "Ajuster le stock restant à 0 (le déstocker), ou",
+          "consolidateOption": "Consolider le lot (le marquer comme corrigé)",
+          "hasRemaining": "Ce lot a {{remaining}} unités restantes. Vous ne pouvez supprimer que les lots avec un stock restant de zéro.",
+          "adjustFirst": "Veuillez d'abord ajuster le stock à 0, puis réessayez de supprimer.",
+          "generic": "Ce lot ne peut pas être supprimé. Il a peut-être été consommé et n'a pas encore été consolidé ou déstocké."
+        },
+        "actions": {
+          "cancel": "Annuler",
+          "delete": "Supprimer le Lot"
+        },
+        "messages": {
+          "success": "Lot de stock supprimé avec succès",
+          "error": "Échec de la suppression du lot : {{error}}"
+        }
       }
     },
     "restockModal": {
@@ -1323,17 +1359,24 @@
     "viewShort": "Voir",
     "addShort": "Ajouter"
   },
-  "settings": {
+  "settingsPage": {
     "title": "Paramètres",
     "subtitle": "Gérez les paramètres et préférences de votre compte",
     "tabs": {
       "colors": "🎨 Couleurs",
-      "account": "Paramètres du compte",
+      "account": "Entreprise & Compte",
       "activity": "Journaux d'activité",
       "ordering": "Paramètres de commande et livraison",
       "checkout": "Paramètres de commande",
       "paymentMethodsAndGateways": "Passerelles de paiement",
       "catalogue": "Liens du catalogue"
+    },
+    "sections": {
+      "companyInfo": "Informations de l'entreprise",
+      "reportSettings": "Paramètres de rapport",
+      "personalInfo": "Informations personnelles",
+      "security": "Sécurité",
+      "preferences": "Préférences"
     },
     "account": {
       "companyLogo": "Logo de l'entreprise",
@@ -1348,10 +1391,14 @@
       "locationHelp": "Optionnel",
       "emailAddress": "Adresse e-mail",
       "emailDisabledHelp": "L'email ne peut pas être modifié car il est utilisé pour des opérations critiques et les rapports.",
+      "googleEmailHelp": "L'email est géré par votre compte Google. Pour le modifier, veuillez mettre à jour votre email dans les paramètres de votre compte Google.",
+      "currentEmailHelp": "Ceci est votre adresse email actuelle. Utilisez le formulaire ci-dessous pour la modifier.",
       "reportMail": "Email pour les rapports de vente",
       "reportMailHelp": "Adresse email vers laquelle les rapports de vente seront envoyés",
       "reportTime": "Heure de réception des rapports",
       "reportTimeHelp": "Heure à laquelle les rapports seront envoyés (0-23h)",
+      "emailReportsEnabled": "Activer l'envoi automatique des rapports par email",
+      "emailReportsEnabledHelp": "Si désactivé, les rapports ne seront pas générés ni envoyés par email",
       "changePassword": "Changer le mot de passe",
       "currentPassword": "Mot de passe actuel",
       "currentPasswordHelp": "Requis seulement si vous changez le mot de passe",
@@ -1378,12 +1425,28 @@
       "passwordTooShort": "Le mot de passe doit contenir au moins 6 caractères",
       "passwordTooWeak": "Le mot de passe doit contenir au moins une majuscule, une minuscule et un chiffre",
       "passwordAdded": "Mot de passe ajouté avec succès ! Vous pouvez maintenant vous connecter avec votre email et mot de passe.",
+      "changeEmail": "Changer l'adresse e-mail",
+      "newEmailAddress": "Nouvelle adresse e-mail",
+      "newEmailHelp": "Entrez votre nouvelle adresse e-mail",
+      "confirmNewEmail": "Confirmer la nouvelle adresse e-mail",
+      "confirmNewEmailHelp": "Ré-entrez votre nouvelle adresse e-mail pour confirmer",
+      "currentPasswordForEmail": "Mot de passe actuel",
+      "currentPasswordForEmailHelp": "Entrez votre mot de passe actuel pour confirmer le changement d'email",
+      "emailChangeNote": "Un email de vérification sera envoyé à votre nouvelle adresse e-mail après le changement.",
+      "updateEmailInGoogleAccount": "Mettre à jour l'email dans mon compte Google",
       "saveChanges": "Enregistrer les modifications",
       "cancel": "Annuler"
     },
     "messages": {
       "settingsUpdated": "Paramètres mis à jour avec succès",
       "updateFailed": "Échec de la mise à jour des paramètres",
+      "emailUpdated": "Email mis à jour avec succès. Veuillez vérifier votre nouvelle adresse e-mail pour la vérification.",
+      "emailUpdateFailed": "Échec de la mise à jour de l'adresse e-mail",
+      "currentPasswordRequiredForEmail": "Le mot de passe actuel est requis pour changer l'email",
+      "newEmailRequired": "La nouvelle adresse e-mail est requise",
+      "invalidEmailFormat": "Format d'email invalide",
+      "emailsDoNotMatch": "Les adresses e-mail ne correspondent pas",
+      "emailSameAsCurrent": "La nouvelle adresse e-mail doit être différente de l'adresse actuelle",
       "reportTimeDefault": "Heure de réception non définie, valeur par défaut 8h utilisée",
       "currentPasswordRequired": "Le mot de passe actuel est requis pour changer le mot de passe",
       "passwordsDoNotMatch": "Les nouveaux mots de passe ne correspondent pas",
@@ -2549,6 +2612,7 @@
       "close": "Fermer",
       "paymentMethod": "Méthode de Paiement",
       "paymentError": "Échec du paiement",
+      "paymentSuccess": "Paiement réussi !",
       "errors": {
         "selectMethod": "Veuillez sélectionner un mode de paiement",
         "insufficientAmount": "Le montant reçu est insuffisant",

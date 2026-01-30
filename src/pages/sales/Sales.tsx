@@ -31,7 +31,7 @@ import { generateInvoiceFileName } from '@utils/core/fileUtils';
 import { useAuth } from '@contexts/AuthContext';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
-import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
+import { normalizePhoneForComparison, normalizePhoneNumber } from '@utils/core/phoneUtils';
 import { logError } from '@utils/core/logger';
 import { useTranslation } from 'react-i18next';
 import { softDeleteSale, updateSaleStatus, cancelCreditSale, refundCreditSale, updateSaleDocument } from '@services/firestore/sales/saleService';
@@ -464,9 +464,11 @@ const Sales: React.FC = () => {
           profitMargin,
         };
       });
+      // Normalize phone number to ensure consistent format (+237XXXXXXXXX)
+      const normalizedPhone = formData.customerPhone ? normalizePhoneNumber(formData.customerPhone) : '';
       const customerInfo = {
         name: formData.customerName,
-        phone: formData.customerPhone,
+        phone: normalizedPhone,
         ...(formData.customerQuarter && { quarter: formData.customerQuarter }),
       };
       const updateData: Partial<Sale> = {};
@@ -508,9 +510,11 @@ const Sales: React.FC = () => {
 
   const handleEditClick = (sale: Sale): void => {
     setCurrentSale(sale);
+    // Normalize phone number when loading into edit form to ensure consistency
+    const normalizedPhone = sale.customerInfo.phone ? normalizePhoneNumber(sale.customerInfo.phone) : '';
     setFormData({
       customerName: sale.customerInfo.name,
-      customerPhone: sale.customerInfo.phone,
+      customerPhone: normalizedPhone,
       customerQuarter: sale.customerInfo.quarter || '',
       customerSourceId: sale.customerSourceId || '',
       status: sale.status,

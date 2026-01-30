@@ -74,9 +74,54 @@ export const getCustomerByPhone = async (phone: string): Promise<Customer | null
 };
 
 /**
+ * Get customer by name only (when phone is empty)
+ * @param name - Customer name
+ * @param companyId - Company ID to filter by
+ * @returns Customer if found, null otherwise
+ */
+export const getCustomerByName = async (
+  name: string,
+  companyId: string
+): Promise<Customer | null> => {
+  try {
+    const normalizedName = name.trim().toLowerCase();
+    if (!normalizedName) return null;
+    
+    // Search by companyId and name
+    const customersRef = collection(db, 'customers');
+    const q = query(
+      customersRef,
+      where('companyId', '==', companyId)
+    );
+    const querySnapshot = await getDocs(q);
+    
+    // Check if any customer matches name and has empty phone
+    for (const doc of querySnapshot.docs) {
+      const customer = doc.data() as Customer;
+      const customerName = (customer.name || '').trim().toLowerCase();
+      const customerPhone = (customer.phone || '').trim();
+      
+      // Match found if name matches AND phone is empty
+      if (customerName === normalizedName && customerPhone === '') {
+        return {
+          id: doc.id,
+          ...customer
+        };
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    logError('Error getting customer by name', error);
+    throw error;
+  }
+};
+
+/**
  * Get customer by phone AND name (for duplicate detection)
  * Duplicate condition: same normalized phone AND same normalized name (case-insensitive)
- * @param phone - Customer phone number
+ * If phone is empty, searches by name only
+ * @param phone - Customer phone number (can be empty)
  * @param name - Customer name
  * @param companyId - Company ID to filter by
  * @returns Customer if found, null otherwise
@@ -89,6 +134,11 @@ export const getCustomerByPhoneAndName = async (
   try {
     const normalizedPhone = normalizePhoneNumber(phone);
     const normalizedName = name.trim().toLowerCase();
+    
+    // If phone is empty, search by name only
+    if (!normalizedPhone) {
+      return await getCustomerByName(name, companyId);
+    }
     
     // Search by companyId and phone
     const customersRef = collection(db, 'customers');
@@ -201,7 +251,9 @@ export const updateCustomerIfNeeded = async (
 
 /**
  * Ensure customer exists - creates if not found, updates if found with more complete data
+ * Requires at least name OR phone (not both empty)
  * Duplicate detection: same normalized phone AND same normalized name (case-insensitive) for same company
+ * If phone is empty, searches by name only
  * @param customerInfo - Customer information (name, phone, quarter, etc.)
  * @param companyId - Company ID
  * @param userId - User ID creating/updating the customer
@@ -210,7 +262,7 @@ export const updateCustomerIfNeeded = async (
 export const ensureCustomerExists = async (
   customerInfo: {
     name?: string;
-    phone: string;
+    phone?: string;
     quarter?: string;
     firstName?: string;
     lastName?: string;
@@ -222,24 +274,28 @@ export const ensureCustomerExists = async (
   userId: string
 ): Promise<Customer> => {
   try {
-    // Normalize phone
-    const normalizedPhone = normalizePhoneNumber(customerInfo.phone);
+    const trimmedName = (customerInfo.name || '').trim();
+    const normalizedPhone = normalizePhoneNumber(customerInfo.phone || '');
     
-    if (!normalizedPhone) {
-      throw new Error('Phone number is required');
+    // Require at least name OR phone (not both empty)
+    if (!trimmedName && !normalizedPhone) {
+      throw new Error('At least name or phone number is required');
     }
     
-    // Normalize name (use "Client de passage" if empty)
-    const customerName = normalizeCustomerName(normalizedPhone, customerInfo.name || '');
+    // Normalize name:
+    // - If name is provided, use it
+    // - If name is empty but phone exists, use "Client de passage"
+    // - If name is provided but phone is empty, use the name
+    const customerName = trimmedName || (normalizedPhone ? 'Client de passage' : '');
     
-    // Check if customer exists by phone AND name
-    const existing = await getCustomerByPhoneAndName(normalizedPhone, customerName, companyId);
+    // Check if customer exists by phone AND name (or name only if phone is empty)
+    const existing = await getCustomerByPhoneAndName(normalizedPhone || '', customerName, companyId);
     
     if (existing) {
       // Customer exists - update if needed with more complete data
       return await updateCustomerIfNeeded(existing.id, {
         name: customerName,
-        phone: normalizedPhone,
+        phone: normalizedPhone || '',
         quarter: customerInfo.quarter,
         firstName: customerInfo.firstName,
         lastName: customerInfo.lastName,
@@ -251,7 +307,7 @@ export const ensureCustomerExists = async (
     
     // Customer doesn't exist - create new one
     const newCustomerData: Omit<Customer, 'id'> = {
-      phone: normalizedPhone,
+      phone: normalizedPhone || '',
       name: customerName,
       userId,
       companyId,

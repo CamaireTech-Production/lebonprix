@@ -8,20 +8,27 @@ const TEMPLATES_COLLECTION = (companyId: string) => collection(db, 'companies', 
  * Normalize template permissions to ensure canCreate exists (backward compatibility)
  */
 function normalizeTemplatePermissions(permissions: any): RolePermissions {
+  // Ensure permissions is an object
+  if (!permissions || typeof permissions !== 'object') {
+    permissions = {};
+  }
+  
   return {
-    canView: permissions.canView || [],
-    canCreate: permissions.canCreate || [], // Add canCreate if missing
-    canEdit: permissions.canEdit || [],
-    canDelete: permissions.canDelete || [],
-    canManageEmployees: permissions.canManageEmployees || [],
+    canView: Array.isArray(permissions.canView) ? permissions.canView : [],
+    canCreate: Array.isArray(permissions.canCreate) ? permissions.canCreate : [], // Add canCreate if missing
+    canEdit: Array.isArray(permissions.canEdit) ? permissions.canEdit : [],
+    canDelete: Array.isArray(permissions.canDelete) ? permissions.canDelete : [],
+    canManageEmployees: Array.isArray(permissions.canManageEmployees) ? permissions.canManageEmployees : [],
   };
 }
 
 /**
  * Normalize template to ensure all required fields exist (backward compatibility)
  */
-function normalizeTemplate(template: any): PermissionTemplate {
-  if (!template) return template;
+function normalizeTemplate(template: any): PermissionTemplate | null {
+  if (!template || typeof template !== 'object') {
+    return template;
+  }
   
   return {
     ...template,
@@ -49,7 +56,9 @@ export async function createTemplate(companyId: string, createdBy: string, data:
 
 export async function getCompanyTemplates(companyId: string): Promise<PermissionTemplate[]> {
   const snapshot = await getDocs(TEMPLATES_COLLECTION(companyId));
-  return snapshot.docs.map(d => normalizeTemplate(d.data() as PermissionTemplate));
+  return snapshot.docs
+    .map(d => normalizeTemplate(d.data() as PermissionTemplate))
+    .filter((template): template is PermissionTemplate => template !== null);
 }
 
 export async function getTemplateById(companyId: string, templateId: string): Promise<PermissionTemplate | null> {

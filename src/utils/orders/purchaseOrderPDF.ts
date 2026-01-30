@@ -3,7 +3,28 @@ import autoTable from 'jspdf-autotable';
 import type { Order } from '../../types/order';
 import type { Product } from '../../types/models';
 
+// Helper function to format numbers for PDF (replaces non-breaking spaces with regular spaces)
+const formatNumberForPDF = (num: number): string => {
+  // Format with locale but replace non-breaking spaces (U+00A0) and other problematic characters
+  return num.toLocaleString('fr-FR', { 
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0 
+  }).replace(/\u00A0/g, ' ').replace(/[\u2000-\u200B\u202F]/g, ' ');
+};
+
+// Helper function to sanitize text for PDF (removes problematic characters)
+const sanitizeTextForPDF = (text: string): string => {
+  if (!text) return '';
+  // Replace non-breaking spaces and other problematic Unicode characters with regular spaces
+  return text
+    .replace(/\u00A0/g, ' ') // Non-breaking space
+    .replace(/[\u2000-\u200B\u202F]/g, ' ') // Various space characters
+    .replace(/\u2028/g, ' ') // Line separator
+    .replace(/\u2029/g, ' '); // Paragraph separator
+};
+
 // Helper to load image as base64 and get dimensions, with compression
+// Uses fetch API to better handle CORS issues with Firebase Storage
 // Returns dimensions in pixels (same as pdf.ts)
 // Silently fails if logo cannot be loaded - PDF will be generated without logo
 const getImageBase64AndSize = (
@@ -11,56 +32,116 @@ const getImageBase64AndSize = (
   maxDim = 120, // max dimension in px
   quality = 0.7 // JPEG quality (0-1)
 ): Promise<{ base64?: string; width?: number; height?: number }> => {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     if (!url) return resolve({});
     
-    // Simply try to load the image directly
-    // If it fails due to CORS, we'll just continue without the logo
-    const img = new window.Image();
-    
-    // Set a timeout to avoid hanging
-    const timeout = setTimeout(() => {
-      resolve({});
-    }, 5000); // 5 second timeout
-    
-    img.crossOrigin = 'Anonymous';
-    
-    img.onload = function () {
-      clearTimeout(timeout);
+    try {
+      // Try using fetch API first (better CORS handling)
+      let blob: Blob;
       try {
-        let { width, height } = img;
-        // Resize if needed
-        if (width > height && width > maxDim) {
-          height = (height / width) * maxDim;
-          width = maxDim;
-        } else if (height > width && height > maxDim) {
-          width = (width / height) * maxDim;
-          height = maxDim;
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return resolve({});
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve({
-          base64: canvas.toDataURL('image/jpeg', quality),
-          width,
-          height,
+        const response = await fetch(url, {
+          mode: 'cors',
+          credentials: 'omit',
         });
-      } catch (error) {
-        // Silently fail - logo is optional
-        resolve({});
+        if (!response.ok) throw new Error('Failed to fetch image');
+        blob = await response.blob();
+      } catch (fetchError) {
+        // Fallback to Image element if fetch fails
+        const img = new window.Image();
+        const timeout = setTimeout(() => {
+          resolve({});
+        }, 5000);
+        
+        img.crossOrigin = 'Anonymous';
+        
+        img.onload = function () {
+          clearTimeout(timeout);
+          try {
+            let { width, height } = img;
+            if (width > height && width > maxDim) {
+              height = (height / width) * maxDim;
+              width = maxDim;
+            } else if (height > width && height > maxDim) {
+              width = (width / height) * maxDim;
+              height = maxDim;
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return resolve({});
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve({
+              base64: canvas.toDataURL('image/jpeg', quality),
+              width,
+              height,
+            });
+          } catch (error) {
+            resolve({});
+          }
+        };
+        
+        img.onerror = () => {
+          clearTimeout(timeout);
+          resolve({});
+        };
+        
+        img.src = url;
+        return;
       }
-    };
-    
-    img.onerror = () => {
-      clearTimeout(timeout);
-      // Silently fail - logo is optional, PDF will be generated without it
+      
+      // Convert blob to image and process
+      const img = new window.Image();
+      const objectUrl = URL.createObjectURL(blob);
+      
+      const timeout = setTimeout(() => {
+        URL.revokeObjectURL(objectUrl);
+        resolve({});
+      }, 5000);
+      
+      img.onload = function () {
+        clearTimeout(timeout);
+        try {
+          let { width, height } = img;
+          if (width > height && width > maxDim) {
+            height = (height / width) * maxDim;
+            width = maxDim;
+          } else if (height > width && height > maxDim) {
+            width = (width / height) * maxDim;
+            height = maxDim;
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            URL.revokeObjectURL(objectUrl);
+            return resolve({});
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          URL.revokeObjectURL(objectUrl);
+          resolve({
+            base64: canvas.toDataURL('image/jpeg', quality),
+            width,
+            height,
+          });
+        } catch (error) {
+          URL.revokeObjectURL(objectUrl);
+          resolve({});
+        }
+      };
+      
+      img.onerror = () => {
+        clearTimeout(timeout);
+        URL.revokeObjectURL(objectUrl);
+        resolve({});
+      };
+      
+      img.src = objectUrl;
+    } catch (error) {
+      // Silently fail - logo is optional
       resolve({});
-    };
-    
-    img.src = url;
+    }
   });
 };
 
@@ -139,11 +220,11 @@ export const generatePurchaseOrderPDF = async (
     // Business info (left)
     const businessX = margin + (logoWidth ? logoWidth + 4 : 0);
     doc.setFontSize(16);
-    doc.text(company.name || '', businessX, y + 8);
+    doc.text(sanitizeTextForPDF(company.name || ''), businessX, y + 8);
     doc.setFontSize(12);
-    doc.text(company.location || '', businessX, y + 16);
-    doc.text(`Phone: ${company.phone || ''}`, businessX, y + 22);
-    if (company.email) doc.text(`Email: ${company.email}`, businessX, y + 28);
+    doc.text(sanitizeTextForPDF(company.location || ''), businessX, y + 16);
+    doc.text(`Phone: ${sanitizeTextForPDF(company.phone || '')}`, businessX, y + 22);
+    if (company.email) doc.text(`Email: ${sanitizeTextForPDF(company.email)}`, businessX, y + 28);
 
     // Purchase Order info (right)
     const rightX = 210 - margin;
@@ -162,12 +243,12 @@ export const generatePurchaseOrderPDF = async (
       : order.createdAt && typeof order.createdAt === 'object' && 'seconds' in order.createdAt
       ? new Date((order.createdAt as any).seconds * 1000).toLocaleDateString('fr-FR')
       : new Date().toLocaleDateString('fr-FR');
-    doc.text(`Date: ${orderDateStr}`, rightX, y + 22, { align: 'right' });
+    doc.text(`Date: ${sanitizeTextForPDF(orderDateStr)}`, rightX, y + 22, { align: 'right' });
     
     // Order number reference
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Réf. Commande: ${order.orderNumber}`, rightX, y + 28, { align: 'right' });
+    doc.text(`Réf. Commande: ${sanitizeTextForPDF(order.orderNumber)}`, rightX, y + 28, { align: 'right' });
     doc.setTextColor(0);
 
     y += Math.max(logoHeight, 32) + 6;
@@ -182,16 +263,16 @@ export const generatePurchaseOrderPDF = async (
     y += 7;
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    doc.text(order.customerInfo.name || '', margin, y);
+    doc.text(sanitizeTextForPDF(order.customerInfo.name || ''), margin, y);
     y += 6;
-    doc.text(`Téléphone: ${order.customerInfo.phone || ''}`, margin, y);
+    doc.text(`Téléphone: ${sanitizeTextForPDF(order.customerInfo.phone || '')}`, margin, y);
     y += 6;
     if (order.customerInfo.location) {
-      doc.text(`Adresse: ${order.customerInfo.location}`, margin, y);
+      doc.text(`Adresse: ${sanitizeTextForPDF(order.customerInfo.location)}`, margin, y);
       y += 6;
     }
     if (order.customerInfo.email) {
-      doc.text(`Email: ${order.customerInfo.email}`, margin, y);
+      doc.text(`Email: ${sanitizeTextForPDF(order.customerInfo.email)}`, margin, y);
       y += 6;
     }
     
@@ -203,7 +284,7 @@ export const generatePurchaseOrderPDF = async (
         ? new Date((order.deliveryInfo.scheduledDate as any).seconds * 1000).toLocaleDateString('fr-FR')
         : '';
       if (deliveryDate) {
-        doc.text(`Date de livraison prévue: ${deliveryDate}`, margin, y);
+        doc.text(`Date de livraison prévue: ${sanitizeTextForPDF(deliveryDate)}`, margin, y);
         y += 6;
       }
     }
@@ -211,7 +292,7 @@ export const generatePurchaseOrderPDF = async (
     if (order.deliveryInfo?.instructions) {
       doc.setFontSize(10);
       doc.setTextColor(100);
-      doc.text(`Instructions: ${order.deliveryInfo.instructions}`, margin, y, { maxWidth: 100 });
+      doc.text(`Instructions: ${sanitizeTextForPDF(order.deliveryInfo.instructions)}`, margin, y, { maxWidth: 100 });
       doc.setTextColor(0);
       y += 8;
     } else {
@@ -224,10 +305,10 @@ export const generatePurchaseOrderPDF = async (
       const unitPrice = orderItem.price;
       const total = unitPrice * orderItem.quantity;
       return [
-        product?.name || orderItem.name || 'Produit inconnu',
+        sanitizeTextForPDF(product?.name || orderItem.name || 'Produit inconnu'),
         orderItem.quantity.toString(),
-        `${unitPrice.toLocaleString('fr-FR')} XAF`,
-        `${total.toLocaleString('fr-FR')} XAF`,
+        `${formatNumberForPDF(unitPrice)} XAF`,
+        `${formatNumberForPDF(total)} XAF`,
       ];
     });
 
@@ -271,14 +352,14 @@ export const generatePurchaseOrderPDF = async (
     doc.setFontSize(12);
     doc.text('Sous-total:', rightLabelX, y, { align: 'left' });
     doc.setFont('courier', 'normal');
-    doc.text(`${subtotal.toLocaleString('fr-FR')} XAF`, rightValueX, y, { align: 'right' });
+    doc.text(`${formatNumberForPDF(subtotal)} XAF`, rightValueX, y, { align: 'right' });
     y += lineSpacing;
 
     if (discount > 0) {
       doc.setFont('helvetica', 'normal');
       doc.text('Remise:', rightLabelX, y, { align: 'left' });
       doc.setFont('courier', 'normal');
-      doc.text(`-${discount.toLocaleString('fr-FR')} XAF`, rightValueX, y, { align: 'right' });
+      doc.text(`-${formatNumberForPDF(discount)} XAF`, rightValueX, y, { align: 'right' });
       y += lineSpacing;
     }
 
@@ -286,7 +367,7 @@ export const generatePurchaseOrderPDF = async (
       doc.setFont('helvetica', 'normal');
       doc.text('Taxe:', rightLabelX, y, { align: 'left' });
       doc.setFont('courier', 'normal');
-      doc.text(`${tax.toLocaleString('fr-FR')} XAF`, rightValueX, y, { align: 'right' });
+      doc.text(`${formatNumberForPDF(tax)} XAF`, rightValueX, y, { align: 'right' });
       y += lineSpacing;
     }
 
@@ -294,7 +375,7 @@ export const generatePurchaseOrderPDF = async (
       doc.setFont('helvetica', 'normal');
       doc.text('Frais de livraison:', rightLabelX, y, { align: 'left' });
       doc.setFont('courier', 'normal');
-      doc.text(`${deliveryFee.toLocaleString('fr-FR')} XAF`, rightValueX, y, { align: 'right' });
+      doc.text(`${formatNumberForPDF(deliveryFee)} XAF`, rightValueX, y, { align: 'right' });
       y += lineSpacing;
     }
 
@@ -303,7 +384,7 @@ export const generatePurchaseOrderPDF = async (
     doc.setFontSize(14);
     doc.text('Total:', rightLabelX, y, { align: 'left' });
     doc.setFont('courier', 'bold');
-    doc.text(`${total.toLocaleString('fr-FR')} XAF`, rightValueX, y, { align: 'right' });
+    doc.text(`${formatNumberForPDF(total)} XAF`, rightValueX, y, { align: 'right' });
     doc.setFont('helvetica', 'normal');
     y += lineSpacing + 8;
 
@@ -319,7 +400,7 @@ export const generatePurchaseOrderPDF = async (
       : order.paymentStatus === 'awaiting_payment'
       ? 'En attente de paiement'
       : 'Non payé';
-    doc.text(paymentStatusText, margin + 45, y);
+    doc.text(sanitizeTextForPDF(paymentStatusText), margin + 45, y);
     
     if (order.paymentMethod) {
       const paymentMethodText = order.paymentMethod === 'onsite'
@@ -327,7 +408,7 @@ export const generatePurchaseOrderPDF = async (
         : order.paymentMethod === 'online'
         ? 'En ligne'
         : 'WhatsApp';
-      doc.text(`Méthode: ${paymentMethodText}`, margin + 100, y);
+      doc.text(`Méthode: ${sanitizeTextForPDF(paymentMethodText)}`, margin + 100, y);
     }
     y += 10;
 
@@ -350,7 +431,7 @@ export const generatePurchaseOrderPDF = async (
       : order.status === 'cancelled'
       ? 'Annulée'
       : 'En attente';
-    doc.text(statusText, margin + 45, y);
+    doc.text(sanitizeTextForPDF(statusText), margin + 45, y);
     y += 10;
 
     // Footer
@@ -421,11 +502,11 @@ export const generatePurchaseOrderPDFBlob = async (
     // Business info (left)
     const businessX = margin + (logoWidth ? logoWidth + 4 : 0);
     doc.setFontSize(16);
-    doc.text(company.name || '', businessX, y + 8);
+    doc.text(sanitizeTextForPDF(company.name || ''), businessX, y + 8);
     doc.setFontSize(12);
-    doc.text(company.location || '', businessX, y + 16);
-    doc.text(`Phone: ${company.phone || ''}`, businessX, y + 22);
-    if (company.email) doc.text(`Email: ${company.email}`, businessX, y + 28);
+    doc.text(sanitizeTextForPDF(company.location || ''), businessX, y + 16);
+    doc.text(`Phone: ${sanitizeTextForPDF(company.phone || '')}`, businessX, y + 22);
+    if (company.email) doc.text(`Email: ${sanitizeTextForPDF(company.email)}`, businessX, y + 28);
 
     // Purchase Order info (right)
     const rightX = 210 - margin;
@@ -443,11 +524,11 @@ export const generatePurchaseOrderPDFBlob = async (
       : order.createdAt && typeof order.createdAt === 'object' && 'seconds' in order.createdAt
       ? new Date((order.createdAt as any).seconds * 1000).toLocaleDateString('fr-FR')
       : new Date().toLocaleDateString('fr-FR');
-    doc.text(`Date: ${orderDateStr}`, rightX, y + 22, { align: 'right' });
+    doc.text(`Date: ${sanitizeTextForPDF(orderDateStr)}`, rightX, y + 22, { align: 'right' });
     
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Réf. Commande: ${order.orderNumber}`, rightX, y + 28, { align: 'right' });
+    doc.text(`Réf. Commande: ${sanitizeTextForPDF(order.orderNumber)}`, rightX, y + 28, { align: 'right' });
     doc.setTextColor(0);
 
     y += Math.max(logoHeight, 32) + 6;
@@ -462,16 +543,16 @@ export const generatePurchaseOrderPDFBlob = async (
     y += 7;
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    doc.text(order.customerInfo.name || '', margin, y);
+    doc.text(sanitizeTextForPDF(order.customerInfo.name || ''), margin, y);
     y += 6;
-    doc.text(`Téléphone: ${order.customerInfo.phone || ''}`, margin, y);
+    doc.text(`Téléphone: ${sanitizeTextForPDF(order.customerInfo.phone || '')}`, margin, y);
     y += 6;
     if (order.customerInfo.location) {
-      doc.text(`Adresse: ${order.customerInfo.location}`, margin, y);
+      doc.text(`Adresse: ${sanitizeTextForPDF(order.customerInfo.location)}`, margin, y);
       y += 6;
     }
     if (order.customerInfo.email) {
-      doc.text(`Email: ${order.customerInfo.email}`, margin, y);
+      doc.text(`Email: ${sanitizeTextForPDF(order.customerInfo.email)}`, margin, y);
       y += 6;
     }
     
@@ -482,7 +563,7 @@ export const generatePurchaseOrderPDFBlob = async (
         ? new Date((order.deliveryInfo.scheduledDate as any).seconds * 1000).toLocaleDateString('fr-FR')
         : '';
       if (deliveryDate) {
-        doc.text(`Date de livraison prévue: ${deliveryDate}`, margin, y);
+        doc.text(`Date de livraison prévue: ${sanitizeTextForPDF(deliveryDate)}`, margin, y);
         y += 6;
       }
     }
@@ -490,7 +571,7 @@ export const generatePurchaseOrderPDFBlob = async (
     if (order.deliveryInfo?.instructions) {
       doc.setFontSize(10);
       doc.setTextColor(100);
-      doc.text(`Instructions: ${order.deliveryInfo.instructions}`, margin, y, { maxWidth: 100 });
+      doc.text(`Instructions: ${sanitizeTextForPDF(order.deliveryInfo.instructions)}`, margin, y, { maxWidth: 100 });
       doc.setTextColor(0);
       y += 8;
     } else {
@@ -503,10 +584,10 @@ export const generatePurchaseOrderPDFBlob = async (
       const unitPrice = orderItem.price;
       const total = unitPrice * orderItem.quantity;
       return [
-        product?.name || orderItem.name || 'Produit inconnu',
+        sanitizeTextForPDF(product?.name || orderItem.name || 'Produit inconnu'),
         orderItem.quantity.toString(),
-        `${unitPrice.toLocaleString('fr-FR')} XAF`,
-        `${total.toLocaleString('fr-FR')} XAF`,
+        `${formatNumberForPDF(unitPrice)} XAF`,
+        `${formatNumberForPDF(total)} XAF`,
       ];
     });
 
@@ -550,14 +631,14 @@ export const generatePurchaseOrderPDFBlob = async (
     doc.setFontSize(12);
     doc.text('Sous-total:', rightLabelX, y, { align: 'left' });
     doc.setFont('courier', 'normal');
-    doc.text(`${subtotal.toLocaleString('fr-FR')} XAF`, rightValueX, y, { align: 'right' });
+    doc.text(`${formatNumberForPDF(subtotal)} XAF`, rightValueX, y, { align: 'right' });
     y += lineSpacing;
 
     if (discount > 0) {
       doc.setFont('helvetica', 'normal');
       doc.text('Remise:', rightLabelX, y, { align: 'left' });
       doc.setFont('courier', 'normal');
-      doc.text(`-${discount.toLocaleString('fr-FR')} XAF`, rightValueX, y, { align: 'right' });
+      doc.text(`-${formatNumberForPDF(discount)} XAF`, rightValueX, y, { align: 'right' });
       y += lineSpacing;
     }
 
@@ -565,7 +646,7 @@ export const generatePurchaseOrderPDFBlob = async (
       doc.setFont('helvetica', 'normal');
       doc.text('Taxe:', rightLabelX, y, { align: 'left' });
       doc.setFont('courier', 'normal');
-      doc.text(`${tax.toLocaleString('fr-FR')} XAF`, rightValueX, y, { align: 'right' });
+      doc.text(`${formatNumberForPDF(tax)} XAF`, rightValueX, y, { align: 'right' });
       y += lineSpacing;
     }
 
@@ -573,7 +654,7 @@ export const generatePurchaseOrderPDFBlob = async (
       doc.setFont('helvetica', 'normal');
       doc.text('Frais de livraison:', rightLabelX, y, { align: 'left' });
       doc.setFont('courier', 'normal');
-      doc.text(`${deliveryFee.toLocaleString('fr-FR')} XAF`, rightValueX, y, { align: 'right' });
+      doc.text(`${formatNumberForPDF(deliveryFee)} XAF`, rightValueX, y, { align: 'right' });
       y += lineSpacing;
     }
 
@@ -582,7 +663,7 @@ export const generatePurchaseOrderPDFBlob = async (
     doc.setFontSize(14);
     doc.text('Total:', rightLabelX, y, { align: 'left' });
     doc.setFont('courier', 'bold');
-    doc.text(`${total.toLocaleString('fr-FR')} XAF`, rightValueX, y, { align: 'right' });
+    doc.text(`${formatNumberForPDF(total)} XAF`, rightValueX, y, { align: 'right' });
     doc.setFont('helvetica', 'normal');
     y += lineSpacing + 8;
 
@@ -598,7 +679,7 @@ export const generatePurchaseOrderPDFBlob = async (
       : order.paymentStatus === 'awaiting_payment'
       ? 'En attente de paiement'
       : 'Non payé';
-    doc.text(paymentStatusText, margin + 45, y);
+    doc.text(sanitizeTextForPDF(paymentStatusText), margin + 45, y);
     
     if (order.paymentMethod) {
       const paymentMethodText = order.paymentMethod === 'onsite'
@@ -606,7 +687,7 @@ export const generatePurchaseOrderPDFBlob = async (
         : order.paymentMethod === 'online'
         ? 'En ligne'
         : 'WhatsApp';
-      doc.text(`Méthode: ${paymentMethodText}`, margin + 100, y);
+      doc.text(`Méthode: ${sanitizeTextForPDF(paymentMethodText)}`, margin + 100, y);
     }
     y += 10;
 
@@ -629,7 +710,7 @@ export const generatePurchaseOrderPDFBlob = async (
       : order.status === 'cancelled'
       ? 'Annulée'
       : 'En attente';
-    doc.text(statusText, margin + 45, y);
+    doc.text(sanitizeTextForPDF(statusText), margin + 45, y);
 
     // Footer
     doc.setFontSize(10);

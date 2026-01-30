@@ -139,7 +139,7 @@ export const CompaniesManagement: React.FC = () => {
       const timePattern = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
       if (!timePattern.test(reportTime)) {
         reportTime = '08:00';
-        showWarningToast(t('settings.messages.reportTimeDefault'));
+        showWarningToast(t('settingsPage.messages.reportTimeDefault'));
       }
       
       // Convertir le logo en base64 si un fichier est sélectionné
@@ -560,7 +560,7 @@ export const CompaniesManagement: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                {t('settings.account.reportTime')}
+                {t('settingsPage.account.reportTime')}
               </label>
               <input
                 type="time"
@@ -571,7 +571,7 @@ export const CompaniesManagement: React.FC = () => {
                 required
               />
               <p className="mt-1 text-sm text-gray-500">
-                {t('settings.account.reportTimeHelp')}
+                {t('settingsPage.account.reportTimeHelp')}
               </p>
             </div>
 
