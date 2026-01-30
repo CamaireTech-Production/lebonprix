@@ -187,13 +187,11 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks: {
-            'firebase-core': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-            'firebase-auth': ['firebase/auth'],
-            'firebase-firestore': ['firebase/firestore'],
+            'firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
             'chart': ['chart.js', 'react-chartjs-2'],
             'vendor': ['react', 'react-dom'],
-            'utils': ['date-fns', 'lodash'],
-            'ui': ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-select']
+            'utils': ['date-fns'],
+            'ui': ['lucide-react', 'react-select', 'react-day-picker']
           }
         }
       },
