@@ -7,6 +7,7 @@ import { useProducts, useStockChanges, useCategories, useSuppliers, useShops, us
 import { useInfiniteProducts } from '@hooks/data/useInfiniteProducts';
 import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
+import { useProductSearch } from '@hooks/search/useProductSearch';
 import { createSupplier } from '@services/firestore/suppliers/supplierService';
 import { recalculateCategoryProductCounts } from '@services/firestore/categories/categoryService';
 import { correctBatchCostPrice } from '@services/firestore/stock/stockService';
@@ -68,6 +69,19 @@ const Products = () => {
   const { user, company, currentEmployee, isOwner } = useAuth();
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.PRODUCTS);
 
+  // Use the new hybrid search system
+  const {
+    searchQuery: hybridSearchQuery,
+    setSearchQuery: setHybridSearchQuery,
+    searchResults,
+    isSearching,
+    searchMode,
+    displayResults,
+    clearSearch
+  } = useProductSearch({
+    localProducts: infiniteProducts,
+    hasMoreProducts: hasMore
+  });
 
   // Refresh products list when other parts of the app (e.g., sales) update stock
   useEffect(() => {
@@ -87,7 +101,6 @@ const Products = () => {
   }, [company?.id, refresh]);
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(t('products.filters.allCategories'));
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -356,19 +369,10 @@ const Products = () => {
   // Get unique categories from products (filter out empty/undefined categories)
   const categories = [t('products.filters.allCategories'), ...new Set(infiniteProducts?.filter(p => p.category).map(p => p.category!) || [])];
 
-  // Filter and paginate products
+  // Filter and paginate products using hybrid search
   const filteredProducts = React.useMemo(() => {
-    let filtered = infiniteProducts || [];
-
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(query) ||
-        (product.reference && product.reference.toLowerCase().includes(query)) ||
-        (product.barCode && product.barCode.toLowerCase().includes(query))
-      );
-    }
+    // Use displayResults from hybrid search (already includes search filtering)
+    let filtered = displayResults;
 
     // Apply category filter
     if (selectedCategory && selectedCategory !== t('products.filters.allCategories')) {
@@ -376,7 +380,7 @@ const Products = () => {
     }
 
     return filtered;
-  }, [infiniteProducts, searchQuery, selectedCategory, t]);
+  }, [displayResults, selectedCategory, t]);
 
   // Calculate pagination
   const totalRows = filteredProducts.length;
@@ -386,7 +390,7 @@ const Products = () => {
   // Reset to page 1 when filters change
   React.useEffect(() => {
     setPage(1);
-  }, [searchQuery, selectedCategory]);
+  }, [hybridSearchQuery, selectedCategory]);
 
   const compressImage = async (file: File): Promise<File> => {
     try {
@@ -1663,7 +1667,7 @@ const Products = () => {
               showSuccessToast('Products refreshed - images should now load properly');
             }}
           >
-            🔄 Refresh Images
+            &#x21BB; Refresh Images
           </Button>
         </div>
       </div>
@@ -1676,11 +1680,17 @@ const Products = () => {
           </div>
           <input
             type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+            className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
             placeholder={t('products.filters.search')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={hybridSearchQuery}
+            onChange={(e) => setHybridSearchQuery(e.target.value)}
           />
+          {/* Search loading indicator */}
+          {isSearching && (
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+              <Loader2 className="h-4 w-4 text-emerald-500 animate-spin" />
+            </div>
+          )}
         </div>
 
         {/* Sync Indicator */}
@@ -2074,22 +2084,22 @@ const Products = () => {
       {/* Empty State */}
       {!infiniteLoading && filteredProducts.length === 0 && (
         <div className="px-4 py-12 text-center">
-          {searchQuery.trim() || (selectedCategory && selectedCategory !== t('products.filters.allCategories')) ? (
+          {hybridSearchQuery.trim() || (selectedCategory && selectedCategory !== t('products.filters.allCategories')) ? (
             <div className="flex flex-col items-center">
               <Search className="h-12 w-12 text-gray-400 mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 {t('products.stocksPage.messages.noProductsFound')}
               </h3>
               <p className="text-sm text-gray-600 mb-4 max-w-md">
-                {searchQuery.trim() 
-                  ? t('products.stocksPage.messages.noProductsMatchSearch', { search: searchQuery })
+                {hybridSearchQuery.trim() 
+                  ? t('products.stocksPage.messages.noProductsMatchSearch', { search: hybridSearchQuery })
                   : t('products.stocksPage.messages.noProductsMatchSearch', { search: selectedCategory })
                 }
               </p>
               <Button 
                 variant="outline" 
                 onClick={() => {
-                  setSearchQuery('');
+                  setHybridSearchQuery('');
                   setSelectedCategory(t('products.filters.allCategories'));
                 }}
               >
