@@ -123,11 +123,6 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
 
   // Sync local search state with Firebase search
   useEffect(() => {
-    console.log('🔍 AddSaleModal Search Sync:', {
-      productSearchQuery,
-      queryLength: productSearchQuery.length,
-      willTriggerFirebase: productSearchQuery.trim().length > 2
-    });
     setFirebaseSearchQuery(productSearchQuery);
   }, [productSearchQuery, setFirebaseSearchQuery]);
 
@@ -304,16 +299,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
   // Product options for react-select
   // Filter by stock availability - same logic as POS (global stock check)
   const availableProducts = useMemo(() => {
-    console.log('📦 AddSaleModal availableProducts calculation:', {
-      isLocationUserSelected,
-      productSearchQuery,
-      queryLength: productSearchQuery.trim().length,
-      willUseFirebase: productSearchQuery.trim().length > 2
-    });
-
     // If no location selected, don't show any products
     if (!isLocationUserSelected) {
-      console.log('❌ No location selected, returning empty array');
       return [];
     }
     
@@ -321,15 +308,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     // Same as POS implementation
     const productsToUse = productSearchQuery.trim().length > 2 ? searchedProducts : products;
     
-    console.log('📊 Products to use:', {
-      source: productSearchQuery.trim().length > 2 ? 'Firebase (searchedProducts)' : 'Local (products)',
-      productsCount: productsToUse?.length || 0,
-      searchedProductsCount: searchedProducts?.length || 0,
-      localProductsCount: products?.length || 0
-    });
-    
     if (!productsToUse) {
-      console.log('❌ No products to use, returning empty array');
       return [];
     }
     
@@ -341,33 +320,11 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
       return effectiveStock > 0;
     });
     
-    console.log('✅ Final filtered products:', {
-      count: filtered.length,
-      productNames: filtered.map(p => p.name),
-      note: 'Using global stock check like POS'
-    });
-    
     return filtered;
   }, [products, searchedProducts, stockMap, isLocationUserSelected, productSearchQuery]);
 
   const filteredProducts = availableProducts.slice(0, showAllProducts ? undefined : 10);
   
-  // Log Firebase index requirement when searching
-  useEffect(() => {
-    if (productSearchQuery.trim().length > 2) {
-      console.log('🔍 AddSaleModal Firebase Index Required:', {
-        message: 'Composite index needed for sales modal product search',
-        collection: 'products',
-        fields: [
-          { field: 'companyId', order: 'ASCENDING' },
-          { field: 'isAvailable', order: 'ASCENDING' },
-          { field: 'createdAt', order: 'DESCENDING' }
-        ],
-        note: 'This index is already used by searchProductsInFirebase'
-      });
-    }
-  }, [productSearchQuery]);
-
   const productOptions = availableProducts.map(product => ({
     label: (
       <div className="flex items-center space-x-2">

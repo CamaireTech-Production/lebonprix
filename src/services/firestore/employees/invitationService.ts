@@ -462,7 +462,6 @@ export const subscribeToPendingInvitations = (
 export const getPendingInvitationsByEmail = async (userEmail: string): Promise<Invitation[]> => {
   try {
     const normalizedEmail = normalizeEmail(userEmail);
-    console.log('🔍 Getting pending invitations for email:', normalizedEmail);
     
     const invitationsRef = collection(db, 'invitations');
     const q = query(
@@ -486,7 +485,6 @@ export const getPendingInvitationsByEmail = async (userEmail: string): Promise<I
       }
     });
     
-    console.log(`✅ Found ${invitations.length} pending invitations for ${normalizedEmail}`);
     return invitations;
   } catch (error) {
     console.error('❌ Error getting pending invitations by email:', error);

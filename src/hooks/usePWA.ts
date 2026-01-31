@@ -267,7 +267,6 @@ export const usePWA = () => {
     // Check for updates when window regains focus
     const handleFocus = () => {
       if (navigator.onLine && isMountedRef.current) {
-        console.log('[PWA] Window focused - checking for updates');
         checkForUpdate();
       }
     };
