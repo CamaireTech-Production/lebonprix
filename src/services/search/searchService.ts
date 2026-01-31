@@ -99,67 +99,56 @@ export const createSearchIndex = (product: {
 };
 
 /**
- * Search products in Firebase using indexed search
+ * Search products in Firebase - NEW APPROACH without searchIndex
+ * Gets all available products from Firebase and filters client-side
  */
 export const searchProductsInFirebase = async (companyId: string, query: string): Promise<Product[]> => {
   try {
-    // Check cache first
-    const cachedResults = SearchCacheManager.getCachedSearch(companyId, query);
-    if (cachedResults) {
-      return cachedResults;
-    }
-
-    const searchTerms = query.toLowerCase()
-      .split(' ')
-      .filter(term => term.length > 2)
-      .slice(0, 3); // Limit to 3 terms for performance
-
-    if (searchTerms.length === 0) {
+    const searchQuery = query.toLowerCase().trim();
+    
+    if (searchQuery.length < 3) {
       return [];
     }
 
-    // Create queries for each search term
-    const queries = searchTerms.map(term =>
-      firebaseQuery(
-        collection(db, 'products'),
-        where('companyId', '==', companyId),
-        where('searchIndex', 'array-contains', term),
-        where('isAvailable', '==', true),
-        orderBy('createdAt', 'desc'),
-        limit(100)
-      )
+    // Check cache first
+    const cachedResults = SearchCacheManager.getCachedSearch(companyId, query);
+    if (cachedResults && cachedResults.length > 0) {
+      return cachedResults;
+    }
+
+    // Get ALL available products for this company
+    // We filter client-side since products don't have searchIndex field
+    const productsQuery = firebaseQuery(
+      collection(db, 'products'),
+      where('companyId', '==', companyId),
+      where('isAvailable', '==', true),
+      orderBy('createdAt', 'desc'),
+      limit(500) // Get up to 500 products to search through
     );
 
-    // Execute queries in parallel
-    const snapshots = await Promise.all(queries.map(q => getDocs(q)));
+    const snapshot = await getDocs(productsQuery);
 
-    // Merge and deduplicate results
-    const allProducts = snapshots.flatMap(snapshot =>
-      snapshot.docs.map(doc => ({ 
-        id: doc.id, 
-        ...doc.data() as Omit<Product, 'id'>
-      }))
-    ) as Product[];
+    // Get all products from Firebase
+    const allProducts = snapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data() as Omit<Product, 'id'>
+    })) as Product[];
 
-    // Remove duplicates by ID
-    const uniqueProducts = Array.from(
-      new Map(allProducts.map(p => [p.id, p])).values()
-    );
-
-    // Apply client-side filtering for deleted products and exact matches
-    const finalResults = uniqueProducts.filter(product =>
+    // Client-side filtering for search query
+    const filteredResults = allProducts.filter(product =>
       product.isDeleted !== true &&
       (
-        product.name.toLowerCase().includes(query.toLowerCase()) ||
-        (product.reference && product.reference.toLowerCase().includes(query.toLowerCase())) ||
-        (product.barCode && product.barCode.toLowerCase().includes(query.toLowerCase()))
+        product.name.toLowerCase().includes(searchQuery) ||
+        (product.reference && product.reference.toLowerCase().includes(searchQuery)) ||
+        (product.barCode && product.barCode.toLowerCase().includes(searchQuery)) ||
+        (product.category && product.category.toLowerCase().includes(searchQuery))
       )
     );
 
     // Cache the results
-    SearchCacheManager.cacheSearch(companyId, query, finalResults);
+    SearchCacheManager.cacheSearch(companyId, query, filteredResults);
 
-    return finalResults;
+    return filteredResults;
   } catch (error) {
     logError('Error searching products in Firebase', error);
     return [];

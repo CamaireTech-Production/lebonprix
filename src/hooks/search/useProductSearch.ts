@@ -71,9 +71,6 @@ export const useProductSearch = ({
       return;
     }
 
-    // Always perform local search first for instant feedback
-    const localResults = performLocalSearch(debouncedQuery, localProducts);
-
     // Always trigger remote search for queries longer than 2 characters
     // This ensures we get ALL matching products from Firebase, not just loaded ones
     const shouldUseRemoteSearch = debouncedQuery.trim().length > 2;
@@ -100,6 +97,7 @@ export const useProductSearch = ({
     if (searchMode === 'hybrid') {
       // Combine local results with remote results (if available)
       const localResults = performLocalSearch(searchQuery, localProducts);
+      
       if (isSearching) {
         return localResults; // Show local results while remote search is in progress
       }
