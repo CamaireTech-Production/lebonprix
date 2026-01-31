@@ -35,7 +35,7 @@ interface ProductStockInfo {
 
 const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdded }) => {
   const { t } = useTranslation();
-  const { company, user } = useAuth();
+  const { company, user, isOwner } = useAuth();
   const { shops, loading: shopsLoading, error: shopsError } = useShops();
   const { warehouses, loading: warehousesLoading, error: warehousesError } = useWarehouses();
   
@@ -83,19 +83,21 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
   // Filter active shops/warehouses (for employees, owner/admin can see all)
   const getActiveShops = useCallback(() => {
     if (!shops) return [];
-    if (user?.isOwner || user?.role === 'admin') {
-      return shops; // Owner/admin can see all shops (including inactive)
+    // Owner can see all shops (including inactive)
+    if (isOwner) {
+      return shops;
     }
     return shops.filter(shop => shop.isActive !== false);
-  }, [shops, user]);
+  }, [shops, isOwner]);
 
   const getActiveWarehouses = useCallback(() => {
     if (!warehouses) return [];
-    if (user?.isOwner || user?.role === 'admin') {
-      return warehouses; // Owner/admin can see all warehouses (including inactive)
+    // Owner can see all warehouses (including inactive)
+    if (isOwner) {
+      return warehouses;
     }
     return warehouses.filter(warehouse => warehouse.isActive !== false);
-  }, [warehouses, user]);
+  }, [warehouses, isOwner]);
 
   const activeShops = getActiveShops();
   const activeWarehouses = getActiveWarehouses();
@@ -121,6 +123,11 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
 
   // Sync local search state with Firebase search
   useEffect(() => {
+    console.log('🔍 AddSaleModal Search Sync:', {
+      productSearchQuery,
+      queryLength: productSearchQuery.length,
+      willTriggerFirebase: productSearchQuery.trim().length > 2
+    });
     setFirebaseSearchQuery(productSearchQuery);
   }, [productSearchQuery, setFirebaseSearchQuery]);
 
@@ -295,37 +302,53 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
   }, [formData.products, formData.sourceType, formData.shopId, formData.warehouseId]);
 
   // Product options for react-select
-  // Filter by stock availability in selected location (similar to transfer modal)
+  // Filter by stock availability - same logic as POS (global stock check)
   const availableProducts = useMemo(() => {
+    console.log('📦 AddSaleModal availableProducts calculation:', {
+      isLocationUserSelected,
+      productSearchQuery,
+      queryLength: productSearchQuery.trim().length,
+      willUseFirebase: productSearchQuery.trim().length > 2
+    });
+
     // If no location selected, don't show any products
     if (!isLocationUserSelected) {
+      console.log('❌ No location selected, returning empty array');
       return [];
     }
     
     // Use Firebase search results for queries > 2 chars, otherwise use local products
+    // Same as POS implementation
     const productsToUse = productSearchQuery.trim().length > 2 ? searchedProducts : products;
     
-    // If a location is selected, only show products with stock in that location
-    if (formData.sourceType === 'shop' && formData.shopId) {
-      return Array.from(productsWithStock.values())
-        .map(({ product }) => product)
-        .filter(product => {
-          if (!product || product.isAvailable === false) return false;
-          // Check if product exists in search results
-          return productsToUse.some(p => p.id === product.id);
-        });
-    } else if (formData.sourceType === 'warehouse' && formData.warehouseId) {
-      return Array.from(productsWithStock.values())
-        .map(({ product }) => product)
-        .filter(product => {
-          if (!product || product.isAvailable === false) return false;
-          // Check if product exists in search results
-          return productsToUse.some(p => p.id === product.id);
-        });
+    console.log('📊 Products to use:', {
+      source: productSearchQuery.trim().length > 2 ? 'Firebase (searchedProducts)' : 'Local (products)',
+      productsCount: productsToUse?.length || 0,
+      searchedProductsCount: searchedProducts?.length || 0,
+      localProductsCount: products?.length || 0
+    });
+    
+    if (!productsToUse) {
+      console.log('❌ No products to use, returning empty array');
+      return [];
     }
-    // If no location selected, return empty array
-    return [];
-  }, [products, searchedProducts, productsWithStock, formData.sourceType, formData.shopId, formData.warehouseId, isLocationUserSelected, productSearchQuery]);
+    
+    // Filter by global stock availability - same as POS
+    const filtered = productsToUse.filter(product => {
+      if (!product || product.isAvailable === false) return false;
+      // Check global stock across all locations (same as POS)
+      const effectiveStock = getEffectiveProductStock(product, stockMap);
+      return effectiveStock > 0;
+    });
+    
+    console.log('✅ Final filtered products:', {
+      count: filtered.length,
+      productNames: filtered.map(p => p.name),
+      note: 'Using global stock check like POS'
+    });
+    
+    return filtered;
+  }, [products, searchedProducts, stockMap, isLocationUserSelected, productSearchQuery]);
 
   const filteredProducts = availableProducts.slice(0, showAllProducts ? undefined : 10);
   
