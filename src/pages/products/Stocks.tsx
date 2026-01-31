@@ -5,6 +5,7 @@ import { SkeletonStocks, Button, Input, Modal } from "@components/common";
 import { useInfiniteProducts } from '@hooks/data/useInfiniteProducts';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { useStockChanges, useSuppliers, useShops, useWarehouses } from '@hooks/data/useFirestore';
+import { useProductSearch } from '@hooks/search/useProductSearch';
 import ProductRestockModal from '../../components/products/ProductRestockModal';
 import UnifiedBatchAdjustmentModal from '../../components/products/UnifiedBatchAdjustmentModal';
 import BatchDeleteModal from '../../components/common/BatchDeleteModal';
@@ -79,8 +80,18 @@ const Stocks = () => {
   const { warehouses } = useWarehouses();
   const { canDelete } = usePermissionCheck(RESOURCES.PRODUCTS);
 
+  // Use Firebase search for products
+  const {
+    searchQuery,
+    setSearchQuery,
+    displayResults: searchedProducts,
+    isSearching
+  } = useProductSearch({
+    localProducts: products,
+    hasMoreProducts: hasMore
+  });
+
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
   
@@ -96,17 +107,10 @@ const Stocks = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [search]);
+  }, [searchQuery]);
 
-  const filteredProducts = useMemo(() => {
-    if (!search.trim()) return products;
-    const query = search.toLowerCase();
-    return products.filter(
-      (p) =>
-        p.name.toLowerCase().includes(query) ||
-        (p.reference && p.reference.toLowerCase().includes(query))
-    );
-  }, [products, search]);
+  // Use searched products from Firebase
+  const filteredProducts = searchedProducts;
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -205,7 +209,7 @@ const Stocks = () => {
 
   const handleModalSuccess = () => {
     // Clear search filter and reset pagination to ensure all products are visible after refresh
-    setSearch('');
+    setSearchQuery('');
     setPage(1);
     refresh();
     setRestockModalOpen(false);
@@ -323,8 +327,8 @@ const Stocks = () => {
         <div className="px-4 py-3 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="w-full sm:w-80">
             <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t('products.stocksPage.searchPlaceholder')}
               name="search"
             />
@@ -532,14 +536,14 @@ const Stocks = () => {
 
             {!loading && filteredProducts.length === 0 && (
               <div className="px-4 py-12 text-center">
-                {search.trim() ? (
+                {searchQuery.trim() ? (
                   <div className="flex flex-col items-center">
                     <Search className="h-12 w-12 text-gray-400 mb-4" />
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('products.stocksPage.messages.noProductsFound')}</h3>
                     <p className="text-sm text-gray-600 mb-4 max-w-md">
-                      {t('products.stocksPage.messages.noProductsMatchSearch', { search })}
+                      {t('products.stocksPage.messages.noProductsMatchSearch', { search: searchQuery })}
                     </p>
-                    <Button variant="outline" onClick={() => setSearch('')}>
+                    <Button variant="outline" onClick={() => setSearchQuery('')}>
                       {t('products.stocksPage.messages.clearSearch')}
                     </Button>
                   </div>

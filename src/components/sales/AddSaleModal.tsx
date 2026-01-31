@@ -2,7 +2,7 @@ import { useAddSaleForm } from '@hooks/forms/useAddSaleForm';
 import { Modal, ModalFooter, Input, PriceInput, Button, ImageWithSkeleton, LocationAutocomplete, Select as CommonSelect } from '@components/common';
 import Select from 'react-select';
 import { Plus, Trash2, Info, ChevronDown, ChevronUp} from 'lucide-react';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { logError } from '@utils/core/logger';
 import { formatPrice } from '@utils/formatting/formatPrice';
@@ -16,6 +16,7 @@ import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
 import { useShops, useWarehouses } from '@hooks/data/useFirestore';
 import { getDefaultShop } from '@services/firestore/shops/shopService';
+import { useProductSearch } from '@hooks/search/useProductSearch';
 
 const LOW_STOCK_THRESHOLD = 5;
 
@@ -80,7 +81,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
   // No default shop initialization - user must explicitly select
 
   // Filter active shops/warehouses (for employees, owner/admin can see all)
-  const activeShops = useMemo(() => {
+  const getActiveShops = useCallback(() => {
     if (!shops) return [];
     if (user?.isOwner || user?.role === 'admin') {
       return shops; // Owner/admin can see all shops (including inactive)
@@ -88,7 +89,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     return shops.filter(shop => shop.isActive !== false);
   }, [shops, user]);
 
-  const activeWarehouses = useMemo(() => {
+  const getActiveWarehouses = useCallback(() => {
     if (!warehouses) return [];
     if (user?.isOwner || user?.role === 'admin') {
       return warehouses; // Owner/admin can see all warehouses (including inactive)
@@ -96,7 +97,17 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     return warehouses.filter(warehouse => warehouse.isActive !== false);
   }, [warehouses, user]);
 
+  const activeShops = getActiveShops();
+  const activeWarehouses = getActiveWarehouses();
 
+  // Use Firebase search for products
+  const {
+    setSearchQuery: setFirebaseSearchQuery,
+    displayResults: searchedProducts
+  } = useProductSearch({
+    localProducts: products,
+    hasMoreProducts: true // Always search Firebase for sales
+  });
 
   const [viewedSale, setViewedSale] = useState<Sale | null>(null);
   const [productSearchQuery, setProductSearchQuery] = useState('');
@@ -108,7 +119,10 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
   const [loadingProductsWithStock, setLoadingProductsWithStock] = useState(false);
   const [isLocationUserSelected, setIsLocationUserSelected] = useState(false);
 
-
+  // Sync local search state with Firebase search
+  useEffect(() => {
+    setFirebaseSearchQuery(productSearchQuery);
+  }, [productSearchQuery, setFirebaseSearchQuery]);
 
   // Load stock batch information for products (location-aware)
   const loadProductStockInfo = async (productId: string) => {
@@ -277,38 +291,60 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
         loadProductStockInfo(formProduct.product.id);
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.products, formData.sourceType, formData.shopId, formData.warehouseId]);
-
-
 
   // Product options for react-select
   // Filter by stock availability in selected location (similar to transfer modal)
   const availableProducts = useMemo(() => {
-    // Only filter by location if user has explicitly selected a location
+    // If no location selected, don't show any products
     if (!isLocationUserSelected) {
-      // If no location is user-selected, return empty array (products will show message to select location first)
       return [];
     }
+    
+    // Use Firebase search results for queries > 2 chars, otherwise use local products
+    const productsToUse = productSearchQuery.trim().length > 2 ? searchedProducts : products;
     
     // If a location is selected, only show products with stock in that location
     if (formData.sourceType === 'shop' && formData.shopId) {
       return Array.from(productsWithStock.values())
         .map(({ product }) => product)
-        .filter(product => product && product.isAvailable !== false);
+        .filter(product => {
+          if (!product || product.isAvailable === false) return false;
+          // Check if product exists in search results
+          return productsToUse.some(p => p.id === product.id);
+        });
     } else if (formData.sourceType === 'warehouse' && formData.warehouseId) {
       return Array.from(productsWithStock.values())
         .map(({ product }) => product)
-        .filter(product => product && product.isAvailable !== false);
+        .filter(product => {
+          if (!product || product.isAvailable === false) return false;
+          // Check if product exists in search results
+          return productsToUse.some(p => p.id === product.id);
+        });
     }
     // If no location selected, return empty array
     return [];
-  }, [products, productsWithStock, formData.sourceType, formData.shopId, formData.warehouseId, isLocationUserSelected]);
+  }, [products, searchedProducts, productsWithStock, formData.sourceType, formData.shopId, formData.warehouseId, isLocationUserSelected, productSearchQuery]);
 
-  const filteredProducts = (productSearchQuery
-    ? availableProducts.filter(product =>
-        product.name.toLowerCase().includes(productSearchQuery.toLowerCase())
-      )
-    : availableProducts).slice(0, showAllProducts ? undefined : 10);
+  const filteredProducts = availableProducts.slice(0, showAllProducts ? undefined : 10);
+  
+  // Log Firebase index requirement when searching
+  useEffect(() => {
+    if (productSearchQuery.trim().length > 2) {
+      console.log('🔍 AddSaleModal Firebase Index Required:', {
+        message: 'Composite index needed for sales modal product search',
+        collection: 'products',
+        fields: [
+          { field: 'companyId', order: 'ASCENDING' },
+          { field: 'isAvailable', order: 'ASCENDING' },
+          { field: 'createdAt', order: 'DESCENDING' }
+        ],
+        note: 'This index is already used by searchProductsInFirebase'
+      });
+    }
+  }, [productSearchQuery]);
+
   const productOptions = availableProducts.map(product => ({
     label: (
       <div className="flex items-center space-x-2">
