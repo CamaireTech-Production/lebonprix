@@ -17,6 +17,7 @@ import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
 import { useCheckoutSettings } from '@hooks/data/useCheckoutSettings';
 import type { POSPaymentData } from '../../components/pos/POSPaymentModal';
+import { useProductSearch } from '@hooks/search/useProductSearch';
 
 export interface CartItem {
   product: Product;
@@ -55,6 +56,15 @@ export function usePOS(shopId?: string) {
   const { batches: allBatches } = useAllStockBatches();
   const { settings: checkoutSettings } = useCheckoutSettings();
 
+  // Use Firebase search for products
+  const {
+    setSearchQuery: setFirebaseSearchQuery,
+    displayResults: searchedProducts
+  } = useProductSearch({
+    localProducts: products,
+    hasMoreProducts: true // Always search Firebase for POS
+  });
+
   // Get default inventory method from settings (lowercase for form)
   const getDefaultInventoryMethod = (): 'fifo' | 'lifo' | 'cmup' => {
     const defaultMethod = checkoutSettings?.defaultInventoryMethod || 'FIFO';
@@ -71,6 +81,8 @@ export function usePOS(shopId?: string) {
     inventoryMethod: getDefaultInventoryMethod(),
     applyTVA: false,
     tvaRate: 19.25,
+    shopId: shopId || '',
+    sourceType: 'shop'
   });
 
   // Initialize default shop if not provided
@@ -126,33 +138,45 @@ export function usePOS(shopId?: string) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const customerInputRef = useRef<HTMLInputElement>(null);
 
-  // Filter products based on search and category, using effective stock
+  // Sync internal search state with Firebase search
+  useEffect(() => {
+    setFirebaseSearchQuery(state.searchQuery);
+  }, [state.searchQuery, setFirebaseSearchQuery]);
+
+  // Filter products based on search (from Firebase) and category, using effective stock
   const filteredProducts = useMemo(() => {
-    if (!products) return [];
+    // Use Firebase search results for queries > 2 chars, otherwise use local products
+    const productsToFilter = state.searchQuery.trim().length > 2 ? searchedProducts : products;
     
-    let filtered = products.filter(p => {
+    if (!productsToFilter) return [];
+    
+    let filtered = productsToFilter.filter(p => {
       if (!p.isAvailable) return false;
       const effectiveStock = getEffectiveProductStock(p, stockMap);
       return effectiveStock > 0;
     });
-    
-    // Filter by search query
-    if (state.searchQuery) {
-      const query = state.searchQuery.toLowerCase();
-      filtered = filtered.filter(p => 
-        (p.name || '').toLowerCase().includes(query) ||
-        (p.reference || '').toLowerCase().includes(query) ||
-        (p.barCode && p.barCode.includes(query))
-      );
-    }
     
     // Filter by category
     if (state.selectedCategory) {
       filtered = filtered.filter(p => p.category === state.selectedCategory);
     }
     
+    // Log Firebase index requirement
+    if (state.searchQuery.trim().length > 2) {
+      console.log('🔍 POS Firebase Index Required:', {
+        message: 'Composite index needed for POS product search',
+        collection: 'products',
+        fields: [
+          { field: 'companyId', order: 'ASCENDING' },
+          { field: 'isAvailable', order: 'ASCENDING' },
+          { field: 'createdAt', order: 'DESCENDING' }
+        ],
+        note: 'This index is already used by searchProductsInFirebase'
+      });
+    }
+    
     return filtered;
-  }, [products, stockMap, state.searchQuery, state.selectedCategory]);
+  }, [products, searchedProducts, stockMap, state.searchQuery, state.selectedCategory]);
 
   // Calculate cart totals
   const cartTotals = useMemo(() => {

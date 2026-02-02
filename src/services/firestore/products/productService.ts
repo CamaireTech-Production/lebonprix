@@ -20,6 +20,7 @@ import type { Product, Sale } from '../../../types/models';
 import { createAuditLog } from '../shared';
 import { updateCategoryProductCount } from '../categories/categoryService';
 import { addSupplierDebt } from '../suppliers/supplierDebtService';
+import { createSearchIndex } from '@services/search/searchService';
 
 // Import createStockChange from firestore.ts temporarily (will be moved to stock/ later)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -130,6 +131,14 @@ export const createProduct = async (
       }
     });
 
+    // Create search index for the product
+    const searchIndex = createSearchIndex({
+      name: data.name,
+      reference: data.reference,
+      barCode: barCode,
+      category: data.category
+    });
+
     const productData: any = {
       ...cleanData,
       barCode,
@@ -137,6 +146,7 @@ export const createProduct = async (
       isAvailable: true,
       inventoryMethod: (data as any).inventoryMethod || 'FIFO',
       enableBatchTracking: (data as any).enableBatchTracking !== false,
+      searchIndex, // Add search index for efficient searching
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
@@ -202,17 +212,11 @@ export const createProduct = async (
           'creation',
           userId,
           companyId,
-          'product',
           supplierInfo.supplierId,
           supplierInfo.isOwnPurchase,
           supplierInfo.isCredit,
           supplierInfo.costPrice,
-          stockBatchRef.id,
-          undefined,
-          undefined,
-          locationInfo?.locationType,
-          locationInfo?.shopId,
-          locationInfo?.warehouseId
+          stockBatchRef.id
         );
 
         // Note: Supplier debt will be created after batch commit (see below)
@@ -407,6 +411,24 @@ export const updateProduct = async (
     if (Object.keys(data).length > 0) {
       const { stock: _, ...dataWithoutStock } = data;
       Object.assign(updateFields, stockChange !== undefined ? dataWithoutStock : data);
+    }
+
+    // Update search index if searchable fields changed
+    const searchableFieldsChanged = 
+      data.name !== undefined || 
+      data.reference !== undefined || 
+      data.barCode !== undefined || 
+      data.category !== undefined;
+    
+    if (searchableFieldsChanged) {
+      const updatedProduct = { ...currentProduct, ...data };
+      const searchIndex = createSearchIndex({
+        name: updatedProduct.name,
+        reference: updatedProduct.reference,
+        barCode: updatedProduct.barCode,
+        category: updatedProduct.category
+      });
+      updateFields.searchIndex = searchIndex;
     }
 
     updateFields.updatedAt = serverTimestamp();

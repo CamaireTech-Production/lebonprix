@@ -11,7 +11,7 @@ import MatiereFormModal from '../../components/magasin/MatiereFormModal';
 import MatiereReportModal from '../../components/reports/MatiereReportModal';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { getStockBadgeVariant } from '@utils/magasin/stockBadge';
-import { PermissionButton, usePermissionCheck } from '@components/permissions';
+import { usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
 import type { Matiere } from '../../types/models';
 
@@ -22,7 +22,7 @@ const Matieres = () => {
   const { batches: allStockBatches } = useAllStockBatches('matiere');
   const { suppliers } = useSuppliers();
   const { company } = useAuth();
-  const { canEdit, canDelete } = usePermissionCheck(RESOURCES.MAGASIN);
+  const { canEdit, canDelete, canCreate } = usePermissionCheck(RESOURCES.MAGASIN);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -135,9 +135,11 @@ const Matieres = () => {
           >
             Générer un rapport
           </Button>
-          <Button onClick={() => setIsAddModalOpen(true)} icon={<Plus size={20} />}>
-            Ajouter une matière
-          </Button>
+          {canCreate && (
+            <Button onClick={() => setIsAddModalOpen(true)} icon={<Plus size={20} />}>
+              Ajouter une matière
+            </Button>
+          )}
         </div>
       </div>
 
@@ -196,7 +198,7 @@ const Matieres = () => {
                 ? 'Essayez de modifier vos critères de recherche'
                 : 'Commencez par ajouter votre première matière première'}
             </p>
-            {!searchQuery && selectedCategory === 'All' && (
+            {!searchQuery && selectedCategory === 'All' && canCreate && (
               <Button onClick={() => setIsAddModalOpen(true)} icon={<Plus size={20} />}>
                 Ajouter une matière
               </Button>
@@ -242,7 +244,7 @@ const Matieres = () => {
                     <div className="mt-auto">
                       <div className="flex flex-wrap gap-2 mb-3">
                         <Badge variant="info">
-                          {getCategoryName(matiere.refCategorie)}
+                          {getCategoryName(matiere.refCategorie || '')}
                         </Badge>
                         <Badge variant="info">
                           {matiere.unit}
@@ -320,7 +322,7 @@ const Matieres = () => {
                     )}
                     <div className="flex flex-wrap gap-2 mb-2">
                       <Badge variant="info">
-                        {getCategoryName(matiere.refCategorie)}
+                        {getCategoryName(matiere.refCategorie || '')}
                       </Badge>
                       {matiere.unit && (
                         <Badge variant="info">

@@ -43,7 +43,6 @@ export const StockMonitoringProvider: React.FC<{ children: React.ReactNode }> = 
       });
     } else if (permission === 'default') {
       // Permission not yet requested - will be requested when user interacts
-      console.log('[FCM] Permission not yet requested');
     }
 
     // Set up foreground message handler
