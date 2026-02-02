@@ -34,6 +34,141 @@ const getBackendApiUrlFresh = (): string => {
   return getBackendApiUrl();
 };
 
+export interface SendInvitationEmailParams {
+  toEmail: string;
+  toName: string;
+  companyName: string;
+  inviterName: string;
+  role: string;
+  inviteLink: string;
+  expiresInDays?: number;
+  companyLogo?: string;
+}
+
+export interface SendInvitationEmailResult {
+  success: boolean;
+  messageId?: string;
+  error?: string;
+}
+
+/**
+ * Send invitation email via backend API
+ * @param params - Email parameters
+ * @returns Result of the email sending operation
+ */
+export const sendInvitationEmail = async (
+  params: SendInvitationEmailParams
+): Promise<SendInvitationEmailResult> => {
+  try {
+    // Get backend URL (now using domain with SSL)
+    const apiUrl = getBackendApiUrlFresh();
+    const endpointUrl = `${apiUrl}/api/users/send-invitation`;
+    
+    // Debug log
+    console.log('🌐 [FINAL] Making invitation API request to:', endpointUrl);
+    console.log('🌐 [FINAL] Protocol:', endpointUrl.startsWith('https://') ? 'HTTPS ✅' : endpointUrl.startsWith('http://') ? 'HTTP' : 'UNKNOWN');
+    
+    const response = await fetch(endpointUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // Add API key if configured
+        ...(import.meta.env.VITE_BACKEND_API_KEY && {
+          'x-api-key': import.meta.env.VITE_BACKEND_API_KEY
+        })
+      },
+      body: JSON.stringify(params)
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data.error || 'Erreur lors de l\'envoi de l\'email d\'invitation'
+      };
+    }
+
+    return {
+      success: true,
+      messageId: data.messageId
+    };
+  } catch (error: any) {
+    console.error('Error sending invitation email:', error);
+    return {
+      success: false,
+      error: error.message || 'Erreur de connexion au serveur'
+    };
+  }
+};
+
+export interface SendCompanyAccessNotificationParams {
+  toEmail: string;
+  toName: string;
+  companyName: string;
+  inviterName: string;
+  role: string;
+  inviteLink: string;
+  companyLogo?: string;
+}
+
+export interface SendCompanyAccessNotificationResult {
+  success: boolean;
+  messageId?: string;
+  error?: string;
+}
+
+/**
+ * Send company access notification email via backend API
+ * @param params - Email parameters
+ * @returns Result of the email sending operation
+ */
+export const sendCompanyAccessNotification = async (
+  params: SendCompanyAccessNotificationParams
+): Promise<SendCompanyAccessNotificationResult> => {
+  try {
+    // Get backend URL (now using domain with SSL)
+    const apiUrl = getBackendApiUrlFresh();
+    const endpointUrl = `${apiUrl}/api/users/send-company-access-notification`;
+    
+    // Debug log
+    console.log('🌐 [FINAL] Making company access notification API request to:', endpointUrl);
+    console.log('🌐 [FINAL] Protocol:', endpointUrl.startsWith('https://') ? 'HTTPS ✅' : endpointUrl.startsWith('http://') ? 'HTTP' : 'UNKNOWN');
+    
+    const response = await fetch(endpointUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // Add API key if configured
+        ...(import.meta.env.VITE_BACKEND_API_KEY && {
+          'x-api-key': import.meta.env.VITE_BACKEND_API_KEY
+        })
+      },
+      body: JSON.stringify(params)
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data.error || 'Erreur lors de l\'envoi de la notification d\'accès'
+      };
+    }
+
+    return {
+      success: true,
+      messageId: data.messageId
+    };
+  } catch (error: any) {
+    console.error('Error sending company access notification:', error);
+    return {
+      success: false,
+      error: error.message || 'Erreur de connexion au serveur'
+    };
+  }
+};
+
 export interface SendCredentialsEmailParams {
   toEmail: string;
   toName: string;

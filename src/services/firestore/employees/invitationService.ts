@@ -16,7 +16,7 @@ import { db } from '../../core/firebase';
 import { Invitation, UserCompanyRef } from '../../../types/models';
 import { getUserById } from '../../utilities/userService';
 import { addUserToCompany } from '../companies/userCompanySyncService';
-import { sendInvitationEmail, sendCompanyAccessNotification } from '../../utilities/emailService';
+import { sendInvitationEmail, sendCompanyAccessNotification } from '@services/backend/emailService';
 import { getTemplateById } from './permissionTemplateService';
 import { getEffectiveBaseRole } from '@utils/business/permissionUtils';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
@@ -45,18 +45,6 @@ const normalizeEmail = (email: string | undefined | null): string => {
   }
   
   return trimmedEmail;
-};
-
-/**
- * Format display name from username
- * @param username - Username (can be undefined, null, or empty)
- * @returns Formatted username, or "Utilisateur" if empty
- */
-const formatDisplayName = (username?: string | null): string => {
-  if (username && username.trim()) {
-    return username.trim();
-  }
-  return 'Utilisateur';
 };
 
 /**
@@ -125,7 +113,7 @@ export const getUserByEmail = async (email: string, companyId?: string): Promise
       return { type: 'has_pending_invitation', user: userData, invitation: invitationData };
     }
     
-    console.log('✅ User found:', userData.firstname, userData.lastname);
+    console.log('✅ User found:', userData.username);
     return { type: 'found', user: userData };
   } catch (error) {
     console.error('❌ Error searching for user by email:', error);
@@ -222,13 +210,13 @@ export const sendInvitationEmailToUser = async (invitation: Invitation) => {
     const inviteLink = getInvitationLink(invitation.id);
     
     const emailData = {
-      to_email: invitation.email,
-      to_name: invitation.email.split('@')[0], // Use email username as display name
-      company_name: invitation.companyName,
-      inviter_name: invitation.invitedByName,
+      toEmail: invitation.email,
+      toName: invitation.email.split('@')[0], // Use email username as display name
+      companyName: invitation.companyName,
+      inviterName: invitation.invitedByName,
       role: baseRole,
-      invite_link: inviteLink,
-      expires_in_days: 7
+      inviteLink: inviteLink,
+      expiresInDays: 7
     };
     
     const result = await sendInvitationEmail(emailData);
@@ -590,13 +578,12 @@ export const handleExistingUserInvitation = async (
     
     // Send notification email
     const emailData = {
-      to_email: existingUser.email,
-      to_name: existingUser.username || existingUser.email.split('@')[0],
-      company_name: companyName,
-      inviter_name: inviterData.name,
+      toEmail: existingUser.email,
+      toName: existingUser.username || existingUser.email.split('@')[0],
+      companyName: companyName,
+      inviterName: inviterData.name,
       role: baseRole,
-      invite_link: `${window.location.origin}/company/${companyId}/dashboard`,
-      expires_in_days: 0
+      inviteLink: `${window.location.origin}/company/${companyId}/dashboard`
     };
     
     await sendCompanyAccessNotification(emailData);

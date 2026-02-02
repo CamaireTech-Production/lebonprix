@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Card, Button } from '@components/common';
+import ConfirmationModal from '@components/common/ConfirmationModal';
 import { cancelInvitation, sendInvitationEmailToUser, getInvitationLink } from '@services/firestore/employees/invitationService';
 import { getTemplateById } from '@services/firestore/employees/permissionTemplateService';
 import { formatDistanceToNow } from 'date-fns';
@@ -18,6 +19,8 @@ const PendingInvitationsList = ({ invitations, onInvitationCancelled }: PendingI
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [templates, setTemplates] = useState<Record<string, PermissionTemplate>>({});
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [invitationToDelete, setInvitationToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     // Load templates for all invitations
@@ -43,17 +46,25 @@ const PendingInvitationsList = ({ invitations, onInvitationCancelled }: PendingI
     }
   }, [invitations]);
 
-  const handleCancelInvitation = async (invitationId: string) => {
-    if (!confirm('Are you sure you want to cancel this invitation?')) return;
+  const handleCancelInvitation = (invitationId: string) => {
+    setInvitationToDelete(invitationId);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmCancelInvitation = async () => {
+    if (!invitationToDelete) return;
     
-    setCancellingId(invitationId);
+    setCancellingId(invitationToDelete);
     try {
-      await cancelInvitation(invitationId);
+      await cancelInvitation(invitationToDelete);
       onInvitationCancelled();
+      showSuccessToast('Invitation cancelled successfully');
     } catch (error) {
       console.error('Error cancelling invitation:', error);
+      showErrorToast('Failed to cancel invitation');
     } finally {
       setCancellingId(null);
+      setInvitationToDelete(null);
     }
   };
 
@@ -228,6 +239,20 @@ const PendingInvitationsList = ({ invitations, onInvitationCancelled }: PendingI
           })}
         </div>
       </div>
+      
+      <ConfirmationModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setInvitationToDelete(null);
+        }}
+        onConfirm={confirmCancelInvitation}
+        title="Cancel Invitation"
+        message="Are you sure you want to cancel this invitation? This action cannot be undone and the user will no longer be able to accept this invitation."
+        confirmText="Cancel Invitation"
+        cancelText="Keep Invitation"
+        type="danger"
+      />
     </Card>
   );
 };
