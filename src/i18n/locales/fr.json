@@ -3072,5 +3072,20 @@
       "stockLow": "Stock faible",
       "stockRupture": "Rupture de stock"
     }
+  },
+  "profile": {
+    "title": "Profil",
+    "username": "Nom d'utilisateur",
+    "email": "Email",
+    "phone": "Téléphone",
+    "role": "Rôle",
+    "birthday": "Date d'anniversaire",
+    "accountInfo": "Informations du compte",
+    "memberSince": "Membre depuis",
+    "lastLogin": "Dernière connexion",
+    "status": "Statut",
+    "active": "Actif",
+    "companyInfo": "Informations de l'entreprise",
+    "company": "Entreprise"
   }
-} 
+}
