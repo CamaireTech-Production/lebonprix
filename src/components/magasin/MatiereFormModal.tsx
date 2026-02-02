@@ -159,20 +159,23 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
       return;
     }
 
-    // Validation - Only name, price, and stock are required
+    // Validation
     if (!formData.name.trim()) {
       showErrorToast('Le nom est requis');
       return;
     }
 
-    if (!formData.costPrice || parseFloat(formData.costPrice) < 0) {
-      showErrorToast('Le prix d\'achat est requis et doit être positif');
-      return;
-    }
+    // In create mode, validate cost price and initial stock
+    if (!matiere) {
+      if (!formData.costPrice || parseFloat(formData.costPrice) < 0) {
+        showErrorToast('Le prix d\'achat est requis et doit être positif');
+        return;
+      }
 
-    if (!formData.initialStock || parseFloat(formData.initialStock) < 0) {
-      showErrorToast('Le stock initial est requis et doit être positif');
-      return;
+      if (!formData.initialStock || parseFloat(formData.initialStock) < 0) {
+        showErrorToast('Le stock initial est requis et doit être positif');
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -203,11 +206,10 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
       imagePaths = [...formData.imagePaths.filter((_, idx) => typeof formData.images[idx] === 'string'), ...imagePaths];
 
       if (matiere) {
-        // Edit mode
+        // Edit mode - only update basic info (no cost price or stock)
         const updateData: any = {
           name: formData.name.trim(),
           refCategorie: formData.refCategorie,
-          costPrice: formData.costPrice ? parseFloat(formData.costPrice) : 0,
           images: imageUrls,
           imagePaths: imagePaths
         };
@@ -343,16 +345,18 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
           />
         </div>
 
-        {/* Cost Price */}
-        <PriceInput
-          label="Prix d'achat (XAF) *"
-          name="costPrice"
-          value={formData.costPrice}
-          onChange={(e) => handleInputChange({ target: { name: 'costPrice', value: e.target.value } } as any)}
-          placeholder="0"
-          allowDecimals={true}
-          required
-        />
+        {/* Cost Price (only in create mode) */}
+        {!matiere && (
+          <PriceInput
+            label="Prix d'achat (XAF) *"
+            name="costPrice"
+            value={formData.costPrice}
+            onChange={(e) => handleInputChange({ target: { name: 'costPrice', value: e.target.value } } as any)}
+            placeholder="0"
+            allowDecimals={true}
+            required
+          />
+        )}
 
         {/* Initial Stock (only in create mode) */}
         {!matiere && (

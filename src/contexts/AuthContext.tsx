@@ -163,7 +163,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       isSigningInRef.current = false;
-      console.log('[AuthContext] onAuthStateChanged fired:', { user });
       setUser(user);
       if (user) {
         // Detect if this is a first login/signup (not a page refresh or token refresh)
@@ -174,7 +173,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           sessionStorage.setItem(sessionKey, 'true');
         }
         isInitialLoginRef.current = isFirstLogin;
-        console.log('[AuthContext] User detected. isFirstLogin:', isFirstLogin, 'isInitialLoginRef:', isInitialLoginRef.current, 'sessionKey:', sessionKey);
         try {
           await loadUserAndCompanyDataInBackground(user.uid);
         } catch (error) {
@@ -195,12 +193,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             sessionStorage.removeItem(key);
           }
         });
-        console.log('[AuthContext] User is null. Cleared session and first login flags.');
       }
     });
     return unsubscribe;
   }, []);
 
+  // Écouter les changements dans users.companies[] pour mettre à jour le rôle effectif
   // 🔄 Écouter les changements dans users.companies[] pour mettre à jour le rôle effectif
   useEffect(() => {
     if (!user?.uid || !company?.id) return;
@@ -272,17 +270,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  // 🚀 INSTANT user and company data loading from localStorage with background sync
+  // INSTANT user and company data loading from localStorage with background sync
   const loadUserAndCompanyDataInBackground = async (userId: string) => {
     setCompanyLoading(true);
-    console.log('[AuthContext] loadUserAndCompanyDataInBackground START', { userId, isInitialLogin: isInitialLoginRef.current });
     try {
       let userData = await getUserById(userId);
       if (!userData) {
         await new Promise(resolve => setTimeout(resolve, 500));
         userData = await getUserById(userId);
       }
-      console.log('[AuthContext] userData loaded:', userData);
       if (userData) {
         setUserCompanies(userData.companies || []);
         const currentUser = auth.currentUser;
@@ -304,14 +300,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               company.role === 'owner' || company.role === 'admin'
             );
             if (ownerOrAdminCompany) {
-              console.log('[AuthContext] Navigating to owner/admin dashboard:', ownerOrAdminCompany.companyId);
               navigate(`/company/${ownerOrAdminCompany.companyId}/dashboard`);
             } else {
-              console.log('[AuthContext] Navigating to companies listing for employee:', userId);
               navigate(`/companies/me/${userId}`);
             }
           } else {
-            console.log('[AuthContext] Navigating to mode-selection for new user:', userId);
             navigate('/mode-selection');
           }
           isInitialLoginRef.current = false;
@@ -330,14 +323,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                     company.role === 'owner' || company.role === 'admin'
                   );
                   if (ownerOrAdminCompany) {
-                    console.log('[AuthContext] Navigating to owner/admin dashboard after migration:', ownerOrAdminCompany.companyId);
                     navigate(`/company/${ownerOrAdminCompany.companyId}/dashboard`);
                   } else {
-                    console.log('[AuthContext] Navigating to companies listing for employee after migration:', userId);
                     navigate(`/companies/me/${userId}`);
                   }
                 } else {
-                  console.log('[AuthContext] Navigating to mode-selection after migration:', userId);
                   navigate('/mode-selection');
                 }
                 isInitialLoginRef.current = false;
@@ -345,14 +335,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             }
           } catch (migrationError) {
             if (isInitialLoginRef.current) {
-              console.log('[AuthContext] Navigating to mode-selection after migration error:', userId);
               navigate('/mode-selection');
               isInitialLoginRef.current = false;
             }
           }
         } else {
           if (isInitialLoginRef.current) {
-            console.log('[AuthContext] Navigating to mode-selection for new user (no userData):', userId);
             navigate('/mode-selection');
             isInitialLoginRef.current = false;
           }
@@ -364,7 +352,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     } finally {
       setCompanyLoading(false);
       setLoading(false);
-      console.log('[AuthContext] loadUserAndCompanyDataInBackground END', { userId, isInitialLogin: isInitialLoginRef.current });
     }
   };
 
