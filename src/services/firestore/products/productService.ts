@@ -74,6 +74,30 @@ export const subscribeToProducts = (companyId: string, callback: (products: Prod
   });
 };
 
+// New subscription for sales contexts - includes deleted/unavailable products
+export const subscribeToProductsForSales = (companyId: string, callback: (products: Product[]) => void, limitCount?: number): (() => void) => {
+  const defaultLimit = 200; // Higher limit for sales contexts to include historical products
+  const appliedLimit = limitCount || defaultLimit;
+  const q = query(
+    collection(db, 'products'),
+    where('companyId', '==', companyId),
+    orderBy('createdAt', 'desc'),
+    limit(appliedLimit)
+  );
+
+  // Track the subscription
+  trackRead('products', 'onSnapshot', undefined, appliedLimit);
+
+  return onSnapshot(q, (snapshot) => {
+    const products = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Product[];
+    // Include ALL products for sales contexts - no filtering
+    callback(products);
+  });
+};
+
 // ============================================================================
 // PRODUCT CRUD OPERATIONS
 // ============================================================================
