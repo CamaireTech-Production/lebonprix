@@ -25,7 +25,7 @@ import { createAuditLog } from '../shared';
 // Temporary import from firestore.ts - will be moved to finance/ later
 const syncFinanceEntryWithExpense = async (expense: Expense) => {
   const { logWarning } = await import('@utils/core/logger');
-  
+
   if (!expense || !expense.id || !expense.userId || !expense.companyId) {
     logWarning('syncFinanceEntryWithExpense: Invalid expense object received, skipping sync');
     return;
@@ -33,7 +33,7 @@ const syncFinanceEntryWithExpense = async (expense: Expense) => {
 
   const q = query(collection(db, 'finances'), where('sourceType', '==', 'expense'), where('sourceId', '==', expense.id));
   const { createFinanceEntry, updateFinanceEntry } = await import('../firestore');
-  
+
   const entry: any = {
     userId: expense.userId,
     companyId: expense.companyId,
@@ -45,7 +45,7 @@ const syncFinanceEntryWithExpense = async (expense: Expense) => {
     date: expense.date || expense.createdAt,
     isDeleted: expense.isAvailable === false,
   };
-  
+
   const snap = await getDocs(q);
   if (snap.empty) {
     await createFinanceEntry(entry);
@@ -66,7 +66,7 @@ export const subscribeToExpenses = (companyId: string, callback: (expenses: Expe
     orderBy('createdAt', 'desc'),
     limit(100)
   );
-  
+
   return onSnapshot(q, (snapshot) => {
     const expenses = snapshot.docs.map(doc => ({
       id: doc.id,
@@ -85,7 +85,7 @@ export const createExpense = async (
   companyId: string,
   createdBy?: import('../../../types/models').EmployeeRef | null
 ): Promise<Expense> => {
-  
+
   let transactionDate: any;
   if (data.date) {
     if (data.date instanceof Date) {
@@ -98,7 +98,7 @@ export const createExpense = async (
   } else {
     transactionDate = serverTimestamp();
   }
-  
+
   const expenseData: any = {
     ...data,
     date: transactionDate,
@@ -107,12 +107,24 @@ export const createExpense = async (
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
-  
+
   if (createdBy) {
     expenseData.createdBy = createdBy;
   }
-  
+
   const expenseRef = await addDoc(collection(db, 'expenses'), expenseData);
+
+  // Create audit log
+  const batch = writeBatch(db);
+  createAuditLog(
+    batch,
+    'create',
+    'expense',
+    expenseRef.id,
+    expenseData,
+    createdBy ? createdBy.id : (data.userId || companyId)
+  );
+  await batch.commit();
 
   const now = Date.now() / 1000;
   return {
@@ -134,16 +146,16 @@ export const updateExpense = async (
 ): Promise<void> => {
   const expenseRef = doc(db, 'expenses', id);
   const expenseSnap = await getDoc(expenseRef);
-  
+
   if (!expenseSnap.exists()) {
     throw new Error('Expense not found');
   }
 
   const expense = expenseSnap.data() as Expense;
-  
+
   const expenseCompanyId = expense.companyId;
   const expenseUserId = expense.userId;
-  
+
   if (expenseCompanyId && expenseCompanyId !== companyId) {
     if (data.userId && expenseUserId && data.userId === expenseUserId) {
       devLog('Migrating expense to new company');
@@ -151,19 +163,19 @@ export const updateExpense = async (
       throw new Error('Unauthorized: Expense belongs to different company');
     }
   }
-  
+
   if (!expenseCompanyId && data.userId && expenseUserId && data.userId !== expenseUserId) {
     throw new Error('Unauthorized: Cannot change expense owner');
   }
-  
+
   const userId = expense.userId || data.userId || companyId;
-  
+
   const updateData: any = {
     ...data,
     companyId: companyId,
     updatedAt: serverTimestamp()
   };
-  
+
   if (data.date !== undefined) {
     if (data.date instanceof Date) {
       updateData.date = Timestamp.fromDate(data.date);
@@ -173,20 +185,20 @@ export const updateExpense = async (
       updateData.date = Timestamp.fromDate(new Date(data.date as any));
     }
   }
-  
+
   delete updateData.createdAt;
-  
+
   const batch = writeBatch(db);
-  
+
   batch.update(expenseRef, updateData);
-  
-  createAuditLog(batch, 'update', 'expense', id, data, userId);
-  
+
+  createAuditLog(batch, 'update', 'expense', id, data, userId, expense);
+
   await batch.commit();
-  
-  const updatedExpense = { 
-    ...expense, 
-    ...data, 
+
+  const updatedExpense = {
+    ...expense,
+    ...data,
     id,
     createdAt: expense.createdAt
   };
@@ -194,8 +206,25 @@ export const updateExpense = async (
 };
 
 export const softDeleteExpense = async (expenseId: string, companyId: string): Promise<void> => {
-  await updateExpense(expenseId, { isAvailable: false }, companyId);
-  
+  const expenseRef = doc(db, 'expenses', expenseId);
+  const expenseSnap = await getDoc(expenseRef);
+  const expenseData = expenseSnap.data();
+
+  await updateExpense(expenseId, { isAvailable: false, isDeleted: true } as any, companyId);
+
+  // Create audit log for deletion
+  const batch = writeBatch(db);
+  createAuditLog(
+    batch,
+    'delete',
+    'expense',
+    expenseId,
+    { isAvailable: false, isDeleted: true }, // Marking both for clarity
+    companyId,
+    expenseData
+  );
+  await batch.commit();
+
   const q = query(collection(db, 'finances'), where('sourceType', '==', 'expense'), where('sourceId', '==', expenseId));
   const snap = await getDocs(q);
   if (!snap.empty) {
@@ -219,7 +248,7 @@ export const softDeleteExpenseWithImage = async (expense: Expense, userId: strin
       // Continue with expense deletion even if image deletion fails
     }
   }
-  
+
   // Soft delete the expense - use expense.companyId instead of userId
   if (!expense.companyId) {
     throw new Error('Cannot delete expense: expense.companyId is missing');
@@ -249,7 +278,7 @@ const initializeCompanyExpenseTypes = async (companyId: string): Promise<void> =
   ];
 
   const batch = writeBatch(db);
-  
+
   for (const typeData of defaultTypes) {
     const typeRef = doc(collection(db, 'expenseTypes'));
     const newType = {
@@ -261,7 +290,7 @@ const initializeCompanyExpenseTypes = async (companyId: string): Promise<void> =
     };
     batch.set(typeRef, newType);
   }
-  
+
   try {
     await batch.commit();
   } catch (error) {
@@ -281,15 +310,15 @@ export const getExpenseTypes = async (companyId: string): Promise<ExpenseType[]>
       limit(defaultLimit)
     )
   );
-  
+
   // Deduplicate by name (case-insensitive) instead of document ID
   const seen = new Map<string, ExpenseType>(); // Use Map to keep first occurrence
   const types: ExpenseType[] = [];
-  
+
   for (const docSnap of companySnap.docs) {
     const data = docSnap.data();
     const nameKey = (data.name || '').toLowerCase().trim();
-    
+
     // Only add if we haven't seen this name before
     if (nameKey && !seen.has(nameKey)) {
       const type = { id: docSnap.id, ...data } as ExpenseType;
@@ -297,14 +326,14 @@ export const getExpenseTypes = async (companyId: string): Promise<ExpenseType[]>
       types.push(type);
     }
   }
-  
+
   // If no categories exist, initialize company defaults
   if (types.length === 0) {
     await initializeCompanyExpenseTypes(companyId);
     // Recursively fetch after initialization
     return getExpenseTypes(companyId);
   }
-  
+
   return types;
 };
 
@@ -322,18 +351,18 @@ export const updateExpenseType = async (typeId: string, updates: Partial<Expense
 export const deleteExpenseType = async (typeId: string, companyId: string): Promise<void> => {
   const typeRef = doc(db, 'expenseTypes', typeId);
   const typeSnap = await getDoc(typeRef);
-  
+
   if (!typeSnap.exists()) {
     throw new Error('Expense type not found');
   }
-  
+
   const typeData = typeSnap.data() as ExpenseType;
-  
+
   // Verify the category belongs to this company
   if (typeData.companyId && typeData.companyId !== companyId) {
     throw new Error('Unauthorized: Expense type belongs to different company');
   }
-  
+
   // Check if type is in use by this company
   const expensesQuery = query(
     collection(db, 'expenses'),
@@ -342,11 +371,11 @@ export const deleteExpenseType = async (typeId: string, companyId: string): Prom
     where('isAvailable', '!=', false)
   );
   const expensesSnap = await getDocs(expensesQuery);
-  
+
   if (!expensesSnap.empty) {
     throw new Error(`Cannot delete expense type: ${expensesSnap.size} expense(s) are using this category`);
   }
-  
+
   await deleteDoc(typeRef);
 };
 
@@ -362,14 +391,14 @@ export const getExpenseCountByCategory = async (companyId: string): Promise<Reco
     limit(defaultLimit)
   );
   const expensesSnap = await getDocs(expensesQuery);
-  
+
   const counts: Record<string, number> = {};
   expensesSnap.forEach((doc) => {
     const expense = doc.data() as Expense;
     const category = expense.category || 'other';
     counts[category] = (counts[category] || 0) + 1;
   });
-  
+
   return counts;
 };
 

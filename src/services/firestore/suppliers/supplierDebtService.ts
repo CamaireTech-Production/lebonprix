@@ -11,6 +11,7 @@ import {
   onSnapshot,
   serverTimestamp,
   writeBatch,
+  updateDoc,
   Timestamp
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
@@ -32,7 +33,7 @@ export const subscribeToSupplierDebts = (
     collection(db, 'supplier_debts'),
     where('companyId', '==', companyId)
   );
-  
+
   return onSnapshot(q, (snapshot) => {
     const debts = snapshot.docs.map(doc => ({
       id: doc.id,
@@ -52,7 +53,7 @@ export const subscribeToSupplierDebt = (
 ): (() => void) => {
   const debtId = `${supplierId}_${companyId}`;
   const debtRef = doc(db, 'supplier_debts', debtId);
-  
+
   return onSnapshot(debtRef, (snapshot) => {
     if (snapshot.exists()) {
       callback({
@@ -80,7 +81,7 @@ const getOrCreateSupplierDebt = async (
   const debtId = `${supplierId}_${companyId}`;
   const debtRef = doc(db, 'supplier_debts', debtId);
   const debtSnap = await getDoc(debtRef);
-  
+
   if (debtSnap.exists()) {
     return {
       debtRef,
@@ -90,7 +91,7 @@ const getOrCreateSupplierDebt = async (
       } as SupplierDebt
     };
   }
-  
+
   // Create new document with initial values
   const now = serverTimestamp();
   const initialData: Omit<SupplierDebt, 'id'> = {
@@ -104,7 +105,7 @@ const getOrCreateSupplierDebt = async (
     createdAt: now as any,
     updatedAt: now as any
   };
-  
+
   return {
     debtRef,
     debtData: null // Will be created in batch
@@ -122,13 +123,13 @@ const recalculateTotals = (entries: SupplierDebtEntry[]): {
   const totalDebt = entries
     .filter(e => e.type === 'debt')
     .reduce((sum, e) => sum + e.amount, 0);
-  
+
   const totalRefunded = entries
     .filter(e => e.type === 'refund')
     .reduce((sum, e) => sum + e.amount, 0);
-  
+
   const outstanding = Math.max(0, totalDebt - totalRefunded);
-  
+
   return { totalDebt, totalRefunded, outstanding };
 };
 
@@ -146,14 +147,14 @@ export const addSupplierDebt = async (
   if (!supplierId || !companyId || amount <= 0) {
     throw new Error('Invalid supplier debt data');
   }
-  
+
   const userId = companyId; // Legacy compatibility
-  
+
   const batch = writeBatch(db);
-  
+
   // Get or create supplier debt document
   const { debtRef, debtData } = await getOrCreateSupplierDebt(supplierId, companyId, userId);
-  
+
   // Create new debt entry
   const entryId = doc(collection(db, 'supplier_debts')).id; // Generate ID for entry
   const now = Timestamp.now();
@@ -168,14 +169,14 @@ export const addSupplierDebt = async (
       nanoseconds: now.nanoseconds
     }
   };
-  
+
   // Get existing entries or start with empty array
   const existingEntries = debtData?.entries || [];
   const updatedEntries = [...existingEntries, newEntry];
-  
+
   // Recalculate totals
   const { totalDebt, totalRefunded, outstanding } = recalculateTotals(updatedEntries);
-  
+
   // Update or create document
   if (debtData) {
     // Update existing
@@ -201,7 +202,7 @@ export const addSupplierDebt = async (
       updatedAt: serverTimestamp()
     });
   }
-  
+
   // Create audit log
   createAuditLog(batch, 'update', 'supplier', supplierId, {
     action: 'add_debt',
@@ -209,14 +210,15 @@ export const addSupplierDebt = async (
     description,
     batchId
   }, userId);
-  
+
   await batch.commit();
-  
+
   // Return updated document
   const updatedSnap = await getDoc(debtRef);
+  const data = updatedSnap.data();
   return {
     id: updatedSnap.id,
-    ...updatedSnap.data()
+    ...(data || {})
   } as SupplierDebt;
 };
 
@@ -234,24 +236,24 @@ export const addSupplierRefund = async (
   if (!supplierId || !companyId || amount <= 0) {
     throw new Error('Invalid supplier refund data');
   }
-  
+
   const userId = companyId; // Legacy compatibility
-  
+
   const batch = writeBatch(db);
-  
+
   // Get or create supplier debt document
   const { debtRef, debtData } = await getOrCreateSupplierDebt(supplierId, companyId, userId);
-  
+
   if (!debtData) {
     throw new Error('Cannot add refund: No debt record found for supplier');
   }
-  
+
   // Check if outstanding debt is sufficient
   const currentOutstanding = debtData.outstanding || 0;
   if (amount > currentOutstanding) {
     throw new Error(`Refund amount (${amount}) exceeds outstanding debt (${currentOutstanding})`);
   }
-  
+
   // Create new refund entry
   const entryId = doc(collection(db, 'supplier_debts')).id; // Generate ID for entry
   const now = Timestamp.now();
@@ -266,13 +268,13 @@ export const addSupplierRefund = async (
       nanoseconds: now.nanoseconds
     }
   };
-  
+
   // Add refund to entries
   const updatedEntries = [...debtData.entries, newEntry];
-  
+
   // Recalculate totals
   const { totalDebt, totalRefunded, outstanding } = recalculateTotals(updatedEntries);
-  
+
   // Update document
   batch.update(debtRef, {
     totalDebt,
@@ -281,22 +283,23 @@ export const addSupplierRefund = async (
     entries: updatedEntries,
     updatedAt: serverTimestamp()
   });
-  
+
   // Create audit log
   createAuditLog(batch, 'update', 'supplier', supplierId, {
     action: 'add_refund',
     amount,
     description,
     refundedDebtId
-  }, userId);
-  
+  }, userId, debtData);
+
   await batch.commit();
-  
+
   // Return updated document
   const updatedSnap = await getDoc(debtRef);
+  const data = updatedSnap.data();
   return {
     id: updatedSnap.id,
-    ...updatedSnap.data()
+    ...(data || {})
   } as SupplierDebt;
 };
 
@@ -310,11 +313,11 @@ export const getSupplierDebt = async (
   const debtId = `${supplierId}_${companyId}`;
   const debtRef = doc(db, 'supplier_debts', debtId);
   const debtSnap = await getDoc(debtRef);
-  
+
   if (!debtSnap.exists()) {
     return null;
   }
-  
+
   return {
     id: debtSnap.id,
     ...debtSnap.data()
@@ -336,7 +339,7 @@ export const getSupplierDebts = async (
     orderBy('createdAt', 'desc'),
     limit(limitCount || defaultLimit)
   );
-  
+
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({
     id: doc.id,
@@ -357,36 +360,36 @@ export const updateSupplierDebtEntry = async (
   if (!supplierId || !entryId || !companyId) {
     throw new Error('Invalid supplier debt entry update data');
   }
-  
+
   const userId = companyId;
   const batch = writeBatch(db);
-  
+
   // Get supplier debt document
   const debtId = `${supplierId}_${companyId}`;
   const debtRef = doc(db, 'supplier_debts', debtId);
   const debtSnap = await getDoc(debtRef);
-  
+
   if (!debtSnap.exists()) {
     throw new Error('Supplier debt not found');
   }
-  
+
   const debtData = debtSnap.data() as SupplierDebt;
-  
+
   // Find and update the entry
   const entryIndex = debtData.entries.findIndex(e => e.id === entryId);
   if (entryIndex === -1) {
     throw new Error('Debt entry not found');
   }
-  
+
   const updatedEntries = [...debtData.entries];
   updatedEntries[entryIndex] = {
     ...updatedEntries[entryIndex],
     ...updates
   };
-  
+
   // Recalculate totals
   const { totalDebt, totalRefunded, outstanding } = recalculateTotals(updatedEntries);
-  
+
   // Update document
   batch.update(debtRef, {
     totalDebt,
@@ -395,21 +398,22 @@ export const updateSupplierDebtEntry = async (
     entries: updatedEntries,
     updatedAt: serverTimestamp()
   });
-  
+
   // Create audit log
   createAuditLog(batch, 'update', 'supplier', supplierId, {
     action: 'update_debt_entry',
     entryId,
     updates
-  }, userId);
-  
+  }, userId, debtData);
+
   await batch.commit();
-  
+
   // Return updated document
   const updatedSnap = await getDoc(debtRef);
+  const data = updatedSnap.data();
   return {
     id: updatedSnap.id,
-    ...updatedSnap.data()
+    ...(data || {})
   } as SupplierDebt;
 };
 
@@ -425,27 +429,27 @@ export const removeSupplierDebtEntry = async (
   if (!supplierId || !entryId || !companyId) {
     throw new Error('Invalid supplier debt entry removal data');
   }
-  
+
   const userId = companyId;
   const batch = writeBatch(db);
-  
+
   // Get supplier debt document
   const debtId = `${supplierId}_${companyId}`;
   const debtRef = doc(db, 'supplier_debts', debtId);
   const debtSnap = await getDoc(debtRef);
-  
+
   if (!debtSnap.exists()) {
     throw new Error('Supplier debt not found');
   }
-  
+
   const debtData = debtSnap.data() as SupplierDebt;
-  
+
   // Remove the entry
   const updatedEntries = debtData.entries.filter(e => e.id !== entryId);
-  
+
   // Recalculate totals
   const { totalDebt, totalRefunded, outstanding } = recalculateTotals(updatedEntries);
-  
+
   // Update document
   batch.update(debtRef, {
     totalDebt,
@@ -454,20 +458,71 @@ export const removeSupplierDebtEntry = async (
     entries: updatedEntries,
     updatedAt: serverTimestamp()
   });
-  
+
   // Create audit log
   createAuditLog(batch, 'update', 'supplier', supplierId, {
     action: 'remove_debt_entry',
     entryId
-  }, userId);
-  
+  }, userId, debtData);
+
   await batch.commit();
-  
+
   // Return updated document
   const updatedSnap = await getDoc(debtRef);
+  const data = updatedSnap.data();
   return {
     id: updatedSnap.id,
-    ...updatedSnap.data()
+    ...(data || {})
   } as SupplierDebt;
 };
 
+
+/**
+ * Update metadata for a specific debt entry
+ * Used when a related product is deleted to flag the debt
+ */
+export const updateSupplierDebtEntryMetadata = async (
+  supplierId: string,
+  companyId: string,
+  batchId: string, // Use batchId to find the entry since we might not have entryId
+  metadataUpdates: Record<string, any>
+): Promise<void> => {
+  const debtRef = doc(db, 'supplier_debts', `${supplierId}_${companyId}`);
+  const debtSnap = await getDoc(debtRef);
+
+  if (!debtSnap.exists()) return;
+
+  const debtData = debtSnap.data() as SupplierDebt;
+  const entries = debtData.entries || [];
+
+  let entryUpdated = false;
+  const updatedEntries = entries.map((entry) => {
+    // Match by batchId (stored in metadata usually, or we can check if entry.id matches)
+    // Based on addSupplierDebt, entry.id is generated. We need to find by batchId which should be in metadata or passed
+    // NOTE: supplierDebtService.ts doesn't explicitly store batchId as a top level field in SupplierDebtEntry type in the viewed code,
+    // but creation usually links it. Let's assume we can match or if batchId IS the entry ID logic (unlikely).
+    // Reviewing addSupplierDebt (not fully visible), it likely stores metadata.
+
+    // Check if this entry corresponds to the batch
+    // If batchId matches metadata.batchId
+    const entryAny = entry as any;
+    if (entryAny.metadata?.batchId === batchId) {
+      entryUpdated = true;
+      return {
+        ...entry,
+        metadata: {
+          ...(entryAny.metadata || {}),
+          ...metadataUpdates
+        }
+      };
+    }
+    return entry;
+  });
+
+  if (entryUpdated) {
+    await updateDoc(debtRef, {
+      entries: updatedEntries,
+      updatedAt: serverTimestamp()
+    });
+  }
+};

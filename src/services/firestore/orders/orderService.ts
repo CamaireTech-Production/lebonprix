@@ -1,29 +1,31 @@
 import { db } from '../../core/firebase';
-import { 
-  collection, 
-  doc, 
-  addDoc, 
-  getDoc, 
-  getDocs, 
-  updateDoc, 
+import {
+  collection,
+  doc,
+  addDoc,
+  getDoc,
+  getDocs,
+  updateDoc,
   deleteDoc,
-  query, 
-  where, 
+  query,
+  where,
   orderBy,
   limit,
-  onSnapshot, 
+  onSnapshot,
   serverTimestamp,
   Timestamp,
   Unsubscribe,
-  arrayUnion
+  arrayUnion,
+  writeBatch
 } from 'firebase/firestore';
-import { 
-  Order, 
-  OrderFilters, 
-  OrderStats, 
-  OrderEvent, 
-  OrderStatus, 
-  PaymentStatus, 
+import { createAuditLog } from '../shared';
+import {
+  Order,
+  OrderFilters,
+  OrderStats,
+  OrderEvent,
+  OrderStatus,
+  PaymentStatus,
   OrderItem,
   CustomerInfo,
   OrderPricing,
@@ -107,7 +109,7 @@ export const createOrder = async (
   try {
     const orderId = generateOrderId();
     const orderNumber = generateOrderNumber();
-    
+
     // Sanitize customer info to prevent undefined values
     // Support both new structure and legacy structure for backward compatibility
     const sanitizedCustomerInfo: CustomerInfo = {
@@ -134,7 +136,7 @@ export const createOrder = async (
 
     // Convert cart items to order items
     const orderItems = convertCartToOrderItems(orderData.cartItems);
-    
+
     // Sanitize pricing to prevent undefined values
     const sanitizedPricing: OrderPricing = {
       subtotal: orderData.pricing.subtotal || 0,
@@ -148,16 +150,16 @@ export const createOrder = async (
     for (const item of orderData.cartItems) {
       const productRef = doc(db, 'products', item.productId);
       const productSnap = await getDoc(productRef);
-      
+
       if (!productSnap.exists()) {
         throw new Error(`Product with ID ${item.productId} not found`);
       }
-      
+
       const productData = productSnap.data() as Product;
       if (productData.companyId !== companyId) {
         throw new Error(`Unauthorized to order product ${productData.name}`);
       }
-      
+
       // Check available stock from batches (without debiting)
       const availableBatches = await getAvailableStockBatches(
         item.productId,
@@ -165,7 +167,7 @@ export const createOrder = async (
         'product'
       );
       const availableStock = availableBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
-      
+
       if (availableStock < item.quantity) {
         throw new Error(`Insufficient stock for product ${productData.name}. Available: ${availableStock}, Requested: ${item.quantity}`);
       }
@@ -173,22 +175,22 @@ export const createOrder = async (
 
     // Determine initial status: always 'commande' for orders created from catalogue
     // Stock is NOT debited at this stage
-    const isCampayPaymentSuccessful = orderData.paymentMethod === 'campay' && 
-                                      orderData.campayPaymentDetails?.status === 'SUCCESS';
+    const isCampayPaymentSuccessful = orderData.paymentMethod === 'campay' &&
+      orderData.campayPaymentDetails?.status === 'SUCCESS';
     const initialStatus: OrderStatus = 'commande';
-    
+
     // For Campay: if campayPaymentDetails is provided with status 'SUCCESS', payment is already completed
     // For CinetPay: payment status starts as 'awaiting_payment' since payment happens after order creation
     // For pay_onsite: payment is pending
-    const initialPaymentStatus: PaymentStatus = 
-      orderData.paymentMethod === 'pay_onsite' ? 'pending' : 
-      isCampayPaymentSuccessful ? 'paid' :
-      (orderData.paymentMethod === 'campay' || orderData.paymentMethod?.startsWith('cinetpay_')) ? 'awaiting_payment' :
-      'awaiting_payment';
+    const initialPaymentStatus: PaymentStatus =
+      orderData.paymentMethod === 'pay_onsite' ? 'pending' :
+        isCampayPaymentSuccessful ? 'paid' :
+          (orderData.paymentMethod === 'campay' || orderData.paymentMethod?.startsWith('cinetpay_')) ? 'awaiting_payment' :
+            'awaiting_payment';
 
     // Get userId from orderData metadata if available, otherwise use companyId
     const userId = orderData.metadata?.userId || companyId;
-    
+
     // Create initial order event with correct status
     const initialEvent = createInitialOrderEvent(userId, initialStatus, initialPaymentStatus);
 
@@ -222,7 +224,7 @@ export const createOrder = async (
 
     // Get createdBy from metadata if provided
     const createdBy = orderData.metadata?.createdBy;
-    
+
     // Create order document
     const orderDoc: any = {
       orderId: orderId || '',
@@ -242,7 +244,7 @@ export const createOrder = async (
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
-    
+
     // Add createdBy if provided
     if (createdBy) {
       orderDoc.createdBy = createdBy;
@@ -264,7 +266,19 @@ export const createOrder = async (
     }
 
     const docRef = await addDoc(collection(db, COLLECTION_NAME), orderDoc);
-    
+
+    // Create audit log
+    const batch = writeBatch(db);
+    createAuditLog(
+      batch,
+      'create',
+      'order',
+      docRef.id,
+      orderDoc,
+      userId
+    );
+    await batch.commit();
+
     const createdOrder = {
       id: docRef.id,
       ...orderDoc,
@@ -295,7 +309,7 @@ export const createOrder = async (
         // Don't throw - order was created successfully
       }
     }
-    
+
     return createdOrder;
   } catch (error) {
     logError('Error creating order', error);
@@ -308,7 +322,7 @@ export const getOrderById = async (orderId: string): Promise<Order | null> => {
   try {
     const docRef = doc(db, COLLECTION_NAME, orderId);
     const docSnap = await getDoc(docRef);
-    
+
     if (docSnap.exists()) {
       const data = docSnap.data();
       return {
@@ -318,7 +332,7 @@ export const getOrderById = async (orderId: string): Promise<Order | null> => {
         updatedAt: data.updatedAt?.toDate() || new Date()
       } as Order;
     }
-    
+
     return null;
   } catch (error) {
     logError('Error getting order', error);
@@ -328,7 +342,7 @@ export const getOrderById = async (orderId: string): Promise<Order | null> => {
 
 // Subscribe to orders for a company
 export const subscribeToOrders = (
-  companyId: string, 
+  companyId: string,
   callback: (orders: Order[]) => void,
   filters?: OrderFilters,
   limitCount?: number
@@ -344,7 +358,7 @@ export const subscribeToOrders = (
   if (filters?.status && filters.status.length > 0) {
     q = query(q, where('status', 'in', filters.status));
   }
-  
+
   if (filters?.paymentStatus && filters.paymentStatus.length > 0) {
     q = query(q, where('paymentStatus', 'in', filters.paymentStatus));
   }
@@ -384,7 +398,7 @@ export const subscribeToOrders = (
 
 // Update order status
 export const updateOrderStatus = async (
-  orderId: string, 
+  orderId: string,
   status: OrderStatus,
   companyId: string,
   note?: string
@@ -392,20 +406,20 @@ export const updateOrderStatus = async (
   try {
     const orderRef = doc(db, COLLECTION_NAME, orderId);
     const orderSnap = await getDoc(orderRef);
-    
+
     if (!orderSnap.exists()) {
       throw new Error('Order not found');
     }
-    
+
     const order = orderSnap.data() as Order;
     // Verify companyId matches
     if (order.companyId !== companyId) {
       throw new Error('Unauthorized: Order belongs to different company');
     }
-    
+
     // Get userId from order for audit
     const userId = order.userId || companyId;
-    
+
     // Create status change event
     const statusEvent: OrderEvent = {
       id: `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -446,6 +460,12 @@ export const updateOrderStatus = async (
 
     // Update order with new status and event
     await updateDoc(orderRef, updateData);
+    // Create audit log
+    const auditBatch = writeBatch(db);
+    createAuditLog(auditBatch, 'update', 'order', orderId, { status }, userId, order);
+    await auditBatch.commit();
+
+
   } catch (error) {
     logError('Error updating order status', error);
     throw error;
@@ -467,12 +487,12 @@ const syncFinanceEntryWithOrder = async (order: Order): Promise<void> => {
 
     // Find existing finance entry for this order
     const q = query(
-      collection(db, 'finances'), 
-      where('sourceType', '==', 'order'), 
+      collection(db, 'finances'),
+      where('sourceType', '==', 'order'),
       where('sourceId', '==', order.id)
     );
     const snap = await getDocs(q);
-    
+
     // Convert order createdAt to Timestamp if it's a Date
     let orderDate: Timestamp;
     if (order.createdAt instanceof Date) {
@@ -482,7 +502,7 @@ const syncFinanceEntryWithOrder = async (order: Order): Promise<void> => {
     } else {
       orderDate = Timestamp.now();
     }
-    
+
     const entry: Omit<import('../../../types/models').FinanceEntry, 'id' | 'createdAt' | 'updatedAt'> = {
       userId: order.userId,
       companyId: order.companyId,
@@ -494,7 +514,7 @@ const syncFinanceEntryWithOrder = async (order: Order): Promise<void> => {
       date: orderDate,
       isDeleted: false,
     };
-    
+
     if (snap.empty) {
       await createFinanceEntry(entry);
     } else {
@@ -522,21 +542,21 @@ export const updateOrderPaymentStatus = async (
   try {
     const orderRef = doc(db, COLLECTION_NAME, orderId);
     const orderSnap = await getDoc(orderRef);
-    
+
     if (!orderSnap.exists()) {
       throw new Error('Order not found');
     }
-    
+
     const order = orderSnap.data() as Order;
     // Verify companyId matches
     if (order.companyId !== companyId) {
       throw new Error('Unauthorized: Order belongs to different company');
     }
-    
+
     // Get userId from order for audit
     const userId = order.userId || companyId;
     const previousPaymentStatus = order.paymentStatus;
-    
+
     // Create payment update event
     const paymentEvent: OrderEvent = {
       id: `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -544,7 +564,7 @@ export const updateOrderPaymentStatus = async (
       paymentStatus,
       timestamp: new Date(),
       userId,
-      metadata: { 
+      metadata: {
         ...(cinetpayTransactionId && { cinetpayTransactionId }),
         ...(cinetpayStatus && { cinetpayStatus }),
         ...(campayReference && { campayReference }),
@@ -616,6 +636,19 @@ export const updateOrderPaymentStatus = async (
         await syncFinanceEntryWithOrder(updatedOrder);
       }
     }
+    // Create audit log for payment status update
+    const batch = writeBatch(db);
+    createAuditLog(
+      batch,
+      'update',
+      'order',
+      orderId,
+      { paymentStatus, paymentEvent },
+      userId,
+      order
+    );
+    await batch.commit();
+
   } catch (error) {
     logError('Error updating payment status', error);
     throw error;
@@ -631,11 +664,11 @@ export const addOrderNote = async (
   try {
     const orderRef = doc(db, COLLECTION_NAME, orderId);
     const orderSnap = await getDoc(orderRef);
-    
+
     if (!orderSnap.exists()) {
       throw new Error('Order not found');
     }
-    
+
     const order = orderSnap.data() as Order;
     // Verify companyId matches
     if (order.companyId !== companyId) {
@@ -659,10 +692,10 @@ export const getOrderStats = async (companyId: string): Promise<OrderStats> => {
       collection(db, COLLECTION_NAME),
       where('companyId', '==', companyId)
     );
-    
+
     const snapshot = await getDocs(q);
     const orders: Order[] = [];
-    
+
     snapshot.forEach((doc) => {
       const data = doc.data();
       orders.push({
@@ -729,29 +762,29 @@ export const generatePurchaseOrderNumber = async (
   try {
     const orderRef = doc(db, COLLECTION_NAME, orderId);
     const orderSnap = await getDoc(orderRef);
-    
+
     if (!orderSnap.exists()) {
       throw new Error('Order not found');
     }
-    
+
     const orderData = orderSnap.data() as Order;
     if (orderData.companyId !== companyId) {
       throw new Error('Unauthorized to update this order');
     }
-    
+
     // If purchase order number already exists, return it
     if (orderData.purchaseOrderNumber) {
       return orderData.purchaseOrderNumber;
     }
-    
+
     // Generate new purchase order number (BC-YYYY-NNNN)
     const now = new Date();
     const year = now.getFullYear();
-    
+
     // Get count of purchase orders for this year to generate sequence
     const yearStart = new Date(year, 0, 1);
     const yearEnd = new Date(year + 1, 0, 1);
-    
+
     const q = query(
       collection(db, COLLECTION_NAME),
       where('companyId', '==', companyId),
@@ -759,17 +792,17 @@ export const generatePurchaseOrderNumber = async (
       where('createdAt', '>=', Timestamp.fromDate(yearStart)),
       where('createdAt', '<', Timestamp.fromDate(yearEnd))
     );
-    
+
     const snapshot = await getDocs(q);
     const sequenceNumber = snapshot.size + 1;
     const purchaseOrderNumber = `BC-${year}-${String(sequenceNumber).padStart(4, '0')}`;
-    
+
     // Update order with purchase order number
     await updateDoc(orderRef, {
       purchaseOrderNumber,
       updatedAt: serverTimestamp()
     });
-    
+
     return purchaseOrderNumber;
   } catch (error) {
     logError('Error generating purchase order number', error);
@@ -785,18 +818,31 @@ export const deleteOrder = async (
   try {
     const orderRef = doc(db, COLLECTION_NAME, orderId);
     const orderDoc = await getDoc(orderRef);
-    
+
     if (!orderDoc.exists()) {
       throw new Error('Order not found');
     }
-    
+
     const orderData = orderDoc.data() as Order;
-    
+
     // Verify ownership
     if (orderData.userId !== userId) {
       throw new Error('Unauthorized to delete this order');
     }
-    
+
+    // Create audit log before deletion (since we might hard delete)
+    const batch = writeBatch(db);
+    createAuditLog(
+      batch,
+      'delete',
+      'order',
+      orderId,
+      { action: 'delete' },
+      userId,
+      orderData
+    );
+    await batch.commit();
+
     // Option 1: Soft delete - mark as deleted (recommended for data retention)
     // Note: Cancellation event would be added to timeline in a real implementation
     // const cancelEvent: OrderEvent = {
@@ -813,7 +859,7 @@ export const deleteOrder = async (
     //   updatedAt: serverTimestamp(),
     //   timeline: [cancelEvent]
     // });
-    
+
     // Option 2: Hard delete - actually remove from database
     await deleteDoc(orderRef);
   } catch (error) {
@@ -847,42 +893,42 @@ export const convertOrderToSale = async (
     // Get order
     const orderRef = doc(db, COLLECTION_NAME, orderId);
     const orderSnap = await getDoc(orderRef);
-    
+
     if (!orderSnap.exists()) {
       throw new Error('Order not found');
     }
-    
+
     const order = { id: orderSnap.id, ...orderSnap.data() } as Order;
-    
+
     // Verify companyId matches
     if (order.companyId !== companyId) {
       throw new Error('Unauthorized to convert this order');
     }
-    
+
     // Check if order is already converted
     if (order.status === 'converted' || order.convertedToSaleId) {
       throw new Error('Order is already converted to sale');
     }
-    
+
     // Check if order is cancelled
     if (order.status === 'cancelled') {
       throw new Error('Cannot convert cancelled order');
     }
-    
+
     // Validate stock availability for all items
     for (const item of order.items) {
       const productRef = doc(db, 'products', item.productId);
       const productSnap = await getDoc(productRef);
-      
+
       if (!productSnap.exists()) {
         throw new Error(`Product with ID ${item.productId} not found`);
       }
-      
+
       const productData = productSnap.data() as Product;
       if (productData.companyId !== companyId) {
         throw new Error(`Unauthorized to sell product ${productData.name}`);
       }
-      
+
       // Check available stock from batches
       const availableBatches = await getAvailableStockBatches(
         item.productId,
@@ -890,12 +936,12 @@ export const convertOrderToSale = async (
         'product'
       );
       const availableStock = availableBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
-      
+
       if (availableStock < item.quantity) {
         throw new Error(`Insufficient stock for product ${productData.name}. Available: ${availableStock}, Requested: ${item.quantity}`);
       }
     }
-    
+
     // Map order items to sale products
     const saleProducts = order.items.map(item => ({
       productId: item.productId,
@@ -903,13 +949,13 @@ export const convertOrderToSale = async (
       basePrice: item.price,
       negotiatedPrice: item.price
     }));
-    
+
     // Determine payment status based on sale status
-    const paymentStatus: 'pending' | 'paid' | 'cancelled' = 
+    const paymentStatus: 'pending' | 'paid' | 'cancelled' =
       saleStatus === 'paid' ? 'paid' :
-      saleStatus === 'credit' ? 'pending' :
-      'pending';
-    
+        saleStatus === 'credit' ? 'pending' :
+          'pending';
+
     // Prepare sale data
     const saleData: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'> = {
       products: saleProducts as any,
@@ -924,17 +970,14 @@ export const convertOrderToSale = async (
       deliveryFee: order.pricing.deliveryFee || 0,
       inventoryMethod: 'FIFO', // Default, can be customized
       userId,
-      companyId,
-      saleDate: order.createdAt instanceof Date 
-        ? order.createdAt.toISOString() 
-        : new Date((order.createdAt as any).seconds * 1000).toISOString()
+      companyId
     };
-    
+
     // Add payment method if paid
     if (saleStatus === 'paid' && paymentMethod) {
       saleData.paymentMethod = paymentMethod;
     }
-    
+
     // Add credit fields if credit sale
     if (saleStatus === 'credit') {
       saleData.remainingAmount = order.pricing.total;
@@ -943,7 +986,7 @@ export const convertOrderToSale = async (
         saleData.creditDueDate = Timestamp.fromDate(creditDueDate);
       }
     }
-    
+
     // Create customer in company database when converting order to sale
     // This is the only time we create the customer - not during order creation
     // Save customer if name OR phone is provided (not both empty)
@@ -967,10 +1010,10 @@ export const convertOrderToSale = async (
         // Don't throw - continue with sale creation even if customer creation fails
       }
     }
-    
+
     // Create sale (will handle stock debiting based on status)
     const createdSale = await createSale(saleData, companyId, createdBy);
-    
+
     // Update order to mark as converted
     await updateDoc(orderRef, {
       status: 'converted' as OrderStatus,
@@ -985,7 +1028,7 @@ export const convertOrderToSale = async (
         metadata: { convertedToSaleId: createdSale.id }
       } as OrderEvent)
     });
-    
+
     // Update finance entry if order was paid (remove isPending flag)
     if (order.paymentStatus === 'paid') {
       try {
@@ -1007,7 +1050,7 @@ export const convertOrderToSale = async (
         // Don't throw - sale was created successfully
       }
     }
-    
+
     return createdSale;
   } catch (error) {
     logError('Error converting order to sale', error);

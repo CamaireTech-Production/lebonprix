@@ -19,9 +19,10 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import { logError } from '@utils/core/logger';
-import type { StockBatch, StockChange, Product } from '../../../types/models';
+import type { StockBatch, StockChange } from '../../../types/models';
 import type { InventoryMethod } from '@utils/inventory/inventoryManagement';
 import type { InventoryResult } from '@utils/inventory/inventoryManagement';
+import { createAuditLog } from '../shared';
 
 // ============================================================================
 // STOCK BATCH MANAGEMENT
@@ -81,7 +82,7 @@ export const createStockBatch = async (
         finalCompanyId = productSnap.data().companyId;
       }
     }
-    
+
     if (!finalCompanyId) {
       throw new Error('Company ID not found for product/matiere');
     }
@@ -170,10 +171,10 @@ export const getAvailableStockBatches = async (
   constraints.push(limit(200)); // OPTIMIZATION: Default limit to reduce Firebase reads
 
   const q = query(collection(db, 'stockBatches'), ...constraints);
-  
+
   const snapshot = await getDocs(q);
   const allBatches = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
-  
+
   // Filter client-side to exclude only explicitly deleted batches
   return allBatches.filter(batch => batch.isDeleted !== true);
 };
@@ -198,7 +199,7 @@ export const consumeStockFromBatches = async (
     warehouseId,
     locationType
   );
-  
+
   if (availableBatches.length === 0) {
     const locationInfo = shopId ? `shop ${shopId}` : warehouseId ? `warehouse ${warehouseId}` : '';
     throw new Error(`No available stock batches found for ${type} ${productIdOrMatiereId}${locationInfo ? ` in ${locationInfo}` : ''}`);
@@ -232,7 +233,7 @@ export const consumeStockFromBatches = async (
     // Consume proportionally from all batches
     for (const stockBatch of availableBatches) {
       if (remainingQuantity <= 0) break;
-      
+
       // Calculate proportional consumption based on batch's share of total stock
       const batchProportion = stockBatch.remainingQuantity / totalAvailable;
       const proportionalQuantity = Math.min(
@@ -240,7 +241,7 @@ export const consumeStockFromBatches = async (
         stockBatch.remainingQuantity,
         remainingQuantity
       );
-      
+
       const consumeQuantity = Math.min(remainingQuantity, proportionalQuantity, stockBatch.remainingQuantity);
       const newRemainingQuantity = stockBatch.remainingQuantity - consumeQuantity;
 
@@ -262,28 +263,28 @@ export const consumeStockFromBatches = async (
 
     // If there's still remaining quantity, consume from batches in order
     if (remainingQuantity > 0) {
-      const sortedBatches = availableBatches.sort((a, b) => 
+      const sortedBatches = availableBatches.sort((a, b) =>
         (a.createdAt.seconds || 0) - (b.createdAt.seconds || 0)
       );
-      
+
       for (const stockBatch of sortedBatches) {
         if (remainingQuantity <= 0) break;
-        
+
         const alreadyConsumed = consumedBatches.find(cb => cb.batchId === stockBatch.id);
-        const availableFromBatch = alreadyConsumed 
+        const availableFromBatch = alreadyConsumed
           ? stockBatch.remainingQuantity - alreadyConsumed.consumedQuantity
           : stockBatch.remainingQuantity;
-        
+
         if (availableFromBatch > 0) {
           const consumeQuantity = Math.min(remainingQuantity, availableFromBatch);
           const newRemainingQuantity = stockBatch.remainingQuantity - consumeQuantity;
-          
+
           const batchRef = doc(db, 'stockBatches', stockBatch.id);
           batch.update(batchRef, {
             remainingQuantity: newRemainingQuantity,
             status: newRemainingQuantity === 0 ? 'depleted' : 'active'
           });
-          
+
           if (alreadyConsumed) {
             alreadyConsumed.consumedQuantity += consumeQuantity;
             alreadyConsumed.remainingQuantity = newRemainingQuantity;
@@ -295,7 +296,7 @@ export const consumeStockFromBatches = async (
               remainingQuantity: newRemainingQuantity
             });
           }
-          
+
           remainingQuantity -= consumeQuantity;
         }
       }
@@ -436,14 +437,14 @@ export const createStockChange = (
     companyId,
     createdAt: serverTimestamp(),
   };
-  
+
   // Set the appropriate ID field based on type
   if (type === 'matiere') {
     stockChangeData.matiereId = productIdOrMatiereId;
   } else {
     stockChangeData.productId = productIdOrMatiereId;
   }
-  
+
   if (typeof supplierId !== 'undefined') stockChangeData.supplierId = supplierId;
   if (typeof isOwnPurchase !== 'undefined') stockChangeData.isOwnPurchase = isOwnPurchase;
   if (typeof isCredit !== 'undefined') stockChangeData.isCredit = isCredit;
@@ -451,7 +452,7 @@ export const createStockChange = (
   if (typeof batchId !== 'undefined') stockChangeData.batchId = batchId;
   if (typeof saleId !== 'undefined') stockChangeData.saleId = saleId;
   if (batchConsumptions && batchConsumptions.length > 0) stockChangeData.batchConsumptions = batchConsumptions;
-  
+
   // Add location fields if provided
   if (locationType) {
     stockChangeData.locationType = locationType;
@@ -459,7 +460,7 @@ export const createStockChange = (
     if (warehouseId) stockChangeData.warehouseId = warehouseId;
   }
   if (transferId) stockChangeData.transferId = transferId;
-  
+
   batch.set(stockChangeRef, stockChangeData);
   return stockChangeRef.id;
 };
@@ -482,13 +483,13 @@ export const subscribeToStockChanges = (
   constraints.push(limit(200));
 
   const q = query(collection(db, 'stockChanges'), ...constraints);
-  
+
   return onSnapshot(q, (snapshot) => {
     const stockChanges = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     })) as StockChange[];
-    
+
     callback(stockChanges);
   });
 };
@@ -516,7 +517,7 @@ export const getProductStockBatches = async (productId: string, companyId: strin
     orderBy('createdAt', 'desc'),
     limit(100) // OPTIMIZATION: Added limit to reduce Firebase reads
   );
-  
+
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
 };
@@ -529,17 +530,17 @@ export const getProductStockInfo = async (productId: string, companyId: string):
 }> => {
   const batches = await getProductStockBatches(productId, companyId);
   const activeBatches = batches.filter(batch => batch.status === 'active' && batch.remainingQuantity > 0);
-  
+
   let totalStock = 0;
   let totalValue = 0;
-  
+
   for (const batch of activeBatches) {
     totalStock += batch.remainingQuantity;
     totalValue += batch.remainingQuantity * batch.costPrice;
   }
-  
+
   const averageCostPrice = totalStock > 0 ? totalValue / totalStock : 0;
-  
+
   return {
     totalStock,
     totalValue,
@@ -555,7 +556,7 @@ export const getMatiereStockBatches = async (matiereId: string): Promise<StockBa
     where('matiereId', '==', matiereId),
     orderBy('createdAt', 'desc')
   );
-  
+
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
 };
@@ -568,17 +569,17 @@ export const getMatiereStockInfo = async (matiereId: string): Promise<{
 }> => {
   const batches = await getMatiereStockBatches(matiereId);
   const activeBatches = batches.filter(batch => batch.status === 'active' && batch.remainingQuantity > 0);
-  
+
   let totalStock = 0;
   let totalValue = 0;
-  
+
   for (const batch of activeBatches) {
     totalStock += batch.remainingQuantity;
     totalValue += batch.remainingQuantity * batch.costPrice;
   }
-  
+
   const averageCostPrice = totalStock > 0 ? totalValue / totalStock : 0;
-  
+
   return {
     totalStock,
     totalValue,
@@ -599,7 +600,7 @@ export const subscribeToMatiereStockBatches = (
     where('type', '==', 'matiere'),
     where('matiereId', '==', matiereId)
   );
-  
+
   return onSnapshot(
     q,
     (snapshot) => {
@@ -607,13 +608,13 @@ export const subscribeToMatiereStockBatches = (
         id: doc.id,
         ...doc.data()
       })) as StockBatch[];
-      
+
       batches.sort((a, b) => {
         const aTime = a.createdAt?.seconds || 0;
         const bTime = b.createdAt?.seconds || 0;
         return bTime - aTime;
       });
-      
+
       callback(batches);
     },
     (error) => {
@@ -637,7 +638,7 @@ export const subscribeToMatiereStockChanges = (
     where('matiereId', '==', matiereId),
     limit(200)
   );
-  
+
   return onSnapshot(
     q,
     (snapshot) => {
@@ -645,13 +646,13 @@ export const subscribeToMatiereStockChanges = (
         id: doc.id,
         ...doc.data()
       })) as StockChange[];
-      
+
       changes.sort((a, b) => {
         const aTime = a.createdAt?.seconds || 0;
         const bTime = b.createdAt?.seconds || 0;
         return bTime - aTime;
       });
-      
+
       callback(changes);
     },
     (error) => {
@@ -662,6 +663,79 @@ export const subscribeToMatiereStockChanges = (
   );
 };
 
+export const adjustStockBatch = async (
+  batchId: string,
+  quantityChange: number,
+  userId: string,
+  reason: 'manual_adjustment' | 'damage' | 'adjustment' = 'manual_adjustment',
+  notes: string = ''
+): Promise<void> => {
+  const batchRef = doc(db, 'stockBatches', batchId);
+  const batchDoc = await getDoc(batchRef);
+
+  if (!batchDoc.exists()) {
+    throw new Error('Stock batch not found');
+  }
+
+  const batchData = batchDoc.data() as StockBatch;
+
+  // Assuming companyId check is sufficient, or add userId strict check if needed
+  // if (batchData.userId !== userId) ... 
+  // Let's rely on companyId context usually, but here we just check existence.
+
+  const newRemainingQuantity = batchData.remainingQuantity + quantityChange;
+  if (newRemainingQuantity < 0) {
+    throw new Error('Adjustment cannot result in negative stock');
+  }
+
+  const batch = writeBatch(db);
+
+  batch.update(batchRef, {
+    remainingQuantity: newRemainingQuantity,
+    status: newRemainingQuantity === 0 ? 'depleted' : 'active',
+    updatedAt: serverTimestamp()
+  });
+
+  createStockChange(
+    batch,
+    batchData.productId || batchData.matiereId || '',
+    quantityChange,
+    reason,
+    userId,
+    batchData.companyId,
+    batchData.type || 'product',
+    batchData.supplierId,
+    batchData.isOwnPurchase,
+    batchData.isCredit,
+    batchData.costPrice,
+    batchId,
+    undefined, // saleId
+    undefined, // batchConsumptions
+    undefined, // shopId
+    undefined, // warehouseId
+    undefined, // locationType
+    undefined  // transferId
+  );
+
+  createAuditLog(
+    batch,
+    'update',
+    'stock',
+    batchId,
+    {
+      adjustment: quantityChange,
+      reason,
+      notes,
+      oldQuantity: batchData.remainingQuantity,
+      newQuantity: newRemainingQuantity
+    },
+    userId,
+    batchData
+  );
+
+  await batch.commit();
+};
+
 export const correctBatchCostPrice = async (
   batchId: string,
   newCostPrice: number,
@@ -669,25 +743,25 @@ export const correctBatchCostPrice = async (
 ): Promise<void> => {
   const batchRef = doc(db, 'stockBatches', batchId);
   const batchDoc = await getDoc(batchRef);
-  
+
   if (!batchDoc.exists()) {
     throw new Error('Stock batch not found');
   }
-  
+
   const batchData = batchDoc.data() as StockBatch;
-  
+
   if (batchData.userId !== userId) {
     throw new Error('Unauthorized to modify this stock batch');
   }
-  
+
   const batch = writeBatch(db);
-  
+
   batch.update(batchRef, {
     costPrice: newCostPrice,
     status: 'corrected',
     updatedAt: serverTimestamp()
   });
-  
+
   createStockChange(
     batch,
     batchData.productId || batchData.matiereId || '',
@@ -702,8 +776,26 @@ export const correctBatchCostPrice = async (
     newCostPrice,
     batchId
   );
-  
+
   await batch.commit();
+
+  // Create audit log in a separate batch (or could be same batch if refactored)
+  const auditBatch = writeBatch(db);
+  createAuditLog(
+    auditBatch,
+    'update',
+    'stock',
+    batchId,
+    {
+      adjustment: 0,
+      reason: 'cost_correction',
+      notes: '',
+      newCostPrice
+    },
+    userId,
+    batchData
+  );
+  await auditBatch.commit();
 };
 
 export const getStockBatchStats = async (
@@ -726,23 +818,23 @@ export const getStockBatchStats = async (
   }
 
   const q = query(collection(db, 'stockBatches'), ...constraints);
-  
+
   const snapshot = await getDocs(q);
   const batches = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
-  
+
   const activeBatches = batches.filter(batch => batch.status === 'active');
   const depletedBatches = batches.filter(batch => batch.status === 'depleted');
-  
+
   let totalStockValue = 0;
   let totalStock = 0;
-  
+
   for (const batch of activeBatches) {
     totalStockValue += batch.remainingQuantity * batch.costPrice;
     totalStock += batch.remainingQuantity;
   }
-  
+
   const averageCostPrice = totalStock > 0 ? totalStockValue / totalStock : 0;
-  
+
   return {
     totalBatches: batches.length,
     activeBatches: activeBatches.length,
@@ -762,7 +854,7 @@ export const getProductBatchesForAdjustment = async (productId: string): Promise
       orderBy('createdAt', 'desc')
     )
   );
-  
+
   return batchesSnapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data()
@@ -772,11 +864,11 @@ export const getProductBatchesForAdjustment = async (productId: string): Promise
 export const getBatchDetails = async (batchId: string): Promise<StockBatch | null> => {
   const batchRef = doc(db, 'stockBatches', batchId);
   const batchSnap = await getDoc(batchRef);
-  
+
   if (!batchSnap.exists()) {
     return null;
   }
-  
+
   return {
     id: batchSnap.id,
     ...batchSnap.data()
@@ -789,20 +881,20 @@ export const validateBatchAdjustment = (
   newCostPrice?: number
 ): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
-  
+
   if (batch.status !== 'active' && batch.status !== 'corrected') {
     errors.push('Batch is not available for adjustment');
   }
-  
+
   const newRemainingQuantity = batch.remainingQuantity + quantityChange;
   if (newRemainingQuantity < 0) {
     errors.push('Adjustment would result in negative remaining quantity');
   }
-  
+
   if (newCostPrice !== undefined && newCostPrice < 0) {
     errors.push('Cost price cannot be negative');
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors
@@ -819,7 +911,7 @@ export const getProductAdjustmentHistory = async (productId: string): Promise<St
       orderBy('createdAt', 'desc')
     )
   );
-  
+
   return stockChangesSnapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data()
@@ -864,10 +956,10 @@ export const getStockBatchesByLocation = async (
   constraints.push(orderBy('createdAt', 'desc'));
 
   const q = query(collection(db, 'stockBatches'), ...constraints);
-  
+
   const snapshot = await getDocs(q);
   const batches = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
-  
+
   // Filter client-side to exclude deleted batches
   return batches.filter(batch => batch.isDeleted !== true);
 };

@@ -5,7 +5,6 @@ import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Card, Button, Badge, Modal, ModalFooter, Input, ImageWithSkeleton, SkeletonProductsGrid, SyncIndicator, PriceInput } from '@components/common';
 import { useProducts, useStockChanges, useCategories, useSuppliers, useShops, useWarehouses } from '@hooks/data/useFirestore';
 import { useInfiniteProducts } from '@hooks/data/useInfiniteProducts';
-import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { useProductSearch } from '@hooks/search/useProductSearch';
 import { createSupplier } from '@services/firestore/suppliers/supplierService';
@@ -20,7 +19,6 @@ import imageCompression from 'browser-image-compression';
 import * as Papa from 'papaparse';
 import type { Product, ProductTag, StockChange } from '../../types/models';
 import type { ParseResult } from 'papaparse';
-import { getLatestCostPrice } from '@utils/business/productUtils';
 import { getProductBatchesForAdjustment } from '@services/firestore/stock/stockService';
 import { getDefaultShop } from '@services/firestore/shops/shopService';
 import { getDefaultWarehouse } from '@services/firestore/warehouse/warehouseService';
@@ -73,15 +71,11 @@ const Products = () => {
   const {
     searchQuery: hybridSearchQuery,
     setSearchQuery: setHybridSearchQuery,
-    searchResults,
     isSearching,
-    searchMode,
-    displayResults,
-    clearSearch
-  } = useProductSearch({
-    localProducts: infiniteProducts,
-    hasMoreProducts: hasMore
-  });
+    displayResults } = useProductSearch({
+      localProducts: infiniteProducts,
+      hasMoreProducts: hasMore
+    });
 
   // Refresh products list when other parts of the app (e.g., sales) update stock
   useEffect(() => {
@@ -188,6 +182,7 @@ const Products = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteSupplierDebt, setDeleteSupplierDebt] = useState(false);
 
   const [editTab, setEditTab] = useState<'info' | 'stock' | 'pricing'>('info');
 
@@ -255,7 +250,7 @@ const Products = () => {
   useEffect(() => {
     const productIdFromUrl = searchParams.get('productId');
     const actionFromUrl = searchParams.get('action');
-    
+
     // Only process if we have a productId in URL and products are loaded
     if (productIdFromUrl && infiniteProducts.length > 0 && !isDetailModalOpen && !infiniteLoading) {
       const product = infiniteProducts.find(p => p.id === productIdFromUrl);
@@ -595,16 +590,16 @@ const Products = () => {
       // Create supplier info for the product creation
       const supplierInfo = step2Data.supplyType === 'fromSupplier'
         ? {
-            supplierId: step2Data.supplierId,
-            isOwnPurchase: false,
-            isCredit: step2Data.paymentType === 'credit',
-            costPrice: stockCostPrice
-          }
+          supplierId: step2Data.supplierId,
+          isOwnPurchase: false,
+          isCredit: step2Data.paymentType === 'credit',
+          costPrice: stockCostPrice
+        }
         : {
-            isOwnPurchase: true,
-            isCredit: false,
-            costPrice: stockCostPrice
-          };
+          isOwnPurchase: true,
+          isCredit: false,
+          costPrice: stockCostPrice
+        };
 
       // Get createdBy employee reference
       let createdBy: ReturnType<typeof getCurrentEmployeeRef> | null = null;
@@ -1274,24 +1269,21 @@ const Products = () => {
 
   const handleDeleteProduct = async () => {
     if (!productToDelete || !user?.uid) return;
-    const safeProduct = {
-      ...productToDelete,
-      isAvailable: typeof productToDelete.isAvailable === 'boolean' ? productToDelete.isAvailable : true,
-      images: (productToDelete.images ?? []).length > 0 ? productToDelete.images : [],
-      userId: productToDelete.userId || user.uid,
-      updatedAt: productToDelete.updatedAt || { seconds: 0, nanoseconds: 0 },
-    };
-    const updateData = { isAvailable: false, images: safeProduct.images, userId: safeProduct.userId, updatedAt: { seconds: 0, nanoseconds: 0 } };
-    try {
-      setIsDeleting(true);
-      await updateProductData(productToDelete.id, updateData);
 
-      // Recalculate category product counts after deletion
+    setIsDeleting(true);
+    try {
+      const { softDeleteProductWithDebt } = await import('@services/firestore/products/productService');
+
+      // Use companyId if available, otherwise userId
+      const ownerId = company?.id || user.uid;
+
+      await softDeleteProductWithDebt(productToDelete.id, ownerId, deleteSupplierDebt);
+
+      // Recalculate category product counts after deleting product
       try {
         await recalculateCategoryProductCounts(user.uid);
       } catch (error) {
         console.error('Error recalculating category counts:', error);
-        // Don't show error to user as product deletion was successful
       }
 
       // Refresh the product list to remove the deleted product
@@ -1300,6 +1292,7 @@ const Products = () => {
       showSuccessToast(t('products.messages.productDeleted'));
       setIsDeleteModalOpen(false);
       setProductToDelete(null);
+      setDeleteSupplierDebt(false); // Reset state
     } catch (error) {
       console.error('Error deleting product:', error);
       showErrorToast(t('products.messages.errors.deleteProduct'));
@@ -2091,13 +2084,13 @@ const Products = () => {
                 {t('products.stocksPage.messages.noProductsFound')}
               </h3>
               <p className="text-sm text-gray-600 mb-4 max-w-md">
-                {hybridSearchQuery.trim() 
+                {hybridSearchQuery.trim()
                   ? t('products.stocksPage.messages.noProductsMatchSearch', { search: hybridSearchQuery })
                   : t('products.stocksPage.messages.noProductsMatchSearch', { search: selectedCategory })
                 }
               </p>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setHybridSearchQuery('');
                   setSelectedCategory(t('products.filters.allCategories'));
@@ -3258,6 +3251,18 @@ const Products = () => {
               reference: productToDelete?.reference
             })}
           </p>
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <input
+              type="checkbox"
+              id="deleteSupplierDebt"
+              checked={deleteSupplierDebt}
+              onChange={(e) => setDeleteSupplierDebt(e.target.checked)}
+              className="rounded text-red-600 focus:ring-red-500"
+            />
+            <label htmlFor="deleteSupplierDebt" className="text-sm text-gray-700">
+              Supprimer également la dette fournisseur associée
+            </label>
+          </div>
           <p className="text-sm text-red-600">
             {t('products.messages.deleteWarning')}
           </p>
