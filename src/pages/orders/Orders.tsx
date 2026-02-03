@@ -17,25 +17,19 @@ import { Order, OrderFilters, OrderStats } from '../../types/order';
 import { useProducts } from '@hooks/data/useFirestore';
 import { generatePurchaseOrderPDF } from '@utils/orders/purchaseOrderPDF';
 import { generatePurchaseOrderNumber } from '@services/firestore/orders/orderService';
-import { 
-  ShoppingBag, 
-  Search, 
-  Filter, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  Truck, 
+import {
+  ShoppingBag,
+  Search,
+  Filter,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Truck,
   Package,
   DollarSign,
-  Calendar,
-  Phone,
-  MapPin,
-  User,
-  RefreshCw,
   ChevronDown,
   ChevronRight,
   Eye,
-  MoreVertical,
   ShoppingCart
 } from 'lucide-react';
 import { Button, Input, Modal, Badge, Card, SyncIndicator, SkeletonOrders } from '@components/common';
@@ -55,17 +49,17 @@ const Orders: React.FC = () => {
   const [stats, setStats] = useState<OrderStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  
+
   // Filters
   const [filters] = useState<OrderFilters>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  
+
   // Selected order for details
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
-  
+
   // Order actions
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
@@ -116,7 +110,7 @@ const Orders: React.FC = () => {
       return;
     }
 
-    const filtered = orders.filter(order => 
+    const filtered = orders.filter(order =>
       order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.customerInfo.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.customerInfo.phone.includes(searchTerm)
@@ -172,7 +166,7 @@ const Orders: React.FC = () => {
       toast.success(t('orders.messages.orderDeleted'));
       setShowDeleteModal(false);
       setSelectedOrder(null);
-      
+
       // Remove from local state
       setOrders(prevOrders => prevOrders.filter(o => o.id !== selectedOrder.id));
       setFilteredOrders(prevFiltered => prevFiltered.filter(o => o.id !== selectedOrder.id));
@@ -245,19 +239,19 @@ const Orders: React.FC = () => {
 
     try {
       setSyncing(true);
-      
+
       // Generate purchase order number if not exists
       let purchaseOrderNumber = order.purchaseOrderNumber;
       if (!purchaseOrderNumber) {
         purchaseOrderNumber = await generatePurchaseOrderNumber(order.id, company.id);
       }
-      
+
       // Generate filename
       const filename = `Bon-de-Commande-${purchaseOrderNumber || order.orderNumber}`;
-      
+
       // Generate PDF
       await generatePurchaseOrderPDF(order, products, company, filename);
-      
+
       toast.success(t('orders.messages.purchaseOrderGenerated') || 'Bon de commande généré avec succès');
     } catch (error) {
       logError('Error generating purchase order PDF', error);
@@ -347,8 +341,8 @@ const Orders: React.FC = () => {
     return data.map((order) => {
       const isExpanded = expandedOrderId === order.id;
       return [
-        <tr 
-          key={order.id} 
+        <tr
+          key={order.id}
           className="group transition cursor-pointer hover:bg-gray-50"
           onClick={() => {
             setSelectedOrder(order);
@@ -511,7 +505,7 @@ const Orders: React.FC = () => {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+    <div className="pb-16 md:pb-0">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -523,7 +517,7 @@ const Orders: React.FC = () => {
             {t('orders.subtitle')}
           </p>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <SyncIndicator isSyncing={syncing} />
           <Button
@@ -551,7 +545,7 @@ const Orders: React.FC = () => {
               </div>
             </div>
           </Card>
-          
+
           <Card className="p-5 hover:shadow-md transition-shadow border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
@@ -563,7 +557,7 @@ const Orders: React.FC = () => {
               </div>
             </div>
           </Card>
-          
+
           <Card className="p-5 hover:shadow-md transition-shadow border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
@@ -575,7 +569,7 @@ const Orders: React.FC = () => {
               </div>
             </div>
           </Card>
-          
+
           <Card className="p-5 hover:shadow-md transition-shadow border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
@@ -775,8 +769,8 @@ const Orders: React.FC = () => {
                   <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-3">
                       {item.image && (
-                        <img 
-                          src={item.image} 
+                        <img
+                          src={item.image}
                           alt={item.name}
                           className="w-12 h-12 object-cover rounded"
                         />
@@ -881,7 +875,7 @@ const Orders: React.FC = () => {
               <option value="cancelled">{t('orders.status.cancelled')}</option>
             </select>
           </div>
-          
+
           <div className="flex justify-end gap-2">
             <Button
               onClick={() => setShowStatusModal(false)}
@@ -922,7 +916,7 @@ const Orders: React.FC = () => {
               rows={4}
             />
           </div>
-          
+
           <div className="flex justify-end gap-2">
             <Button
               onClick={() => setShowNoteModal(false)}
@@ -956,7 +950,7 @@ const Orders: React.FC = () => {
           <p className="text-sm text-gray-500">
             {t('orders.actions.deleteWarning')}
           </p>
-          
+
           <div className="flex justify-end gap-2">
             <Button
               onClick={() => setShowDeleteModal(false)}
@@ -988,7 +982,7 @@ const Orders: React.FC = () => {
           <p className="text-gray-700">
             {t('orders.confirmations.markAsDelivered.message', { orderNumber: selectedOrder?.orderNumber })}
           </p>
-          
+
           <div className="flex justify-end gap-2">
             <Button
               onClick={() => {
@@ -1023,7 +1017,7 @@ const Orders: React.FC = () => {
           <p className="text-gray-700">
             {t('orders.confirmations.markAsCancelled.message', { orderNumber: selectedOrder?.orderNumber })}
           </p>
-          
+
           <div className="flex justify-end gap-2">
             <Button
               onClick={() => {
@@ -1058,7 +1052,7 @@ const Orders: React.FC = () => {
           <p className="text-gray-700">
             {t('orders.confirmations.markAsPaid.message', { orderNumber: selectedOrder?.orderNumber })}
           </p>
-          
+
           <div className="flex justify-end gap-2">
             <Button
               onClick={() => {
