@@ -1013,6 +1013,7 @@
       "image": "Images",
       "latestCostPrice": "Dernier Prix d'Achat",
       "sellingPriceHelp": "Requis : Le prix auquel vous vendez ce produit.",
+      "sellingBelowCost": "Attention : Le prix de vente est inférieur au prix de revient !",
       "cataloguePriceHelp": "Optionnel : Utilisé pour référence ou promotions.",
       "profitPerUnit": "Profit par unité",
       "imageHelp": "Ajoutez des images claires pour aider à identifier ce produit. Vous pouvez télécharger plusieurs images.",
@@ -1954,8 +1955,8 @@
     "refundExceeds": "Le montant du remboursement dépasse la dette restante !",
     "noDebtsToRefund": "Aucune dette disponible pour remboursement.",
     "noRefunds": "Aucun remboursement pour cette dette.",
-      "refundEntry": "Remboursement",
-      "descriptionRequiredForSortie": "La description est obligatoire pour les entrées de type « sortie ». Merci de préciser la déduction.",
+    "refundEntry": "Remboursement",
+    "descriptionRequiredForSortie": "La description est obligatoire pour les entrées de type « sortie ». Merci de préciser la déduction.",
     "additionalStats": "Statistiques supplémentaires",
     "removeMoney": "Retirer de l'argent",
     "youAreAboutToRemoveMoney": "Vous êtes sur le point de retirer de l'argent de votre solde.",
@@ -1963,7 +1964,6 @@
     "willBeStoredAsNegative": "Ce montant sera automatiquement enregistré comme un montant négatif",
     "removeMoneyDescriptionPlaceholder": "Décrivez pourquoi cet argent est retiré (obligatoire)"
   },
-
   "suppliers": {
     "title": "Fournisseurs",
     "subtitle": "Gérez vos fournisseurs et suivez les dettes fournisseurs",
@@ -3071,4 +3071,4 @@
       "stockRupture": "Rupture de stock"
     }
   }
-} 
+}
