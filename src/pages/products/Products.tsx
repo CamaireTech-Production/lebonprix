@@ -55,7 +55,8 @@ const Products = () => {
     hasMore,
     error: infiniteError,
     loadMore,
-    refresh
+    refresh,
+    updateLocalProduct
   } = useInfiniteProducts();
 
   // Keep original hook for adding/updating products
@@ -255,7 +256,7 @@ const Products = () => {
   useEffect(() => {
     const productIdFromUrl = searchParams.get('productId');
     const actionFromUrl = searchParams.get('action');
-    
+
     // Only process if we have a productId in URL and products are loaded
     if (productIdFromUrl && infiniteProducts.length > 0 && !isDetailModalOpen && !infiniteLoading) {
       const product = infiniteProducts.find(p => p.id === productIdFromUrl);
@@ -595,16 +596,16 @@ const Products = () => {
       // Create supplier info for the product creation
       const supplierInfo = step2Data.supplyType === 'fromSupplier'
         ? {
-            supplierId: step2Data.supplierId,
-            isOwnPurchase: false,
-            isCredit: step2Data.paymentType === 'credit',
-            costPrice: stockCostPrice
-          }
+          supplierId: step2Data.supplierId,
+          isOwnPurchase: false,
+          isCredit: step2Data.paymentType === 'credit',
+          costPrice: stockCostPrice
+        }
         : {
-            isOwnPurchase: true,
-            isCredit: false,
-            costPrice: stockCostPrice
-          };
+          isOwnPurchase: true,
+          isCredit: false,
+          costPrice: stockCostPrice
+        };
 
       // Get createdBy employee reference
       let createdBy: ReturnType<typeof getCurrentEmployeeRef> | null = null;
@@ -989,6 +990,7 @@ const Products = () => {
       userId: currentProduct.userId || user.uid,
       updatedAt: currentProduct.updatedAt || { seconds: 0, nanoseconds: 0 },
     };
+
     const updateData: Partial<Product> = {
       name: step1Data.name,
       images: safeProduct.images, // Keep existing images, will be updated separately if needed
@@ -1012,6 +1014,9 @@ const Products = () => {
     if (step1Data.reference && step1Data.reference.trim() !== '') {
       updateData.reference = step1Data.reference;
     }
+
+    // Optimistic update: Update local state immediately
+    updateLocalProduct(currentProduct.id, updateData);
 
     try {
       // Update product info only (stock management moved to dedicated Stocks page)
@@ -2091,13 +2096,13 @@ const Products = () => {
                 {t('products.stocksPage.messages.noProductsFound')}
               </h3>
               <p className="text-sm text-gray-600 mb-4 max-w-md">
-                {hybridSearchQuery.trim() 
+                {hybridSearchQuery.trim()
                   ? t('products.stocksPage.messages.noProductsMatchSearch', { search: hybridSearchQuery })
                   : t('products.stocksPage.messages.noProductsMatchSearch', { search: selectedCategory })
                 }
               </p>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setHybridSearchQuery('');
                   setSelectedCategory(t('products.filters.allCategories'));

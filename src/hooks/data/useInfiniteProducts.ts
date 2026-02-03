@@ -16,6 +16,7 @@ interface UseInfiniteProductsReturn {
   error: Error | null;
   loadMore: () => void;
   refresh: () => void;
+  updateLocalProduct: (id: string, updates: Partial<Product>) => void;
 }
 
 const PRODUCTS_PER_PAGE = 50; // Increased from 20 to 50 for better initial load
@@ -32,7 +33,7 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
 
   // Load initial products
   const loadInitialProducts = useCallback(async () => {
-    
+
     if (!user?.uid || !company?.id) {
       setLoading(false);
       return;
@@ -41,16 +42,16 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
     // 1. Check localStorage FIRST - instant display if data exists
     const localProducts = ProductsManager.load(company.id);
     if (localProducts && localProducts.length > 0) {
-      const visibleProducts = localProducts.filter(product => 
+      const visibleProducts = localProducts.filter(product =>
         product.isAvailable !== false
       );
       setProducts(visibleProducts);
       setLoading(false); // No loading spinner - data is available
       setSyncing(true); // Show background sync indicator
-      
+
       // Start background sync
       BackgroundSyncService.syncProducts(company.id, (freshProducts) => {
-        const visibleProducts = freshProducts.filter(product => 
+        const visibleProducts = freshProducts.filter(product =>
           product.isAvailable !== false
         );
         setProducts(visibleProducts);
@@ -75,15 +76,15 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
         id: doc.id,
         ...doc.data()
       })) as Product[];
-      
-      const productsData = allProducts.filter(product => 
+
+      const productsData = allProducts.filter(product =>
         product.isAvailable !== false
       );
 
       setProducts(productsData);
       setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
       setHasMore(snapshot.docs.length === PRODUCTS_PER_PAGE);
-      
+
       // Save to localStorage for future instant loads
       ProductsManager.save(company.id, productsData);
     } catch (err) {
@@ -115,8 +116,8 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
         id: doc.id,
         ...doc.data()
       })) as Product[];
-      
-      const newProducts = allNewProducts.filter(product => 
+
+      const newProducts = allNewProducts.filter(product =>
         product.isAvailable !== false
       );
 
@@ -151,7 +152,7 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
     // Use BackgroundSyncService to load ALL products (not just first page)
     // without blocking the UI with a full-page skeleton
     BackgroundSyncService.forceSyncProducts(company.id, (freshProducts) => {
-      const visibleProducts = freshProducts.filter(product => 
+      const visibleProducts = freshProducts.filter(product =>
         product.isAvailable !== false
       );
       setProducts(visibleProducts);
@@ -183,6 +184,9 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
     hasMore,
     error,
     loadMore,
-    refresh
+    refresh,
+    updateLocalProduct: (id: string, updates: Partial<Product>) => {
+      setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+    }
   };
 };
