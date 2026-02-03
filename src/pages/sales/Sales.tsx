@@ -62,7 +62,7 @@ interface ProductOption {
 
 const Sales: React.FC = () => {
   const { t } = useTranslation();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const {
     sales,
     loading: salesLoading,
@@ -82,7 +82,7 @@ const Sales: React.FC = () => {
   // OPTIMIZATION: Removed useSales() hook to avoid duplicate subscription
   // useInfiniteSales() already provides real-time updates via subscription
   // We'll use updateSaleDocument directly from service instead
-  const { canEdit, canDelete } = usePermissionCheck(RESOURCES.SALES);
+  const { canDelete } = usePermissionCheck(RESOURCES.SALES);
   const { batches: allBatches } = useAllStockBatches();
 
   const stockMap = React.useMemo(
@@ -358,7 +358,6 @@ const Sales: React.FC = () => {
   const handleSettleCredit = async (
     saleId: string,
     paymentMethod: 'cash' | 'mobile_money' | 'card',
-    amountPaid: number,
     transactionReference?: string,
     mobileMoneyPhone?: string
   ): Promise<void> => {
@@ -367,6 +366,15 @@ const Sales: React.FC = () => {
     }
 
     try {
+      // Get the sale to calculate the outstanding amount
+      const sale = sales.find(s => s.id === saleId);
+      if (!sale) {
+        throw new Error('Sale not found');
+      }
+      
+      // Calculate the amount to be paid (outstanding amount)
+      const amountPaid = sale.remainingAmount ?? sale.totalAmount;
+      
       // Update sale status from credit to paid with payment details
       await updateSaleStatus(
         saleId,
@@ -846,6 +854,7 @@ const Sales: React.FC = () => {
   };
 
   // Move useMemo before early returns to follow Rules of Hooks
+  // Filter products with stock > 0 for dropdown
   const availableProducts = React.useMemo(
     () =>
       (products || []).filter((p) => {
@@ -1096,19 +1105,21 @@ const Sales: React.FC = () => {
               size="sm"
               onClick={() => setPage(1)}
               disabled={page === 1}
-              icon={<ChevronsLeft size={14} />}
               title={t('common.first') || 'First'}
               className="p-1 sm:p-2"
-            />
+            >
+              <ChevronsLeft size={14} />
+            </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setPage(page - 1)}
               disabled={page === 1}
-              icon={<ChevronLeft size={14} />}
               title={t('common.prev') || 'Previous'}
               className="p-1 sm:p-2"
-            />
+            >
+              <ChevronLeft size={14} />
+            </Button>
             <span className="text-xs sm:text-sm px-2 sm:px-3 py-1 bg-gray-100 rounded-md">
               {page} / {totalPages}
             </span>
@@ -1117,19 +1128,21 @@ const Sales: React.FC = () => {
               size="sm"
               onClick={() => setPage(page + 1)}
               disabled={page === totalPages}
-              icon={<ChevronRight size={14} />}
               title={t('common.next') || 'Next'}
               className="p-1 sm:p-2"
-            />
+            >
+              <ChevronRight size={14} />
+            </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setPage(totalPages)}
               disabled={page === totalPages}
-              icon={<ChevronsRight size={14} />}
               title={t('common.last') || 'Last'}
               className="p-1 sm:p-2"
-            />
+            >
+              <ChevronsRight size={14} />
+            </Button>
           </div>
         </div>
 
@@ -1351,72 +1364,119 @@ const Sales: React.FC = () => {
                 {t('sales.modals.edit.products.addProduct')}
               </Button>
             </div>
-            {formData.products.map((product, index) => (
-              <div key={index} className="p-4 border rounded-lg space-y-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <Select
-                      options={productOptions}
-                      value={productOptions.find((option) => option.value.id === product.product?.id)}
-                      onChange={(option) => handleProductChange(index, option)}
-                      isSearchable
-                      placeholder={t('sales.modals.edit.products.selectPlaceholder')}
-                      className="text-sm"
-                    />
+            {formData.products.map((product, index) => {
+              // Check if product has stock available
+              const currentStock = product.product ? getEffectiveProductStock(product.product, stockMap) : 0;
+              const isInDropdown = product.product && productOptions.some(opt => opt.value.id === product.product?.id);
+              
+              return (
+                <div key={index} className="p-4 border rounded-lg space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      {/* Show product info card for out-of-stock products that are not in dropdown */}
+                      {product.product && !isInDropdown ? (
+                        <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-orange-200">
+                              <ImageWithSkeleton
+                                src={product.product.images && product.product.images.length > 0 ? product.product.images[0] : '/placeholder.png'}
+                                alt={product.product.name}
+                                className="w-full h-full object-cover"
+                                placeholder="/placeholder.png"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900">{product.product.name}</div>
+                              <div className="text-sm text-orange-600 font-medium flex items-center gap-1">
+                                <Info size={14} />
+                                {t('sales.modals.edit.products.outOfStock') || 'Out of stock'}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {t('sales.modals.edit.products.currentStock') || 'Current stock'}: <span className="font-semibold text-red-600">{currentStock}</span>
+                                {' | '}
+                                {t('sales.modals.edit.products.saleQuantity') || 'Sale quantity'}: <span className="font-semibold text-blue-600">{product.quantity}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="mt-2 text-xs text-orange-700 bg-orange-100 p-2 rounded">
+                            {t('sales.modals.edit.products.outOfStockWarning') || 'This product is currently out of stock. You cannot change the product selection, but you can adjust the quantity or remove it from the sale.'}
+                          </div>
+                        </div>
+                      ) : (
+                        <Select
+                          options={productOptions}
+                          value={productOptions.find((option) => option.value.id === product.product?.id)}
+                          onChange={(option) => handleProductChange(index, option)}
+                          isSearchable
+                          placeholder={t('sales.modals.edit.products.selectPlaceholder')}
+                          className="text-sm"
+                        />
+                      )}
+                    </div>
+                    {index > 0 && (
+                      <button onClick={() => removeProductField(index)} className="ml-2 p-2 text-red-600 hover:text-red-900">
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </div>
-                  {index > 0 && (
-                    <button onClick={() => removeProductField(index)} className="ml-2 p-2 text-red-600 hover:text-red-900">
-                      <Trash2 size={16} />
-                    </button>
+                  {product.product && (
+                    <>
+                      <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-md">
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">
+                            {t('sales.modals.edit.products.standardPrice')}:
+                          </span>
+                          <span className="ml-2">{formatPrice(product.product.sellingPrice)} XAF</span>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">
+                            {t('sales.modals.edit.products.availableStock')}:
+                          </span>
+                          <span className={`ml-2 ${currentStock === 0 ? 'text-red-600 font-semibold' : ''}`}>
+                            {currentStock}
+                            {currentStock === 0 && (
+                              <span className="ml-1 text-xs text-orange-600">
+                                ({t('sales.modals.edit.products.outOfStock') || 'Out of stock'})
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Input
+                          label={t('sales.modals.edit.products.quantity')}
+                          type="number"
+                          min="1"
+                          step="1"
+                          max={currentStock > 0 ? currentStock.toString() : undefined}
+                          value={product.quantity}
+                          onChange={(e) => handleProductInputChange(index, 'quantity', e.target.value)}
+                          required
+                          helpText={currentStock > 0
+                            ? t('sales.modals.edit.products.cannotExceed', { value: currentStock })
+                            : t('sales.modals.edit.products.noStockAvailable') || 'No stock available - consider removing this product'
+                          }
+                        />
+                        <PriceInput
+                          label={t('sales.modals.edit.products.negotiatedPrice')}
+                          name={`negotiatedPrice-${index}`}
+                          value={product.negotiatedPrice}
+                          onChange={(e) => handleProductInputChange(index, 'negotiatedPrice', e.target.value)}
+                        />
+                      </div>
+                      {product.quantity && (
+                        <div className="p-3 bg-blue-50 rounded-md">
+                          <span className="text-sm font-medium text-blue-700">
+                            {t('sales.modals.edit.products.productTotal')}:
+                          </span>
+                          <span className="ml-2 text-blue-900">{formatPrice(calculateProductTotal(product))} XAF</span>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
-                {product.product && (
-                  <>
-                    <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-md">
-                      <div>
-                        <span className="text-sm font-medium text-gray-700">
-                          {t('sales.modals.edit.products.standardPrice')}:
-                        </span>
-                        <span className="ml-2">{formatPrice(product.product.sellingPrice)} XAF</span>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium text-gray-700">
-                          {t('sales.modals.edit.products.availableStock')}:
-                        </span>
-                        <span className="ml-2">{getEffectiveProductStock(product.product, stockMap)}</span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input
-                        label={t('sales.modals.edit.products.quantity')}
-                        type="number"
-                        min="1"
-                        step="1"
-                        max={getEffectiveProductStock(product.product, stockMap).toString()}
-                        value={product.quantity}
-                        onChange={(e) => handleProductInputChange(index, 'quantity', e.target.value)}
-                        required
-                        helpText={t('sales.modals.edit.products.cannotExceed', { value: getEffectiveProductStock(product.product, stockMap) })}
-                      />
-                      <PriceInput
-                        label={t('sales.modals.edit.products.negotiatedPrice')}
-                        name={`negotiatedPrice-${index}`}
-                        value={product.negotiatedPrice}
-                        onChange={(e) => handleProductInputChange(index, 'negotiatedPrice', e.target.value)}
-                      />
-                    </div>
-                    {product.quantity && (
-                      <div className="p-3 bg-blue-50 rounded-md">
-                        <span className="text-sm font-medium text-blue-700">
-                          {t('sales.modals.edit.products.productTotal')}:
-                        </span>
-                        <span className="ml-2 text-blue-900">{formatPrice(calculateProductTotal(product))} XAF</span>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            ))}
+              );
+            })}
             {formData.products.some((p) => p.quantity) && (
               <div className="p-4 bg-emerald-50 rounded-md">
                 <span className="text-lg font-medium text-emerald-700">

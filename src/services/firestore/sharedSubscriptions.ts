@@ -4,7 +4,7 @@
  * This eliminates duplicate subscriptions without using React Context
  */
 
-import { subscribeToProducts } from './products/productService';
+import { subscribeToProducts, subscribeToProductsForSales } from './products/productService';
 import { subscribeToSales } from './sales/saleService';
 import { subscribeToCustomers } from './customers/customerService';
 import ProductsManager from '@services/storage/ProductsManager';
@@ -23,6 +23,15 @@ interface SubscriptionState<T> {
 
 class SharedSubscriptionsManager {
   private productsState: SubscriptionState<Product> = {
+    data: [],
+    loading: false,
+    syncing: false,
+    error: null,
+    unsubscribe: null,
+    listeners: new Set()
+  };
+
+  private salesProductsState: SubscriptionState<Product> = {
     data: [],
     loading: false,
     syncing: false,
@@ -97,6 +106,37 @@ class SharedSubscriptionsManager {
     });
 
     this.productsState.unsubscribe = unsubscribe;
+  }
+
+  /**
+   * Initialize sales products subscription for a company (includes deleted/unavailable products)
+   */
+  initializeSalesProducts(companyId: string): void {
+    if (this.companyId === companyId && this.salesProductsState.unsubscribe) {
+      // Already initialized for this company
+      return;
+    }
+
+    // Cleanup previous subscription if company changed
+    if (this.salesProductsState.unsubscribe && this.companyId !== companyId) {
+      this.salesProductsState.unsubscribe();
+      this.salesProductsState.unsubscribe = null;
+    }
+
+    this.companyId = companyId;
+
+    // Set loading state
+    this.salesProductsState.loading = true;
+
+    // Create single subscription with all products for sales contexts
+    const unsubscribe = subscribeToProductsForSales(companyId, (data) => {
+      this.salesProductsState.data = data;
+      this.salesProductsState.loading = false;
+      this.salesProductsState.syncing = false;
+      this.notifySalesProductsListeners(data);
+    });
+
+    this.salesProductsState.unsubscribe = unsubscribe;
   }
 
   /**
@@ -230,6 +270,23 @@ class SharedSubscriptionsManager {
   }
 
   /**
+   * Subscribe to sales products updates (includes deleted/unavailable products)
+   */
+  subscribeToSalesProducts(listener: (data: Product[]) => void): () => void {
+    this.salesProductsState.listeners.add(listener);
+    
+    // Immediately notify with current data if available
+    if (this.salesProductsState.data.length > 0) {
+      listener(this.salesProductsState.data);
+    }
+
+    // Return unsubscribe function
+    return () => {
+      this.salesProductsState.listeners.delete(listener);
+    };
+  }
+
+  /**
    * Get current products state
    */
   getProductsState(): SubscriptionState<Product> {
@@ -252,6 +309,20 @@ class SharedSubscriptionsManager {
       loading: this.salesState.loading,
       syncing: this.salesState.syncing,
       error: this.salesState.error,
+      unsubscribe: null, // Don't expose unsubscribe
+      listeners: new Set() // Don't expose listeners
+    };
+  }
+
+  /**
+   * Get current sales products state (includes deleted/unavailable products)
+   */
+  getSalesProductsState(): SubscriptionState<Product> {
+    return {
+      data: [...this.salesProductsState.data],
+      loading: this.salesProductsState.loading,
+      syncing: this.salesProductsState.syncing,
+      error: this.salesProductsState.error,
       unsubscribe: null, // Don't expose unsubscribe
       listeners: new Set() // Don't expose listeners
     };
@@ -293,6 +364,19 @@ class SharedSubscriptionsManager {
         listener(data);
       } catch (error) {
         console.error('Error in sales listener:', error);
+      }
+    });
+  }
+
+  /**
+   * Notify all sales products listeners
+   */
+  private notifySalesProductsListeners(data: Product[]): void {
+    this.salesProductsState.listeners.forEach(listener => {
+      try {
+        listener(data);
+      } catch (error) {
+        console.error('Error in sales products listener:', error);
       }
     });
   }

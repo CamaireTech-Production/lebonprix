@@ -694,7 +694,12 @@
           "totalAmount": "Montant Total",
           "cannotExceed": "Ne peut pas dépasser {{value}}",
           "inStock": "en stock",
-          "selectPlaceholder": "Sélectionner un produit..."
+          "selectPlaceholder": "Sélectionner un produit...",
+          "outOfStock": "Rupture de stock",
+          "currentStock": "Stock actuel",
+          "saleQuantity": "Quantité vendue",
+          "outOfStockWarning": "Attention : ce produit est en rupture de stock",
+          "noStockAvailable": "Aucun stock disponible"
         },
         "delivery": {
           "fee": "Frais de Livraison"
@@ -715,7 +720,13 @@
           "quantity": "Quantité",
           "basePrice": "Prix de Base",
           "negotiatedPrice": "Prix Négocié",
-          "productTotal": "Total Produit"
+          "productTotal": "Total Produit",
+          "table": {
+            "product": "Produit",
+            "qty": "Qté",
+            "unitPrice": "Prix Unitaire",
+            "total": "Total"
+          }
         },
         "orderSummary": {
           "title": "Résumé de la Commande",
@@ -755,19 +766,6 @@
           "items": "Articles",
           "productCount": "produit(s)"
         },
-        "products": {
-          "title": "Produits",
-          "quantity": "Quantité",
-          "basePrice": "Prix de Base",
-          "negotiatedPrice": "Prix Négocié",
-          "productTotal": "Total Produit",
-          "table": {
-            "product": "Produit",
-            "qty": "Qté",
-            "unitPrice": "Prix Unitaire",
-            "total": "Total"
-          }
-        },
         "creditInformation": {
           "title": "Informations de Crédit",
           "remaining": "Restant",
@@ -775,8 +773,8 @@
         },
         "statusTimeline": {
           "title": "Statut et Chronologie",
-          "showHistory": "Afficher l'Historique",
-          "hideHistory": "Masquer l'Historique"
+          "showHistory": "Afficher l'Histoire",
+          "hideHistory": "Masquer l'Histoire"
         },
         "invoicePreview": "Aperçu de la Facture",
         "orderInformation": {
