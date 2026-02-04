@@ -75,8 +75,7 @@ export const subscribeToSupplierDebt = (
  */
 const getOrCreateSupplierDebt = async (
   supplierId: string,
-  companyId: string,
-  userId: string
+  companyId: string
 ): Promise<{ debtRef: any; debtData: SupplierDebt | null }> => {
   const debtId = `${supplierId}_${companyId}`;
   const debtRef = doc(db, 'supplier_debts', debtId);
@@ -93,18 +92,9 @@ const getOrCreateSupplierDebt = async (
   }
 
   // Create new document with initial values
-  const now = serverTimestamp();
-  const initialData: Omit<SupplierDebt, 'id'> = {
-    supplierId,
-    companyId,
-    userId,
-    totalDebt: 0,
-    totalRefunded: 0,
-    outstanding: 0,
-    entries: [],
-    createdAt: now as any,
-    updatedAt: now as any
-  };
+  // Create new document with initial values
+  // Note: We return null for debtData so the caller handles creation logic via batch or set
+
 
   return {
     debtRef,
@@ -153,7 +143,7 @@ export const addSupplierDebt = async (
   const batch = writeBatch(db);
 
   // Get or create supplier debt document
-  const { debtRef, debtData } = await getOrCreateSupplierDebt(supplierId, companyId, userId);
+  const { debtRef, debtData } = await getOrCreateSupplierDebt(supplierId, companyId);
 
   // Create new debt entry
   const entryId = doc(collection(db, 'supplier_debts')).id; // Generate ID for entry
@@ -242,7 +232,7 @@ export const addSupplierRefund = async (
   const batch = writeBatch(db);
 
   // Get or create supplier debt document
-  const { debtRef, debtData } = await getOrCreateSupplierDebt(supplierId, companyId, userId);
+  const { debtRef, debtData } = await getOrCreateSupplierDebt(supplierId, companyId);
 
   if (!debtData) {
     throw new Error('Cannot add refund: No debt record found for supplier');
@@ -504,9 +494,9 @@ export const updateSupplierDebtEntryMetadata = async (
     // Reviewing addSupplierDebt (not fully visible), it likely stores metadata.
 
     // Check if this entry corresponds to the batch
-    // If batchId matches metadata.batchId
+    // If batchId matches metadata.batchId or top-level batchId
     const entryAny = entry as any;
-    if (entryAny.metadata?.batchId === batchId) {
+    if (entryAny.batchId === batchId || entryAny.metadata?.batchId === batchId) {
       entryUpdated = true;
       return {
         ...entry,
@@ -525,4 +515,73 @@ export const updateSupplierDebtEntryMetadata = async (
       updatedAt: serverTimestamp()
     });
   }
+};
+
+/**
+ * Delete a supplier debt entry by batch ID
+ * Used when a stock batch is deleted (e.g. product deletion)
+ */
+export const removeSupplierDebtEntryByBatchId = async (
+  supplierId: string,
+  batchId: string,
+  companyId: string
+): Promise<SupplierDebt | null> => {
+  if (!supplierId || !batchId || !companyId) {
+    throw new Error('Invalid supplier debt entry removal data');
+  }
+
+  const userId = companyId;
+  const batch = writeBatch(db);
+
+  // Get supplier debt document
+  const debtId = `${supplierId}_${companyId}`;
+  const debtRef = doc(db, 'supplier_debts', debtId);
+  const debtSnap = await getDoc(debtRef);
+
+  if (!debtSnap.exists()) {
+    return null; // No debt document implies no entry to remove
+  }
+
+  const debtData = debtSnap.data() as SupplierDebt;
+
+  // Find if entry exists
+  const entryExists = debtData.entries.some(e => (e as any).batchId === batchId || (e as any).metadata?.batchId === batchId);
+
+  if (!entryExists) {
+    return null; // Entry not found, nothing to do
+  }
+
+  // Remove the entry
+  const updatedEntries = debtData.entries.filter(e => {
+    const entryAny = e as any;
+    return entryAny.batchId !== batchId && entryAny.metadata?.batchId !== batchId;
+  });
+
+  // Recalculate totals
+  const { totalDebt, totalRefunded, outstanding } = recalculateTotals(updatedEntries);
+
+  // Update document
+  batch.update(debtRef, {
+    totalDebt,
+    totalRefunded,
+    outstanding,
+    entries: updatedEntries,
+    updatedAt: serverTimestamp()
+  });
+
+  // Create audit log
+  createAuditLog(batch, 'update', 'supplier', supplierId, {
+    action: 'remove_debt_entry_by_batch',
+    batchId
+  }, userId, debtData);
+
+  await batch.commit();
+
+  // Return updated document
+  const updatedSnap = await getDoc(debtRef);
+  const data = updatedSnap.data();
+  return {
+    id: updatedSnap.id,
+    ...(data || {})
+  } as SupplierDebt;
 };
