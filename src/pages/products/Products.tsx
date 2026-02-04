@@ -53,7 +53,8 @@ const Products = () => {
     hasMore,
     error: infiniteError,
     loadMore,
-    refresh
+    refresh,
+    updateLocalProduct
   } = useInfiniteProducts();
 
   // Keep original hook for adding/updating products
@@ -984,6 +985,7 @@ const Products = () => {
       userId: currentProduct.userId || user.uid,
       updatedAt: currentProduct.updatedAt || { seconds: 0, nanoseconds: 0 },
     };
+
     const updateData: Partial<Product> = {
       name: step1Data.name,
       images: safeProduct.images, // Keep existing images, will be updated separately if needed
@@ -1007,6 +1009,9 @@ const Products = () => {
     if (step1Data.reference && step1Data.reference.trim() !== '') {
       updateData.reference = step1Data.reference;
     }
+
+    // Optimistic update: Update local state immediately
+    updateLocalProduct(currentProduct.id, updateData);
 
     try {
       // Update product info only (stock management moved to dedicated Stocks page)
