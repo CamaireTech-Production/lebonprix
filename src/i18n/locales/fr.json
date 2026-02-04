@@ -877,7 +877,8 @@
         "priceExceeded": "Le prix négocié ne peut pas dépasser le prix de vente standard.",
         "deliveryFeeInvalid": "Les frais de livraison doivent être un nombre positif."
       },
-      "customerFound": "Client trouvé : {{name}}"
+      "customerFound": "Client trouvé : {{name}}",
+      "allLoaded": "Toutes les ventes chargées ({{count}} au total)"
     }
   },
   "invoice": {

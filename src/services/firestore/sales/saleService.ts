@@ -560,8 +560,11 @@ export const updateSaleStatus = async (
 
   await batch.commit();
 
-  // If transitioning from credit to paid, create financial entry
-  if (isCreditToPaidTransition) {
+  // Sync finance entry for ANY transition to paid status, not just credit → paid
+  // This ensures commandé → payé and other status transitions also create finance entries
+  const shouldSyncFinance = status === 'paid' || paymentStatus === 'paid';
+
+  if (shouldSyncFinance) {
     try {
       // Get updated sale to sync finance entry
       const updatedSaleSnap = await getDoc(saleRef);
@@ -570,7 +573,7 @@ export const updateSaleStatus = async (
         await syncFinanceEntryWithSale(updatedSale);
       }
     } catch (syncError) {
-      logError('Error syncing finance entry after credit to paid transition', syncError);
+      logError('Error syncing finance entry after status update to paid', syncError);
       // Don't throw - the status update succeeded, finance sync is secondary
     }
   }

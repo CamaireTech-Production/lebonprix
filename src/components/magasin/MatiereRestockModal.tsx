@@ -32,7 +32,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
   const { company, user } = useAuth();
   const { shops, loading: shopsLoading } = useShops();
   const { warehouses, loading: warehousesLoading } = useWarehouses();
-  
+
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingCostPrice, setLoadingCostPrice] = useState(false);
@@ -87,7 +87,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
         try {
           // Get stock batches ordered by creation date (newest first)
           const batches = await getMatiereStockBatches(matiere.id);
-          
+
           // Get cost price from the most recent batch, or fallback to matiere's costPrice
           let latestCostPrice = '';
           let defaultPrice = 0;
@@ -105,7 +105,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
           let defaultSourceType: 'shop' | 'warehouse' | '' = '';
           let defaultShopId = '';
           let defaultWarehouseId = '';
-          
+
           try {
             const defaultShop = await getDefaultShop(company.id);
             if (defaultShop && defaultShop.isActive !== false) {
@@ -165,7 +165,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
       ...prev,
       [field]: value
     }));
-    
+
     // Clear validation errors when user starts typing
     if (validationErrors.length > 0) {
       setValidationErrors([]);
@@ -174,13 +174,13 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
 
   const validateForm = () => {
     const errors: string[] = [];
-    
+
     // Validate quantity (allow decimals up to 2 places)
     const quantity = parseFloat(formData.quantity);
     if (isNaN(quantity) || quantity <= 0) {
       errors.push(t('navigation.warehouseMenu.restockModal.validation.invalidQuantity'));
     }
-    
+
     // Validate cost price if provided
     if (formData.costPrice && formData.costPrice.trim() !== '') {
       const costPrice = parseFloat(formData.costPrice);
@@ -188,7 +188,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
         errors.push(t('navigation.warehouseMenu.restockModal.validation.invalidCostPrice'));
       }
     }
-    
+
     // Validate location selection if quantity > 0
     if (quantity > 0) {
       if (!formData.sourceType) {
@@ -198,7 +198,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
       } else if (formData.sourceType === 'warehouse' && !formData.warehouseId) {
         errors.push('Veuillez sélectionner un entrepôt pour ce réapprovisionnement.');
       }
-      
+
       // Validate that selected shop/warehouse is active
       if (formData.sourceType === 'shop' && formData.shopId) {
         const selectedShop = activeShops.find(s => s.id === formData.shopId);
@@ -212,22 +212,22 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
         }
       }
     }
-    
+
     // Validate supplier selection for non-own purchases
     if (!formData.isOwnPurchase && !formData.supplierId) {
       errors.push(t('navigation.warehouseMenu.restockModal.validation.supplierRequired'));
     }
-    
+
     // Validate own purchase vs supplier selection
     if (formData.isOwnPurchase && formData.supplierId) {
       errors.push(t('navigation.warehouseMenu.restockModal.validation.ownPurchaseCannotHaveSupplier'));
     }
-    
+
     // Validate payment type for credit purchases
     if (formData.paymentType === 'credit' && formData.isOwnPurchase) {
       errors.push(t('navigation.warehouseMenu.restockModal.validation.ownPurchaseCannotBeCredit'));
     }
-    
+
     return errors;
   };
 
@@ -266,7 +266,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!matiere || !company) return;
 
     // Validate form
@@ -413,7 +413,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
                 <option value="warehouse">Entrepôt</option>
               </select>
             </div>
-            
+
             {formData.sourceType === 'shop' && (
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -448,7 +448,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
                 )}
               </div>
             )}
-            
+
             {formData.sourceType === 'warehouse' && (
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -488,15 +488,15 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
             {formData.sourceType === 'shop'
               ? 'Le stock sera créé directement dans la boutique sélectionnée'
               : formData.sourceType === 'warehouse'
-              ? 'Le stock sera créé directement dans l\'entrepôt sélectionné'
-              : 'Sélectionnez une boutique ou un entrepôt pour ce réapprovisionnement'}
+                ? 'Le stock sera créé directement dans l\'entrepôt sélectionné'
+                : 'Sélectionnez une boutique ou un entrepôt pour ce réapprovisionnement'}
           </p>
         </div>
 
         {/* Restock Details */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-900">{t('navigation.warehouseMenu.restockModal.restockDetails.title')}</h3>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <Input
               label={t('navigation.warehouseMenu.restockModal.restockDetails.quantity', { unit: matiere.unit || 'unité' })}
@@ -508,7 +508,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
               min="0.01"
               step="0.01"
             />
-            
+
             <div>
               <div className="relative">
                 <PriceInput
@@ -539,15 +539,15 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
           {(() => {
             const quantity = parseFloat(formData.quantity);
             if (!quantity || quantity <= 0) return null;
-            
+
             const totalCost = calculateTotalCost();
             if (totalCost <= 0) return null;
-            
-            const effectiveCostPrice = formData.costPrice && formData.costPrice.trim() !== '' 
-              ? parseFloat(formData.costPrice) 
+
+            const effectiveCostPrice = formData.costPrice && formData.costPrice.trim() !== ''
+              ? parseFloat(formData.costPrice)
               : defaultCostPrice;
             const isUsingDefault = !formData.costPrice || formData.costPrice.trim() === '';
-            
+
             return (
               <div className="bg-blue-50 p-3 rounded-lg">
                 <div className="text-sm font-medium text-blue-800">{t('navigation.warehouseMenu.restockModal.totalCost.title')}</div>
@@ -555,10 +555,10 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
                   {formatCostPrice(totalCost)}
                 </div>
                 <div className="text-xs text-blue-700 mt-1">
-                  {effectiveCostPrice > 0 
-                    ? t('navigation.warehouseMenu.restockModal.totalCost.expenseWillBeCreated', { 
-                        usingDefault: isUsingDefault ? t('navigation.warehouseMenu.restockModal.totalCost.usingDefault') : '' 
-                      })
+                  {effectiveCostPrice > 0
+                    ? t('navigation.warehouseMenu.restockModal.totalCost.expenseWillBeCreated', {
+                      usingDefault: isUsingDefault ? t('navigation.warehouseMenu.restockModal.totalCost.usingDefault') : ''
+                    })
                     : t('navigation.warehouseMenu.restockModal.totalCost.noExpenseCreated')}
                 </div>
               </div>
@@ -569,7 +569,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
         {/* Purchase Type and Supplier Information */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-900">{t('navigation.warehouseMenu.restockModal.purchaseInfo.title')}</h3>
-          
+
           {/* Purchase Type Selection - Made more visible */}
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
             <div className="flex items-center space-x-3">
@@ -594,23 +594,25 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
             </div>
           </div>
 
-          {/* Supplier Selection */}
-          <Select
-            label={t('navigation.warehouseMenu.restockModal.purchaseInfo.supplier')}
-            value={formData.supplierId}
-            onChange={(e) => handleInputChange('supplierId', e.target.value)}
-            options={getSupplierOptions()}
-            disabled={formData.isOwnPurchase}
-          />
+          {/* Supplier Selection - Only show when NOT own purchase */}
+          {!formData.isOwnPurchase && (
+            <Select
+              label={t('navigation.warehouseMenu.restockModal.purchaseInfo.supplier')}
+              value={formData.supplierId}
+              onChange={(e) => handleInputChange('supplierId', e.target.value)}
+              options={getSupplierOptions()}
+            />
+          )}
 
-          {/* Payment Type Selection */}
-          <Select
-            label={t('navigation.warehouseMenu.restockModal.purchaseInfo.paymentType')}
-            value={formData.paymentType}
-            onChange={(e) => handleInputChange('paymentType', e.target.value)}
-            options={getPaymentTypeOptions()}
-            disabled={formData.isOwnPurchase}
-          />
+          {/* Payment Type Selection - Only show when NOT own purchase */}
+          {!formData.isOwnPurchase && (
+            <Select
+              label={t('navigation.warehouseMenu.restockModal.purchaseInfo.paymentType')}
+              value={formData.paymentType}
+              onChange={(e) => handleInputChange('paymentType', e.target.value)}
+              options={getPaymentTypeOptions()}
+            />
+          )}
 
           {/* Information Messages */}
           {formData.isOwnPurchase && (

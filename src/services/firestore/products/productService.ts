@@ -530,10 +530,14 @@ export const softDeleteProductWithDebt = async (
 
     batch.update(productRef, {
       isDeleted: true,
+      isAvailable: false, // Ensure product is marked unavailable
       updatedAt: serverTimestamp()
     });
 
-    // Handle Supplier Debt
+    // Handle Stock Batches - Cascade Delete
+    // Find all active batches for this product and soft delete them
+    // This ensures getAvailableStockBatches (which filters by isDeleted!=true) will not return them
+    // and stock calculations will effectively be 0.
     const batchesQuery = query(
       collection(db, 'stockBatches'),
       where('productId', '==', id),
@@ -542,13 +546,22 @@ export const softDeleteProductWithDebt = async (
     const batchesSnap = await getDocs(batchesQuery);
 
     // Import helper functions dynamically to avoid circular dependencies if any
-    const { removeSupplierDebtEntry, updateSupplierDebtEntryMetadata } = await import('../suppliers/supplierDebtService');
-
-    const processedSupplierDebts = new Set<string>();
+    const { updateSupplierDebtEntryMetadata } = await import('../suppliers/supplierDebtService');
 
     for (const batchDoc of batchesSnap.docs) {
       const batchData = batchDoc.data();
       const batchId = batchDoc.id;
+
+      // Soft delete the batch
+      // We mark it isDeleted=true AND status='deleted' to be doubly sure
+      // This immediately removes it from available stock calculations
+      batch.update(batchDoc.ref, {
+        isDeleted: true,
+        status: 'deleted',
+        deletedAt: serverTimestamp(),
+        deletedBy: userId,
+        updatedAt: serverTimestamp()
+      });
 
       if (batchData.supplierId) {
         // Prevent processing same supplier multiple times if logic was different, 
@@ -582,7 +595,12 @@ export const softDeleteProductWithDebt = async (
       'delete',
       'product',
       id,
-      { isDeleted: true, deleteSupplierDebt },
+      {
+        isDeleted: true,
+        isAvailable: false,
+        deleteSupplierDebt,
+        batchesDeletedCount: batchesSnap.size
+      },
       userId,
       currentProduct
     );

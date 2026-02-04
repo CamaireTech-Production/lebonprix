@@ -15,7 +15,8 @@ import {
   ChevronsRight,
   FileText,
   Clock,
-  RotateCcw
+  RotateCcw,
+  CheckCircle
 } from 'lucide-react';
 import Select from 'react-select';
 import { Modal, ModalFooter, Input, PriceInput, Badge, Button, Card, ImageWithSkeleton, SkeletonSalesList, SyncIndicator, DateRangePicker } from '@components/common';
@@ -298,24 +299,24 @@ const Sales: React.FC = () => {
   // Compute overall profit from all filtered sales
   // Filter out soft-deleted sales (isAvailable === false)
   let filteredSales: Sale[] = (sales || []).filter(sale => sale.isAvailable !== false);
-  
+
   // Apply date range filter
   filteredSales = filteredSales.filter(sale => {
     if (!sale.createdAt?.seconds) return false;
     const saleDate = new Date(sale.createdAt.seconds * 1000);
     return saleDate >= dateRange.from && saleDate <= dateRange.to;
   });
-  
+
   // Calculate credit sales count (before status filter is applied, after date range)
   const creditSalesCount = React.useMemo(() => {
     return countCreditSales(filteredSales);
   }, [filteredSales]);
-  
+
   // Apply status filter (independent)
   if (filterStatus) {
     filteredSales = filteredSales.filter(sale => sale.status === filterStatus);
   }
-  
+
   // Apply search filter (existing)
   if (search.trim()) {
     const s = search.trim().toLowerCase();
@@ -371,10 +372,10 @@ const Sales: React.FC = () => {
       if (!sale) {
         throw new Error('Sale not found');
       }
-      
+
       // Calculate the amount to be paid (outstanding amount)
       const amountPaid = sale.remainingAmount ?? sale.totalAmount;
-      
+
       // Update sale status from credit to paid with payment details
       await updateSaleStatus(
         saleId,
@@ -386,7 +387,7 @@ const Sales: React.FC = () => {
         transactionReference,
         mobileMoneyPhone
       );
-      
+
       showSuccessToast(t('sales.messages.creditSettled') || 'Credit sale marked as paid');
       // Refresh sales list
       refreshSales();
@@ -492,7 +493,7 @@ const Sales: React.FC = () => {
       // OPTIMIZATION: Use updateSaleDocument directly instead of useSales() hook
       // This avoids duplicate subscription (useInfiniteSales already provides real-time updates)
       await updateSaleDocument(currentSale.id, updateData, company?.id || '');
-      
+
       // Update the sale in the local list immediately
       // Merge current sale data with updates to ensure all fields are preserved
       const updatedSale: Sale = {
@@ -503,7 +504,7 @@ const Sales: React.FC = () => {
         updatedAt: new Date() as any
       };
       updateSaleInList(currentSale.id, updatedSale);
-      
+
       setIsEditModalOpen(false);
       setCurrentSale(null);
       resetForm();
@@ -647,13 +648,12 @@ const Sales: React.FC = () => {
       const isExpanded = expandedSaleId === sale.id;
       const saleProfit = computeSaleProfit(sale);
       return [
-        <tr 
-          key={sale.id} 
-          className={`group transition cursor-pointer ${
-            sale.status === 'credit' 
-              ? 'bg-orange-50/50 hover:bg-orange-100/50' 
-              : 'hover:bg-gray-50'
-          }`} 
+        <tr
+          key={sale.id}
+          className={`group transition cursor-pointer ${sale.status === 'credit'
+            ? 'bg-orange-50/50 hover:bg-orange-100/50'
+            : 'hover:bg-gray-50'
+            }`}
           onClick={() => handleViewSale(sale)}
         >
           <td
@@ -700,11 +700,11 @@ const Sales: React.FC = () => {
               if (sale.status === 'paid') variant = 'success';
               if (sale.status === 'under_delivery') variant = 'info';
               if (sale.status === 'credit') variant = 'warning'; // Orange/yellow for credit
-              const statusLabel = sale.status === 'credit' 
+              const statusLabel = sale.status === 'credit'
                 ? (t('sales.filters.status.credit') || 'Credit')
                 : t(`sales.filters.status.${sale.status}`);
               return (
-                <Badge 
+                <Badge
                   variant={variant}
                   className={sale.status === 'credit' ? 'bg-orange-500 text-white' : ''}
                 >
@@ -748,6 +748,53 @@ const Sales: React.FC = () => {
               >
                 <Eye size={16} />
               </button>
+              {/* Quick status change buttons */}
+              {sale.status !== 'commande' && (
+                <button
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      await updateSaleStatus(
+                        sale.id,
+                        'commande',
+                        sale.paymentStatus || 'pending',
+                        user!.uid
+                      );
+                      showSuccessToast('Statut changé à Commandé');
+                    } catch (error) {
+                      logError('Error updating sale status', error);
+                      showErrorToast('Erreur lors du changement de statut');
+                    }
+                  }}
+                  className="text-yellow-600 hover:text-yellow-900"
+                  title="Marquer comme Commandé"
+                >
+                  <Clock size={16} />
+                </button>
+              )}
+              {sale.status !== 'paid' && (
+                <button
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      await updateSaleStatus(
+                        sale.id,
+                        'paid',
+                        'paid',
+                        user!.uid
+                      );
+                      showSuccessToast('Statut changé à Payé');
+                    } catch (error) {
+                      logError('Error updating sale status', error);
+                      showErrorToast('Erreur lors du changement de statut');
+                    }
+                  }}
+                  className="text-green-600 hover:text-green-900"
+                  title="Marquer comme Payé"
+                >
+                  <CheckCircle size={16} />
+                </button>
+              )}
               {sale.status === 'credit' && (sale.remainingAmount ?? sale.totalAmount) > 0 && (
                 <button
                   onClick={(e) => {
@@ -946,7 +993,7 @@ const Sales: React.FC = () => {
       </div>
       {/* Date Range Filter - positioned below search bar */}
       <div className="mb-4">
-        <DateRangePicker 
+        <DateRangePicker
           onChange={handleDateRangeChange}
           className="w-full"
         />
@@ -980,30 +1027,28 @@ const Sales: React.FC = () => {
             <option value="paid">{t('sales.filters.status.paid')}</option>
             <option value="credit">{t('sales.filters.status.credit') || 'Credit'}</option>
           </select>
-          
+
           {/* Credit Sales Filter Button */}
           <button
             onClick={handleCreditFilterClick}
-            className={`relative px-4 py-2 rounded-md border-2 transition-colors flex items-center justify-center space-x-2 ${
-              filterStatus === 'credit'
-                ? 'border-orange-500 bg-orange-50 text-orange-700'
-                : 'border-gray-300 bg-white text-gray-700 hover:border-orange-300 hover:bg-orange-50'
-            }`}
+            className={`relative px-4 py-2 rounded-md border-2 transition-colors flex items-center justify-center space-x-2 ${filterStatus === 'credit'
+              ? 'border-orange-500 bg-orange-50 text-orange-700'
+              : 'border-gray-300 bg-white text-gray-700 hover:border-orange-300 hover:bg-orange-50'
+              }`}
             title={t('sales.filters.creditSales') || 'Credit Sales'}
           >
             <Clock size={16} className={filterStatus === 'credit' ? 'text-orange-600' : 'text-gray-600'} />
             <span className="text-sm font-medium">{t('sales.filters.creditSales') || 'Credit Sales'}</span>
             {creditSalesCount > 0 && (
-              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                filterStatus === 'credit'
-                  ? 'bg-orange-600 text-white'
-                  : 'bg-orange-500 text-white'
-              }`}>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${filterStatus === 'credit'
+                ? 'bg-orange-600 text-white'
+                : 'bg-orange-500 text-white'
+                }`}>
                 {creditSalesCount}
               </span>
             )}
           </button>
-          
+
           {/* Row 2: Action buttons */}
           <Button
             icon={<FileText size={16} />}
@@ -1324,11 +1369,11 @@ const Sales: React.FC = () => {
                   ]}
                   value={
                     formData.customerSourceId && activeSources.find(s => s.id === formData.customerSourceId)
-                      ? { 
-                          value: formData.customerSourceId, 
-                          label: activeSources.find(s => s.id === formData.customerSourceId)?.name || '',
-                          color: activeSources.find(s => s.id === formData.customerSourceId)?.color || '#3B82F6'
-                        }
+                      ? {
+                        value: formData.customerSourceId,
+                        label: activeSources.find(s => s.id === formData.customerSourceId)?.name || '',
+                        color: activeSources.find(s => s.id === formData.customerSourceId)?.color || '#3B82F6'
+                      }
                       : null
                   }
                   onChange={(option) => {
@@ -1368,7 +1413,7 @@ const Sales: React.FC = () => {
               // Check if product has stock available
               const currentStock = product.product ? getEffectiveProductStock(product.product, stockMap) : 0;
               const isInDropdown = product.product && productOptions.some(opt => opt.value.id === product.product?.id);
-              
+
               return (
                 <div key={index} className="p-4 border rounded-lg space-y-4">
                   <div className="flex justify-between items-start">
