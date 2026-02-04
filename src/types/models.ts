@@ -23,14 +23,14 @@ export interface Company extends BaseModel {
   report_mail?: string; // Email pour les rapports de vente
   report_time?: string | number; // Format: "HH:mm" (e.g., "19:30") or number (0-23) for backward compatibility
   emailReportsEnabled?: boolean; // Active/désactive l'envoi automatique des rapports par email (par défaut: true)
-  
+
   // Color customization for catalogue
   catalogueColors?: {
     primary?: string; // Primary brand color (default: #183524)
     secondary?: string; // Secondary brand color (default: #e2b069)
     tertiary?: string; // Tertiary/accent color (default: #2a4a3a)
   };
-  
+
   // Color customization for dashboard
   dashboardColors?: {
     primary?: string; // Primary brand color (default: #183524)
@@ -38,12 +38,12 @@ export interface Company extends BaseModel {
     tertiary?: string; // Tertiary/accent color (default: #2a4a3a)
     headerText?: string; // Header text color (default: #ffffff)
   };
-  
+
   // Legacy color fields (for backward compatibility)
   primaryColor?: string; // Primary brand color (default: #183524)
   secondaryColor?: string; // Secondary brand color (default: #e2b069)
   tertiaryColor?: string; // Tertiary/accent color (default: #2a4a3a)
-  
+
   // SEO settings for catalogue site
   seoSettings?: {
     metaTitle?: string;
@@ -52,10 +52,10 @@ export interface Company extends BaseModel {
     ogImage?: string; // Open Graph image URL
     twitterCard?: 'summary' | 'summary_large_image';
   };
-  
+
   // Stock management settings
   lowStockThreshold?: number; // Global threshold for low stock alerts (in units)
-  
+
   // Employee management
   employees?: Record<string, CompanyEmployee>; // Mirroir de employeeRefs pour lecture rapide
   employeeCount?: number; // Nombre total d'employés
@@ -277,14 +277,14 @@ export interface Objective extends BaseModel {
   isAvailable?: boolean;
 }
 
-export type ProfitPeriodType = 
-  | 'custom' 
-  | 'this_month' 
-  | 'last_30_days' 
-  | 'last_2_months' 
-  | 'last_3_months' 
-  | 'this_quarter' 
-  | 'this_year' 
+export type ProfitPeriodType =
+  | 'custom'
+  | 'this_month'
+  | 'last_30_days'
+  | 'last_2_months'
+  | 'last_3_months'
+  | 'this_quarter'
+  | 'this_year'
   | 'all_time';
 
 export interface ProfitPeriodPreference {
@@ -544,6 +544,7 @@ export interface User {
   updatedAt: Timestamp;
   companies: UserCompanyRef[];
   status: 'active' | 'suspended' | 'invited';
+  phone?: string;
   lastLogin?: Timestamp;
   // Optional: last selected permission template per company (future use)
   // selectedTemplates?: Record<string /*companyId*/, string /*templateId*/>;
@@ -575,11 +576,11 @@ export interface ProductionFlow extends BaseModel {
   description?: string;
   isDefault: boolean; // Default flow for new productions
   isActive: boolean;
-  
+
   // Ordered steps in this flow (references to ProductionFlowStep IDs)
   stepIds: string[]; // Array of step IDs in desired order (for UI display)
   // Note: User can still move freely, this is just the suggested/display order
-  
+
   // Flow metadata
   estimatedDuration?: number; // Total days (sum of step durations)
   stepCount?: number; // Count of steps (denormalized)
@@ -634,25 +635,25 @@ export interface ProductionArticle {
   name: string; // User-entered OR auto-generated from production name
   quantity: number; // Number of units to produce for this article (total quantity)
   status: 'draft' | 'in_progress' | 'ready' | 'partially_published' | 'published' | 'cancelled';
-  
+
   // Flow stage tracking (uses production flowId)
   currentStepId?: string; // Current step in production flow
   currentStepName?: string; // Denormalized step name
-  
+
   // Publishing tracking (NEW: supports partial publishing)
   publishedQuantity: number; // Total quantity already published across all publications
   remainingQuantity: number; // Quantity remaining to be published (quantity - publishedQuantity)
   publications: ProductionArticlePublication[]; // History of all publications for this article
-  
+
   // Legacy fields (kept for backward compatibility)
   publishedProductId?: string; // ID of the product (first publication or current product)
   publishedAt?: Timestamp; // Date of first publication
   publishedBy?: string; // User who made first publication
-  
+
   // Optional metadata
   description?: string;
   images?: string[]; // Article-specific images
-  
+
   // Materials - Specific to this article (not shared with other articles)
   materials: ProductionMaterial[]; // Materials required for this article
   calculatedCostPrice?: number; // Cost calculated from this article's materials only (without charges)
@@ -666,17 +667,17 @@ export interface ProductionArticle {
  */
 export interface ProductionStateChange {
   id: string;
-  
+
   // Flow mode (if flowId exists)
   fromStepId?: string; // Previous step (null if initial)
   toStepId?: string; // New step (must be from associated flow)
   fromStepName?: string; // Denormalized for display
   toStepName?: string; // Denormalized for display
-  
+
   // Simple mode (if no flowId)
   fromStatus?: string; // Previous status: 'draft' | 'in_progress' | 'ready' | etc.
   toStatus?: string; // New status: 'draft' | 'in_progress' | 'ready' | etc.
-  
+
   // Common fields
   changedBy: string; // User ID
   changedByName?: string; // Denormalized for display
@@ -704,29 +705,29 @@ export interface ProductionCharge extends BaseModel {
 export interface Charge extends BaseModel {
   companyId: string;
   type: 'fixed' | 'custom'; // Distinguishes charge types
-  
+
   // Fixed charges (type="fixed"):
   // - Reusable across multiple productions
   // - Created in Charges management page
   // - Can be selected during production creation
-  
+
   // Custom charges (type="custom"):
   // - Created for specific production context
   // - Can be created in Charges page, production creation, or production detail
-  
+
   name: string; // For fixed: "Électricité", "Commission". For custom: same as description
   description?: string; // Full description (optional)
   amount: number;
   category?: string; // Same categories as before: "main_oeuvre", "overhead", "transport", etc. (optional)
   date: Timestamp;
   isActive?: boolean; // For fixed charges: can disable without deleting
-  
+
   // User tracking (like products/sales)
   userId: string; // Firebase UID who created
   createdBy?: EmployeeRef; // Employee who created (optional)
-  
+
   financeEntryId?: string; // Link to FinanceEntry (optional)
-  
+
   // NO productionId - all charges are company-scoped
 }
 
@@ -756,34 +757,34 @@ export interface Production extends BaseModel {
   images?: string[]; // Firebase Storage URLs
   imagePaths?: string[]; // Storage paths for deletion
   categoryId?: string; // Reference to ProductionCategory
-  
+
   // Flow & State Management
   flowId?: string; // Reference to ProductionFlow (optional - defines available steps if provided)
   currentStepId?: string; // Current step ID (optional - only if flowId exists)
   status: 'draft' | 'in_progress' | 'ready' | 'published' | 'cancelled' | 'closed';
-  
+
   // State History (tracks all state changes - user can move freely)
   stateHistory: ProductionStateChange[];
-  
+
   // Materials (from magasin) - @deprecated - Materials are now per-article
   // Kept for backward compatibility, but should be empty for new productions
   materials: ProductionMaterial[];
-  
+
   // Articles - Multiple articles can be produced from one production
   articles: ProductionArticle[]; // Array of articles to produce
-  
+
   // Total articles quantity (sum of all articles[].quantity)
   totalArticlesQuantity: number; // Auto-calculated from articles[].quantity
-  
+
   // Cost Calculation
   calculatedCostPrice: number; // Auto-calculated from materials + charges
   validatedCostPrice?: number; // User-validated/modified cost price
   isCostValidated: boolean;
-  
+
   // Charges
   chargeIds?: string[]; // @deprecated - References to ProductionCharge documents (kept for migration)
   charges: ProductionChargeRef[]; // Array of charge snapshots (for cost calculation)
-  
+
   // Publishing & Closure
   publishedProductId?: string; // @deprecated - Use articles[].publishedProductId instead (kept for backward compatibility)
   isPublished: boolean; // True when ALL articles are published
@@ -791,11 +792,11 @@ export interface Production extends BaseModel {
   isClosed: boolean; // True when published - no more interactions
   closedAt?: Timestamp;
   closedBy?: string;
-  
+
   // Publishing tracking
   publishedArticlesCount?: number; // Count of published articles
   selectedArticlesForBulkPublish?: string[]; // Article IDs selected for bulk publish
-  
+
   // Catalog Info (stored but only used when publishing)
   catalogData?: {
     category?: string;
@@ -1068,8 +1069,8 @@ export interface StockReplenishmentRequest extends BaseModel {
 export interface Notification extends BaseModel {
   userId: string; // User who should receive this notification
   companyId: string; // Company context for the notification
-  type: 'replenishment_request_created' | 'replenishment_request_fulfilled' | 
-        'replenishment_request_rejected' | 'transfer_created' | 'stock_low';
+  type: 'replenishment_request_created' | 'replenishment_request_fulfilled' |
+  'replenishment_request_rejected' | 'transfer_created' | 'stock_low';
   title: string; // Notification title
   message: string; // Notification message
   data?: {

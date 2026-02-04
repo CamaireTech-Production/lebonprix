@@ -43,7 +43,8 @@
     "email": "Email",
     "mustBeGreaterThanZero": "doit être supérieur à zéro",
     "all": "Tous",
-    "optional": "Optionnel"
+    "optional": "Optionnel",
+    "active": "Actuelle"
   },
   "auth": {
     "login": "Connexion",
@@ -3073,6 +3074,9 @@
   },
   "profile": {
     "title": "Profil",
+    "subtitle": "Gérez vos informations personnelles et paramètres de compte",
+    "personalInfo": "Informations Personnelles",
+    "personalInfoSubtitle": "Informations de contact et détails du profil",
     "username": "Nom d'utilisateur",
     "email": "Email",
     "phone": "Téléphone",
@@ -3083,7 +3087,16 @@
     "lastLogin": "Dernière connexion",
     "status": "Statut",
     "active": "Actif",
-    "companyInfo": "Informations de l'entreprise",
-    "company": "Entreprise"
+    "companyInfo": "Mes Entreprises",
+    "companyInfoSubtitle": "Vos rôles et accès à travers vos différentes entreprises",
+    "noCompanies": "Aucune entreprise associée",
+    "company": "Entreprise",
+    "roles": {
+      "owner": "Propriétaire",
+      "admin": "Administrateur",
+      "manager": "Gérant",
+      "staff": "Personnel"
+    },
+    "noRole": "Aucun rôle défini"
   }
 }
