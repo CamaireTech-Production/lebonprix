@@ -13,6 +13,7 @@ update-migration
 firebase-export
 firebase-keys
 scripts
+exports
 dist
 dev-dist
 dist-ssr
