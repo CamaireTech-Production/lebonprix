@@ -24,7 +24,7 @@ import { useProducts, useCustomers } from '@hooks/data/useFirestore';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
 import { useInfiniteSales } from '@hooks/data/useInfiniteSales';
 import { formatPrice } from '@utils/formatting/formatPrice';
-import type { Product, OrderStatus, Sale, SaleProduct, Customer } from '../../types/models';
+import type { Product, OrderStatus, Sale, SaleProduct, Customer, PaymentStatus } from '../../types/models';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import Invoice from '../../components/sales/Invoice';
 import { generatePDF, generatePDFBlob } from '@utils/core/pdf';
@@ -101,6 +101,14 @@ const Sales: React.FC = () => {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isSettleCreditModalOpen, setIsSettleCreditModalOpen] = useState(false);
   const [isRefundCreditModalOpen, setIsRefundCreditModalOpen] = useState(false);
+  const [isStatusChangeConfirmOpen, setIsStatusChangeConfirmOpen] = useState(false);
+  const [statusChangeLoading, setStatusChangeLoading] = useState(false);
+  const [statusChangeData, setStatusChangeData] = useState<{
+    sale: Sale;
+    newStatus: OrderStatus;
+    newPaymentStatus: PaymentStatus;
+    warningMessage?: string;
+  } | null>(null);
   const [currentSale, setCurrentSale] = useState<Sale | null>(null);
   const [viewedSale, setViewedSale] = useState<Sale | null>(null);
   const [profitSale, setProfitSale] = useState<Sale | null>(null);
@@ -349,6 +357,67 @@ const Sales: React.FC = () => {
   const handleCreditFilterClick = (): void => {
     setFilterStatus(filterStatus === 'credit' ? null : 'credit');
     setPage(1); // Reset to first page when filter changes
+  };
+
+  // Handler to request status change with confirmation
+  const handleRequestStatusChange = (
+    sale: Sale,
+    newStatus: OrderStatus,
+    newPaymentStatus: PaymentStatus
+  ) => {
+    let warningMessage: string | undefined;
+
+    // Show warning for critical transitions
+    if (sale.status === 'paid' && newStatus === 'commande') {
+      warningMessage =
+        "⚠️ Attention: Changer le statut de \"Payé\" à \"Commandé\"\n\n" +
+        "Cette action va:\n" +
+        "• Marquer l'entrée financière comme supprimée\n" +
+        "• Retirer le revenu des rapports financiers\n" +
+        "• Créer un journal d'audit de ce changement\n\n" +
+        "Êtes-vous sûr de vouloir continuer?";
+    } else if (newStatus === 'paid') {
+      warningMessage =
+        "Changer le statut à \"Payé\"\n\n" +
+        "Cette action va:\n" +
+        "• Créer ou restaurer l'entrée financière\n" +
+        "• Ajouter le revenu aux rapports financiers\n\n" +
+        "Confirmer ce changement?";
+    }
+
+    setStatusChangeData({
+      sale,
+      newStatus,
+      newPaymentStatus,
+      warningMessage
+    });
+    setIsStatusChangeConfirmOpen(true);
+  };
+
+  // Handler to confirm and execute status change
+  const handleConfirmStatusChange = async () => {
+    if (!statusChangeData || !user?.uid) return;
+
+    try {
+      setStatusChangeLoading(true);
+      await updateSaleStatus(
+        statusChangeData.sale.id,
+        statusChangeData.newStatus,
+        statusChangeData.newPaymentStatus,
+        user.uid
+      );
+
+      const statusLabel = statusChangeData.newStatus === 'commande' ? 'Commandé' : 'Payé';
+      showSuccessToast(`Statut changé à ${statusLabel}`);
+
+      setIsStatusChangeConfirmOpen(false);
+      setStatusChangeData(null);
+    } catch (error) {
+      logError('Error updating sale status', error);
+      showErrorToast('Erreur lors du changement de statut');
+    } finally {
+      setStatusChangeLoading(false);
+    }
   };
 
   const handleDateRangeChange = (range: { from: Date; to: Date }) => {
@@ -751,20 +820,13 @@ const Sales: React.FC = () => {
               {/* Quick status change buttons */}
               {sale.status !== 'commande' && (
                 <button
-                  onClick={async (e) => {
+                  onClick={(e) => {
                     e.stopPropagation();
-                    try {
-                      await updateSaleStatus(
-                        sale.id,
-                        'commande',
-                        sale.paymentStatus || 'pending',
-                        user!.uid
-                      );
-                      showSuccessToast('Statut changé à Commandé');
-                    } catch (error) {
-                      logError('Error updating sale status', error);
-                      showErrorToast('Erreur lors du changement de statut');
-                    }
+                    handleRequestStatusChange(
+                      sale,
+                      'commande',
+                      sale.paymentStatus || 'pending'
+                    );
                   }}
                   className="text-yellow-600 hover:text-yellow-900"
                   title="Marquer comme Commandé"
@@ -774,20 +836,13 @@ const Sales: React.FC = () => {
               )}
               {sale.status !== 'paid' && (
                 <button
-                  onClick={async (e) => {
+                  onClick={(e) => {
                     e.stopPropagation();
-                    try {
-                      await updateSaleStatus(
-                        sale.id,
-                        'paid',
-                        'paid',
-                        user!.uid
-                      );
-                      showSuccessToast('Statut changé à Payé');
-                    } catch (error) {
-                      logError('Error updating sale status', error);
-                      showErrorToast('Erreur lors du changement de statut');
-                    }
+                    handleRequestStatusChange(
+                      sale,
+                      'paid',
+                      'paid'
+                    );
                   }}
                   className="text-green-600 hover:text-green-900"
                   title="Marquer comme Payé"
@@ -1644,6 +1699,40 @@ const Sales: React.FC = () => {
         sale={saleToRefund}
         onRefund={handleRefundCredit}
       />
+      <Modal
+        isOpen={isStatusChangeConfirmOpen}
+        onClose={() => setIsStatusChangeConfirmOpen(false)}
+        title="Confirmer le changement de statut"
+        size="md"
+        footer={
+          <div className="flex justify-end space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsStatusChangeConfirmOpen(false)}
+              disabled={statusChangeLoading}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleConfirmStatusChange}
+              isLoading={statusChangeLoading}
+              disabled={statusChangeLoading}
+            >
+              Confirmer
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+            <p className="text-yellow-800 whitespace-pre-line">
+              {statusChangeData?.warningMessage ||
+                `Voulez-vous vraiment changer le statut de cette vente à "${statusChangeData?.newStatus === 'commande' ? 'Commandé' : 'Payé'}" ?`}
+            </p>
+          </div>
+        </div>
+      </Modal>
       <ProfitDetailsModal
         isOpen={isProfitModalOpen}
         onClose={() => setIsProfitModalOpen(false)}

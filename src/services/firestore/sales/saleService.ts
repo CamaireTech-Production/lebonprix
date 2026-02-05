@@ -11,7 +11,6 @@ import {
   onSnapshot,
   serverTimestamp,
   writeBatch,
-  type WriteBatch,
   Timestamp
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
@@ -19,7 +18,6 @@ import { logError } from '@utils/core/logger';
 import { trackRead } from '@utils/firestore/readTracker';
 import type { Sale, SaleDetails, Product, StockBatch, OrderStatus, PaymentStatus } from '../../../types/models';
 import type { InventoryMethod } from '@utils/inventory/inventoryManagement';
-import type { InventoryResult } from '@utils/inventory/inventoryManagement';
 import { createAuditLog } from '../shared';
 import { createFinanceEntry } from '../finance/financeService';
 import { shouldDebitStock, shouldCreateFinanceEntry } from '@utils/sales/saleStatusRules';
@@ -394,12 +392,17 @@ export const createSale = async (
       : 0;
 
     // Initialize status history with the initial status
-    const initialStatusHistory = [{
+    const initialStatusHistory: Array<{
+      status: string;
+      timestamp: string;
+      userId: string;
+      paymentMethod?: string;
+    }> = [{
       status: normalizedStatus,
       timestamp: normalizedCreatedAt instanceof Date
         ? normalizedCreatedAt.toISOString()
         : (typeof normalizedCreatedAt === 'object' && normalizedCreatedAt !== null && 'seconds' in normalizedCreatedAt
-          ? new Date(normalizedCreatedAt.seconds * 1000).toISOString()
+          ? new Date((normalizedCreatedAt as any).seconds * 1000).toISOString()
           : new Date().toISOString()),
       userId: userId
     }];
@@ -556,7 +559,26 @@ export const updateSaleStatus = async (
 
   batch.update(saleRef, updateData);
 
-  createAuditLog(batch, 'update', 'sale', id, { status, paymentStatus }, userId, sale);
+  // Create comprehensive audit log
+  // We pass the NEW values here. createAuditLog will compare them with 'sale' (oldData)
+  // and handle the diffing logic automatically.
+  const auditChanges: any = {
+    status,
+    paymentStatus
+  };
+
+  // Add payment details to audit if provided
+  if (paymentMethod) {
+    auditChanges.paymentMethod = paymentMethod;
+  }
+
+  // If we updated amounts (credit -> paid), track those changes too
+  if (isCreditToPaidTransition && updateData.paidAmount !== undefined) {
+    auditChanges.paidAmount = updateData.paidAmount;
+    auditChanges.remainingAmount = updateData.remainingAmount;
+  }
+
+  createAuditLog(batch, 'update', 'sale', id, auditChanges, userId, sale);
 
   await batch.commit();
 
