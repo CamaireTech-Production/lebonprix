@@ -23,9 +23,9 @@ import { logError } from '@utils/core/logger';
 import type { CinetPayConfig } from '../../types/cinetpay';
 import type { Company } from '../../types/models';
 // import { generateWhatsAppMessage } from '@utils/whatsapp';
-import { 
-  CreditCard, 
-  Truck, 
+import {
+  CreditCard,
+  Truck,
   ShoppingBag,
   ArrowLeft,
   CheckCircle,
@@ -55,10 +55,10 @@ const SingleCheckout: React.FC = () => {
   const { companyId } = useParams<{ companyId: string }>();
   const { cart, clearCart, getCartTotal, loadCartForCompany, setCurrentCompanyId } = useCart();
   const { user, currentEmployee, isOwner } = useAuth();
-  
+
   // Local company state (fetched by companyId from URL)
   const [company, setCompany] = useState<Company | null>(null);
-  
+
   // Get company colors with fallbacks
   const getCompanyColors = () => {
     const colors = {
@@ -73,21 +73,21 @@ const SingleCheckout: React.FC = () => {
   // Manual data loading
   const loadCheckoutData = useCallback(() => {
     if (!companyId || typeof companyId !== 'string') return null;
-    
+
     try {
       const key = `checkout_data_${companyId}`;
       const stored = localStorage.getItem(key);
-      
+
       if (!stored) return null;
-      
+
       const payload = JSON.parse(stored);
-      
+
       // Check if data has expired
       if (Date.now() > payload.expiresAt) {
         localStorage.removeItem(key);
         return null;
       }
-      
+
       // Handle both old and new data formats
       if (payload.formData) {
         // New format - return the full payload
@@ -102,7 +102,7 @@ const SingleCheckout: React.FC = () => {
           expiresAt: payload.expiresAt
         };
       }
-      
+
       return null;
     } catch (error) {
       console.error('Error loading checkout data:', error);
@@ -112,7 +112,7 @@ const SingleCheckout: React.FC = () => {
 
   const clearCheckoutData = useCallback(() => {
     if (!companyId || typeof companyId !== 'string') return;
-    
+
     try {
       const key = `checkout_data_${companyId}`;
       localStorage.removeItem(key);
@@ -120,11 +120,11 @@ const SingleCheckout: React.FC = () => {
       console.error('Error clearing checkout data:', error);
     }
   }, [companyId]);
-  
+
   // Save status state
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
-  
+
   // State management
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     // Contact info
@@ -146,7 +146,7 @@ const SingleCheckout: React.FC = () => {
   const [emailNewsletter, setEmailNewsletter] = useState(true);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethodType | null>(null);
   const [selectedPaymentOption, setSelectedPaymentOption] = useState<string | null>(null);
-  
+
   // Payment form data
   const [paymentFormData, setPaymentFormData] = useState({
     mtnNumber: '',
@@ -165,7 +165,7 @@ const SingleCheckout: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [orderCreated, setOrderCreated] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
-  
+
   // Amount too low modal state
   const [showAmountTooLowModal, setShowAmountTooLowModal] = useState(false);
   const [minimumAmount, setMinimumAmount] = useState(100); // Default minimum
@@ -178,14 +178,14 @@ const SingleCheckout: React.FC = () => {
         toast.error('Company ID not found in URL');
         return;
       }
-      
+
       try {
         const companyData = await getCompanyById(companyId);
-        
+
         if (companyData) {
           setCompany(companyData);
           setCompanyData(companyData);
-          
+
           // Also load seller settings
           try {
             const settingsData = await getSellerSettings(companyId);
@@ -249,7 +249,7 @@ const SingleCheckout: React.FC = () => {
   // Manual save on form changes (no auto-save)
   const saveCheckoutData = useCallback(() => {
     if (!companyId || typeof companyId !== 'string') return;
-    
+
     try {
       setIsSaving(true);
       const formData = {
@@ -261,7 +261,7 @@ const SingleCheckout: React.FC = () => {
         lastSaved: new Date().toISOString(),
         companyId: companyId
       };
-      
+
       // Save to localStorage
       const key = `checkout_data_${companyId}`;
       const payload = {
@@ -271,7 +271,7 @@ const SingleCheckout: React.FC = () => {
         timestamp: Date.now(),
         expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
       };
-      
+
       localStorage.setItem(key, JSON.stringify(payload));
       setLastSaved(new Date().toISOString());
     } catch (error) {
@@ -288,7 +288,7 @@ const SingleCheckout: React.FC = () => {
       const timeoutId = setTimeout(() => {
         saveCheckoutData();
       }, 2000); // Save 2 seconds after cart change
-      
+
       return () => clearTimeout(timeoutId);
     }
   }, [cart, saveCheckoutData]);
@@ -299,7 +299,7 @@ const SingleCheckout: React.FC = () => {
       const timeoutId = setTimeout(() => {
         saveCheckoutData();
       }, 1000); // Save 1 second after payment method change
-      
+
       return () => clearTimeout(timeoutId);
     }
   }, [selectedPaymentMethod, saveCheckoutData]);
@@ -309,13 +309,13 @@ const SingleCheckout: React.FC = () => {
     if (companyId) {
       // Set current company ID in cart context
       setCurrentCompanyId(companyId);
-      
+
       // Load cart data for this company
       loadCartForCompany(companyId);
-      
+
       // Load form data
       const savedData = loadCheckoutData();
-      
+
       if (savedData) {
         if (savedData.formData) {
           // Restore form data with null checks
@@ -331,7 +331,7 @@ const SingleCheckout: React.FC = () => {
           if (savedData.formData.paymentFormData) {
             setPaymentFormData(savedData.formData.paymentFormData);
           }
-          
+
           // Show restoration message
           if (savedData.formData.customerInfo && (savedData.formData.customerInfo.name || savedData.formData.customerInfo.phone)) {
             toast.success('Previous checkout data restored');
@@ -370,17 +370,17 @@ const SingleCheckout: React.FC = () => {
       if (checkoutSettings.showDeliveryName && !(customerInfo.deliveryName || customerInfo.name)?.trim()) {
         newErrors.deliveryName = 'Le nom pour livraison est requis';
       }
-      
+
       // Validate delivery phone field only if it's enabled
       if (checkoutSettings.showDeliveryPhone && !(customerInfo.deliveryPhone || customerInfo.phone)?.trim()) {
         newErrors.deliveryPhone = 'Le téléphone pour livraison est requis';
       }
-      
+
       // Validate delivery address line 1 field only if it's enabled
       if (checkoutSettings.showDeliveryAddressLine1 && !customerInfo.deliveryAddressLine1?.trim()) {
         newErrors.deliveryAddressLine1 = 'L\'adresse de livraison est requise';
       }
-      
+
       // Validate delivery quarter field only if it's enabled
       if (checkoutSettings.showDeliveryQuarter && !customerInfo.deliveryQuarter?.trim()) {
         newErrors.deliveryQuarter = 'Le quartier/zone de livraison est requis';
@@ -419,7 +419,7 @@ const SingleCheckout: React.FC = () => {
   const handleInputChange = (field: keyof CustomerInfo, value: string) => {
     setCustomerInfo(prev => {
       const updated = { ...prev, [field]: value };
-      
+
       // Auto-fill delivery fields from contact fields
       if (field === 'name') {
         // If deliveryName is empty or same as previous name, update it
@@ -433,7 +433,7 @@ const SingleCheckout: React.FC = () => {
           updated.deliveryPhone = value;
         }
       }
-      
+
       return updated;
     });
     if (errors[field]) {
@@ -464,40 +464,40 @@ const SingleCheckout: React.FC = () => {
   // Generate order message for WhatsApp
   const generateOrderMessage = (order: Order, orderNumber: string): string => {
     const businessName = company?.name || 'Your Business';
-    
+
     let message = `🛒 Commande ${businessName} #${orderNumber}\n\n`;
-    
+
     // Order details
     message += `📋 Détails:\n`;
     order.items.forEach(item => {
       const itemTotal = item.price * item.quantity;
       message += `- ${item.name} x ${item.quantity} = ${formatPrice(itemTotal)} XAF\n`;
     });
-    
+
     message += `\n💰 Total: ${formatPrice(order.pricing.subtotal)} XAF\n`;
-    
+
     if (order.pricing.deliveryFee > 0) {
       message += `🚚 Frais de livraison: ${formatPrice(order.pricing.deliveryFee)} XAF\n`;
     }
-    
+
     message += `💳 Total final: ${formatPrice(order.pricing.total)} XAF\n\n`;
-    
+
     // Customer information
     message += `👤 Client: ${order.customerInfo.name}\n`;
     message += `📞 Téléphone: ${order.customerInfo.phone}\n`;
     message += `📍 Adresse: ${order.customerInfo.location}\n`;
-    
+
     if (order.customerInfo.deliveryInstructions) {
       message += `📝 Instructions de livraison: ${order.customerInfo.deliveryInstructions}\n`;
     }
-    
+
     message += `\n💳 Paiement:\n`;
     message += `Veuillez confirmer le mode de paiement souhaité.\n\n`;
     message += `📝 Instructions:\n`;
     message += `1. Confirmez votre commande\n`;
     message += `2. Indiquez votre mode de paiement préféré\n`;
     message += `3. Précisez l'heure de livraison souhaitée\n`;
-    
+
     return message;
   };
 
@@ -515,18 +515,13 @@ const SingleCheckout: React.FC = () => {
       return;
     }
 
-    if (!selectedPaymentMethod) {
-      toast.error('Veuillez sélectionner un mode de paiement');
-      return;
-    }
-
-    if (!validateForm()) {
-      toast.error('Veuillez remplir tous les champs requis');
-      return;
-    }
-
     // Validate payment form data based on selected method and checkout settings
     if (checkoutSettings?.showPaymentSection) {
+      if (!selectedPaymentMethod) {
+        toast.error('Veuillez sélectionner un mode de paiement');
+        return;
+      }
+
       if (selectedPaymentOption === 'mtn_money' && !customerInfo.phone.trim()) {
         toast.error('Veuillez entrer votre numéro MTN Mobile Money');
         return;
@@ -538,8 +533,8 @@ const SingleCheckout: React.FC = () => {
       }
 
       if (selectedPaymentOption === 'visa_card') {
-        if (!paymentFormData.cardNumber.trim() || !paymentFormData.expiryDate.trim() || 
-            !paymentFormData.securityCode.trim() || !paymentFormData.nameOnCard.trim()) {
+        if (!paymentFormData.cardNumber.trim() || !paymentFormData.expiryDate.trim() ||
+          !paymentFormData.securityCode.trim() || !paymentFormData.nameOnCard.trim()) {
           toast.error('Veuillez remplir tous les détails de la carte');
           return;
         }
@@ -579,7 +574,7 @@ const SingleCheckout: React.FC = () => {
 
       // Check if this is a CinetPay payment
       const isCinetPayPayment = selectedPaymentOption?.startsWith('cinetpay_');
-      
+
       if (isCinetPayPayment && cinetpayConfig) {
         // Handle CinetPay payment
         const paymentData = {
@@ -624,7 +619,7 @@ const SingleCheckout: React.FC = () => {
             },
             onError: (error) => {
               console.error('CinetPay payment error:', error);
-              
+
               // Check if it's an amount too low error
               if (error.code === 'UNKNOWN_ERROR' && error.message === 'ERROR_AMOUNT_TOO_LOW') {
                 // Try to extract minimum amount from error details
@@ -663,10 +658,10 @@ const SingleCheckout: React.FC = () => {
             }
             createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
           }
-          
+
           // NOTE: Customer is NOT created here - it will be created only when order is converted to sale
           // This ensures we don't create duplicate customers for orders that may never be converted
-          
+
           // Create order with CinetPay payment details
           const order = await createOrder(
             companyId!,
@@ -698,16 +693,16 @@ const SingleCheckout: React.FC = () => {
               }
             }
           );
-          
+
           setCreatedOrder(order);
           setOrderCreated(true);
-          
+
           // Clear cart and saved data
           clearCart();
           clearCheckoutData();
-          
+
           toast.success('Order created successfully! Payment processing...');
-          
+
           // Redirect to catalogue page after a short delay
           setTimeout(() => {
             if (company && companyId) {
@@ -724,7 +719,7 @@ const SingleCheckout: React.FC = () => {
 
       // Check if this is a Campay payment (matching RestoFlow pattern)
       const isCampayPayment = selectedPaymentOption === 'campay';
-      
+
       if (isCampayPayment) {
         // Validate that Campay SDK is initialized (matching RestoFlow)
         if (!isCampayInitialized) {
@@ -743,7 +738,7 @@ const SingleCheckout: React.FC = () => {
 
         // Calculate final total
         const calculatedTotal = getCartTotal() + (sellerSettings?.deliveryFee || 0);
-        
+
         // Use 10 XAF for demo mode, otherwise use calculated total
         const finalTotal = campayConfig?.environment === 'demo' ? 10 : calculatedTotal;
 
@@ -763,7 +758,7 @@ const SingleCheckout: React.FC = () => {
 
         // Process Campay payment (matching RestoFlow pattern)
         const externalReference = `ORDER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
+
         const paymentOptions = {
           payButtonId: campayButtonId,
           description: `Order from ${company?.name || 'Store'}`,
@@ -777,7 +772,7 @@ const SingleCheckout: React.FC = () => {
           paymentOptions,
           // onSuccess callback (matching RestoFlow pattern)
           async (data) => {
-            
+
             // Get createdBy employee reference
             let createdBy = null;
             if (user && company) {
@@ -791,7 +786,7 @@ const SingleCheckout: React.FC = () => {
               }
               createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
             }
-            
+
             // Create order with Campay payment details
             // In demo mode, use 10 XAF for payment but keep actual pricing for records
             const actualTotal = getCartTotal() + (sellerSettings?.deliveryFee || 0);
@@ -843,11 +838,11 @@ const SingleCheckout: React.FC = () => {
 
             setCreatedOrder(order);
             setOrderCreated(true);
-            
+
             // Clear cart and saved data
             clearCart();
             clearCheckoutData();
-            
+
             toast.success('Payment successful! Order created.');
             setSubmitting(false);
           },
@@ -877,11 +872,11 @@ const SingleCheckout: React.FC = () => {
           // Payment was cancelled or failed - already handled in callbacks
           return;
         }
-        
+
         // Payment initiated - modal should open
         return;
       }
-      
+
       // Only proceed to regular payment methods if Campay is NOT selected
       if (company && !isCampayPayment) {
         // Get createdBy employee reference
@@ -898,10 +893,10 @@ const SingleCheckout: React.FC = () => {
           }
           createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
         }
-        
+
         // NOTE: Customer is NOT created here - it will be created only when order is converted to sale
         // This ensures we don't create duplicate customers for orders that may never be converted
-        
+
         // Handle regular payment methods (existing logic)
         const order = await createOrder(
           company.id,
@@ -913,8 +908,9 @@ const SingleCheckout: React.FC = () => {
               deliveryFee: sellerSettings?.deliveryFee || 0,
               total: getCartTotal() + (sellerSettings?.deliveryFee || 0)
             },
-            paymentMethod: selectedPaymentOption || 'online',
-            paymentOption: selectedPaymentOption || '',
+            // If payment section is hidden, default to manual/onsite
+            paymentMethod: checkoutSettings?.showPaymentSection ? (selectedPaymentOption || 'online') : 'pay_onsite',
+            paymentOption: checkoutSettings?.showPaymentSection ? (selectedPaymentOption || '') : 'pay_onsite',
             paymentFormData: sanitizedPaymentFormData,
             deliveryInfo: {
               method: 'delivery',
@@ -933,20 +929,20 @@ const SingleCheckout: React.FC = () => {
             }
           }
         );
-        
+
         setCreatedOrder(order);
         setOrderCreated(true);
-        
+
         // Clear cart and saved data
         clearCart();
         clearCheckoutData();
-        
+
         // Handle WhatsApp redirect for pay_onsite orders
         if (selectedPaymentOption === 'pay_onsite' && company) {
           try {
             const message = generateOrderMessage(order, order.orderNumber);
             const companyPhone = company.phone || '';
-            
+
             if (companyPhone) {
               const whatsappUrl = createWhatsAppUrl(companyPhone, message);
               // Open WhatsApp in new tab
@@ -963,7 +959,7 @@ const SingleCheckout: React.FC = () => {
           // Show success message for other payment methods
           toast.success('Order created successfully! Payment integration coming soon.');
         }
-        
+
         // Redirect to catalogue page after a short delay
         setTimeout(() => {
           if (company && companyId) {
@@ -979,12 +975,12 @@ const SingleCheckout: React.FC = () => {
           setSubmitting(false);
           return;
         }
-        
+
         // If no company, show error
         toast.error('Company information not found. Please refresh the page.');
         setSubmitting(false);
       }
-      
+
     } catch (error) {
       console.error('Error creating order:', error);
       toast.error('Failed to create order. Please try again.');
@@ -1048,7 +1044,7 @@ const SingleCheckout: React.FC = () => {
               }
             }}
             className="flex items-center mb-4 transition-colors"
-            style={{color: getCompanyColors().primary}}
+            style={{ color: getCompanyColors().primary }}
             onMouseEnter={(e) => (e.target as HTMLButtonElement).style.color = getCompanyColors().secondary}
             onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = getCompanyColors().primary}
           >
@@ -1056,7 +1052,7 @@ const SingleCheckout: React.FC = () => {
             {t('checkout.returnToCatalogue')}
           </button>
           <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold" style={{color: getCompanyColors().primary}}>{t('checkout.title')}</h1>
+            <h1 className="text-3xl font-bold" style={{ color: getCompanyColors().primary }}>{t('checkout.title')}</h1>
             <div className="flex items-center space-x-3">
               <SaveStatusIndicator
                 isSaving={isSaving}
@@ -1083,8 +1079,8 @@ const SingleCheckout: React.FC = () => {
             {/* Contact Section */}
             {checkoutSettings?.showContactSection && (
               <div className="bg-white rounded-lg shadow-sm border p-6">
-                <h2 className="text-xl font-bold mb-4" style={{color: getCompanyColors().primary}}>{t('checkout.contact')}</h2>
-                
+                <h2 className="text-xl font-bold mb-4" style={{ color: getCompanyColors().primary }}>{t('checkout.contact')}</h2>
+
                 <div className="space-y-4">
                   {checkoutSettings.showName && (
                     <div>
@@ -1095,9 +1091,8 @@ const SingleCheckout: React.FC = () => {
                         type="text"
                         value={customerInfo.name}
                         onChange={(e) => handleInputChange('name', e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                          errors.name ? 'border-red-500' : 'border-gray-300'
-                        }`}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.name ? 'border-red-500' : 'border-gray-300'
+                          }`}
                         placeholder={t('checkout.fields.namePlaceholder') || 'Nom complet'}
                       />
                       {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
@@ -1150,7 +1145,7 @@ const SingleCheckout: React.FC = () => {
                       />
                     </div>
                   )}
-                  
+
                   {checkoutSettings.showNewsletter && (
                     <div className="flex items-center">
                       <input
@@ -1172,8 +1167,8 @@ const SingleCheckout: React.FC = () => {
             {/* Delivery Section */}
             {checkoutSettings?.showDeliverySection && (
               <div className="bg-white rounded-lg shadow-sm border p-6">
-                <h2 className="text-xl font-bold mb-4" style={{color: getCompanyColors().primary}}>{t('checkout.delivery')}</h2>
-                
+                <h2 className="text-xl font-bold mb-4" style={{ color: getCompanyColors().primary }}>{t('checkout.delivery')}</h2>
+
                 <div className="space-y-4">
                   {/* Delivery Name (pre-filled from contact, modifiable) */}
                   {checkoutSettings.showDeliveryName && (
@@ -1185,9 +1180,8 @@ const SingleCheckout: React.FC = () => {
                         type="text"
                         value={customerInfo.deliveryName || customerInfo.name || ''}
                         onChange={(e) => handleInputChange('deliveryName', e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                          errors.deliveryName ? 'border-red-500' : 'border-gray-300'
-                        }`}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.deliveryName ? 'border-red-500' : 'border-gray-300'
+                          }`}
                         placeholder={t('checkout.fields.deliveryNamePlaceholder') || 'Nom pour la livraison'}
                       />
                       {errors.deliveryName && <p className="text-red-500 text-xs mt-1">{errors.deliveryName}</p>}
@@ -1196,8 +1190,8 @@ const SingleCheckout: React.FC = () => {
 
                   {/* Delivery Phone (pre-filled from contact, modifiable) */}
                   {checkoutSettings.showDeliveryPhone && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         {t('checkout.fields.deliveryPhone') || 'Téléphone pour livraison'} *
                       </label>
                       <PhoneInput
@@ -1214,28 +1208,27 @@ const SingleCheckout: React.FC = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         {t('checkout.fields.deliveryAddressLine1') || 'Adresse (Rue + Numéro)'} *
-                          </label>
-                          <input
-                            type="text"
+                      </label>
+                      <input
+                        type="text"
                         value={customerInfo.deliveryAddressLine1 || ''}
                         onChange={(e) => handleInputChange('deliveryAddressLine1', e.target.value)}
-                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                          errors.deliveryAddressLine1 ? 'border-red-500' : 'border-gray-300'
-                            }`}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.deliveryAddressLine1 ? 'border-red-500' : 'border-gray-300'
+                          }`}
                         placeholder={t('checkout.fields.deliveryAddressLine1Placeholder') || 'Ex: 123 Rue de la Paix'}
-                          />
+                      />
                       {errors.deliveryAddressLine1 && <p className="text-red-500 text-xs mt-1">{errors.deliveryAddressLine1}</p>}
-                        </div>
-                      )}
+                    </div>
+                  )}
 
                   {/* Delivery Address Line 2 (Complement) */}
                   {checkoutSettings.showDeliveryAddressLine2 && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         {t('checkout.fields.deliveryAddressLine2') || 'Complément d\'adresse'}
-                          </label>
-                          <input
-                            type="text"
+                      </label>
+                      <input
+                        type="text"
                         value={customerInfo.deliveryAddressLine2 || ''}
                         onChange={(e) => handleInputChange('deliveryAddressLine2', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
@@ -1254,9 +1247,8 @@ const SingleCheckout: React.FC = () => {
                         type="text"
                         value={customerInfo.deliveryQuarter || ''}
                         onChange={(e) => handleInputChange('deliveryQuarter', e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                          errors.deliveryQuarter ? 'border-red-500' : 'border-gray-300'
-                        }`}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.deliveryQuarter ? 'border-red-500' : 'border-gray-300'
+                          }`}
                         placeholder={t('checkout.fields.deliveryQuarterPlaceholder') || 'Ex: Mvog-Ada, Bastos'}
                       />
                       {errors.deliveryQuarter && <p className="text-red-500 text-xs mt-1">{errors.deliveryQuarter}</p>}
@@ -1285,7 +1277,7 @@ const SingleCheckout: React.FC = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Country/Region
                       </label>
-                      <select 
+                      <select
                         value={customerInfo.deliveryCountry || 'CM'}
                         onChange={(e) => handleInputChange('deliveryCountry', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
@@ -1311,12 +1303,12 @@ const SingleCheckout: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Shipping Method Section - Inside Delivery Card */}
-                  {checkoutSettings?.showShippingMethod && (
+                  {/* Shipping Method Section - Inside Delivery Card (Hard Removed) */}
+                  {/* {checkoutSettings?.showShippingMethod && (
                     <>
                       <div className="border-t border-gray-200 pt-4 mt-4">
-                        <h3 className="text-lg font-bold mb-4" style={{color: getCompanyColors().primary}}>Mode de livraison</h3>
-                        
+                        <h3 className="text-lg font-bold mb-4" style={{ color: getCompanyColors().primary }}>Mode de livraison</h3>
+
                         <div className="space-y-3">
                           <div className="border border-gray-200 rounded-lg p-4 bg-emerald-50">
                             <div className="flex items-center justify-between">
@@ -1340,7 +1332,7 @@ const SingleCheckout: React.FC = () => {
                         </div>
                       </div>
                     </>
-                  )}
+                  )} */}
                 </div>
               </div>
             )}
@@ -1351,623 +1343,622 @@ const SingleCheckout: React.FC = () => {
           <div className="space-y-8">
             {/* Payment Section - Moved to Right Column */}
             {/* Show payment section if enabled OR if any payment integration (Campay/CinetPay) is configured */}
-            {((checkoutSettings?.showPaymentSection) || 
-              isCampayInitialized || 
+            {((checkoutSettings?.showPaymentSection) ||
+              isCampayInitialized ||
               (cinetpayConfig && isCinetPayConfigured(cinetpayConfig))) && (
-              <div className="bg-white rounded-lg shadow-sm border p-6">
-                <h2 className="text-xl font-bold mb-4" style={{color: getCompanyColors().primary}}>{t('checkout.payment')}</h2>
-                <p className="text-sm text-gray-600 mb-4">Toutes les transactions sont sécurisées et cryptées.</p>
-                
-                {/* Payment Options Container */}
-                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                  {/* MTN Money Option */}
-                  {checkoutSettings && checkoutSettings.enabledPaymentMethods && checkoutSettings.enabledPaymentMethods.mtnMoney === true && (
-                    <div className={`p-4 ${selectedPaymentOption === 'mtn_money' ? 'bg-gray-50' : ''}`}>
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      id="mtn_money"
-                      checked={selectedPaymentOption === 'mtn_money'}
-                      onChange={() => handlePaymentMethodSelect('mtn_money')}
-                      className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300"
-                    />
-                    <label htmlFor="mtn_money" className="flex items-center space-x-3 cursor-pointer flex-1">
-                      <div className="w-8 h-8 bg-yellow-500 rounded flex items-center justify-center">
-                        <span className="text-white font-bold text-sm">MTN</span>
-                      </div>
-                      <span className="font-medium text-gray-900">{t('checkout.paymentMethods.mtnMoney')}</span>
-                    </label>
-                  </div>
-                  
-                  {/* MTN Money Form - appears directly under the option */}
-                  {selectedPaymentOption === 'mtn_money' && (
-                    <div className="mt-4 pl-8">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Numéro MTN Mobile Money *
-                        </label>
-                        <input
-                          type="tel"
-                          value={paymentFormData.mtnNumber}
-                          onChange={(e) => handlePaymentFormChange('mtnNumber', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
-                          placeholder="Entrez votre numéro MTN Mobile Money"
-                        />
-                      </div>
-                    </div>
-                  )}
-                  </div>
-                )}
+                <div className="bg-white rounded-lg shadow-sm border p-6">
+                  <h2 className="text-xl font-bold mb-4" style={{ color: getCompanyColors().primary }}>{t('checkout.payment')}</h2>
+                  <p className="text-sm text-gray-600 mb-4">Toutes les transactions sont sécurisées et cryptées.</p>
 
-                  {/* Orange Money Option */}
-                  {checkoutSettings && checkoutSettings.enabledPaymentMethods && checkoutSettings.enabledPaymentMethods.orangeMoney === true && (
-                    <div className={`p-4 border-t border-gray-200 ${selectedPaymentOption === 'orange_money' ? 'bg-gray-50' : ''}`}>
-                      <div className="flex items-center space-x-3">
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          id="orange_money"
-                          checked={selectedPaymentOption === 'orange_money'}
-                          onChange={() => handlePaymentMethodSelect('orange_money')}
-                          className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300"
-                        />
-                        <label htmlFor="orange_money" className="flex items-center space-x-3 cursor-pointer flex-1">
-                          <div className="w-8 h-8 bg-orange-500 rounded flex items-center justify-center">
-                            <span className="text-white font-bold text-sm">O</span>
-                          </div>
-                          <span className="font-medium text-gray-900">{t('checkout.paymentMethods.orangeMoney')}</span>
-                        </label>
-                      </div>
-                      
-                      {/* Orange Money Form - appears directly under the option */}
-                      {selectedPaymentOption === 'orange_money' && (
-                        <div className="mt-4 pl-8">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Numéro Orange Money *
-                            </label>
-                            <input
-                              type="tel"
-                              value={paymentFormData.orangeNumber}
-                              onChange={(e) => handlePaymentFormChange('orangeNumber', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
-                              placeholder="Entrez votre numéro Orange Money"
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Visa Card Option */}
-                  {checkoutSettings && checkoutSettings.enabledPaymentMethods && checkoutSettings.enabledPaymentMethods.visaCard === true && (
-                    <div className={`p-4 border-t border-gray-200 ${selectedPaymentOption === 'visa_card' ? 'bg-gray-50' : ''}`}>
-                      <div className="flex items-center space-x-3">
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          id="visa_card"
-                          checked={selectedPaymentOption === 'visa_card'}
-                          onChange={() => handlePaymentMethodSelect('visa_card')}
-                          className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300"
-                        />
-                        <label htmlFor="visa_card" className="flex items-center space-x-3 cursor-pointer flex-1">
-                          <CreditCard className="h-5 w-5 text-gray-600" />
-                          <span className="font-medium text-gray-900">{t('checkout.paymentMethods.visaCard')}</span>
-                          <div className="flex space-x-1 ml-auto">
-                            <div className="w-8 h-5 bg-blue-600 rounded text-white text-xs flex items-center justify-center">V</div>
-                            <div className="w-8 h-5 bg-red-600 rounded text-white text-xs flex items-center justify-center">M</div>
-                            <div className="w-8 h-5 bg-blue-800 rounded text-white text-xs flex items-center justify-center">A</div>
-                            <span className="text-xs text-gray-500">+4</span>
-                          </div>
-                        </label>
-                      </div>
-                      
-                      {/* Visa Card Form - appears directly under the option */}
-                      {selectedPaymentOption === 'visa_card' && (
-                        <div className="mt-4 pl-8 space-y-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Numéro de carte *
-                            </label>
-                            <div className="relative">
-                              <input
-                                type="text"
-                                value={paymentFormData.cardNumber}
-                                onChange={(e) => handlePaymentFormChange('cardNumber', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
-                                placeholder="1234 5678 9012 3456"
-                              />
-                              <Lock className="h-4 w-4 text-gray-400 absolute right-3 top-3" />
+                  {/* Payment Options Container */}
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    {/* MTN Money Option */}
+                    {checkoutSettings && checkoutSettings.enabledPaymentMethods && checkoutSettings.enabledPaymentMethods.mtnMoney === true && (
+                      <div className={`p-4 ${selectedPaymentOption === 'mtn_money' ? 'bg-gray-50' : ''}`}>
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="radio"
+                            name="paymentMethod"
+                            id="mtn_money"
+                            checked={selectedPaymentOption === 'mtn_money'}
+                            onChange={() => handlePaymentMethodSelect('mtn_money')}
+                            className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300"
+                          />
+                          <label htmlFor="mtn_money" className="flex items-center space-x-3 cursor-pointer flex-1">
+                            <div className="w-8 h-8 bg-yellow-500 rounded flex items-center justify-center">
+                              <span className="text-white font-bold text-sm">MTN</span>
                             </div>
-                          </div>
+                            <span className="font-medium text-gray-900">{t('checkout.paymentMethods.mtnMoney')}</span>
+                          </label>
+                        </div>
 
-                          <div className="grid grid-cols-2 gap-4">
+                        {/* MTN Money Form - appears directly under the option */}
+                        {selectedPaymentOption === 'mtn_money' && (
+                          <div className="mt-4 pl-8">
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Date d'expiration (MM/AA) *
+                                Numéro MTN Mobile Money *
                               </label>
                               <input
-                                type="text"
-                                value={paymentFormData.expiryDate}
-                                onChange={(e) => handlePaymentFormChange('expiryDate', e.target.value)}
+                                type="tel"
+                                value={paymentFormData.mtnNumber}
+                                onChange={(e) => handlePaymentFormChange('mtnNumber', e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
-                                placeholder="MM/AA"
+                                placeholder="Entrez votre numéro MTN Mobile Money"
                               />
                             </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Orange Money Option */}
+                    {checkoutSettings && checkoutSettings.enabledPaymentMethods && checkoutSettings.enabledPaymentMethods.orangeMoney === true && (
+                      <div className={`p-4 border-t border-gray-200 ${selectedPaymentOption === 'orange_money' ? 'bg-gray-50' : ''}`}>
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="radio"
+                            name="paymentMethod"
+                            id="orange_money"
+                            checked={selectedPaymentOption === 'orange_money'}
+                            onChange={() => handlePaymentMethodSelect('orange_money')}
+                            className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300"
+                          />
+                          <label htmlFor="orange_money" className="flex items-center space-x-3 cursor-pointer flex-1">
+                            <div className="w-8 h-8 bg-orange-500 rounded flex items-center justify-center">
+                              <span className="text-white font-bold text-sm">O</span>
+                            </div>
+                            <span className="font-medium text-gray-900">{t('checkout.paymentMethods.orangeMoney')}</span>
+                          </label>
+                        </div>
+
+                        {/* Orange Money Form - appears directly under the option */}
+                        {selectedPaymentOption === 'orange_money' && (
+                          <div className="mt-4 pl-8">
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Code de sécurité *
+                                Numéro Orange Money *
+                              </label>
+                              <input
+                                type="tel"
+                                value={paymentFormData.orangeNumber}
+                                onChange={(e) => handlePaymentFormChange('orangeNumber', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                                placeholder="Entrez votre numéro Orange Money"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Visa Card Option */}
+                    {checkoutSettings && checkoutSettings.enabledPaymentMethods && checkoutSettings.enabledPaymentMethods.visaCard === true && (
+                      <div className={`p-4 border-t border-gray-200 ${selectedPaymentOption === 'visa_card' ? 'bg-gray-50' : ''}`}>
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="radio"
+                            name="paymentMethod"
+                            id="visa_card"
+                            checked={selectedPaymentOption === 'visa_card'}
+                            onChange={() => handlePaymentMethodSelect('visa_card')}
+                            className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300"
+                          />
+                          <label htmlFor="visa_card" className="flex items-center space-x-3 cursor-pointer flex-1">
+                            <CreditCard className="h-5 w-5 text-gray-600" />
+                            <span className="font-medium text-gray-900">{t('checkout.paymentMethods.visaCard')}</span>
+                            <div className="flex space-x-1 ml-auto">
+                              <div className="w-8 h-5 bg-blue-600 rounded text-white text-xs flex items-center justify-center">V</div>
+                              <div className="w-8 h-5 bg-red-600 rounded text-white text-xs flex items-center justify-center">M</div>
+                              <div className="w-8 h-5 bg-blue-800 rounded text-white text-xs flex items-center justify-center">A</div>
+                              <span className="text-xs text-gray-500">+4</span>
+                            </div>
+                          </label>
+                        </div>
+
+                        {/* Visa Card Form - appears directly under the option */}
+                        {selectedPaymentOption === 'visa_card' && (
+                          <div className="mt-4 pl-8 space-y-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Numéro de carte *
                               </label>
                               <div className="relative">
                                 <input
                                   type="text"
-                                  value={paymentFormData.securityCode}
-                                  onChange={(e) => handlePaymentFormChange('securityCode', e.target.value)}
+                                  value={paymentFormData.cardNumber}
+                                  onChange={(e) => handlePaymentFormChange('cardNumber', e.target.value)}
                                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
-                                  placeholder="123"
+                                  placeholder="1234 5678 9012 3456"
                                 />
-                                <HelpCircle className="h-4 w-4 text-gray-400 absolute right-3 top-3" />
+                                <Lock className="h-4 w-4 text-gray-400 absolute right-3 top-3" />
                               </div>
                             </div>
-                          </div>
 
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Nom sur la carte *
-                            </label>
-                            <input
-                              type="text"
-                              value={paymentFormData.nameOnCard}
-                              onChange={(e) => handlePaymentFormChange('nameOnCard', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
-                              placeholder="Entrez le nom tel qu'il apparaît sur la carte"
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* CinetPay Online Payment Options */}
-                  {cinetpayConfig && isCinetPayConfigured(cinetpayConfig) && (
-                    <>
-                      {/* CinetPay Mobile Money */}
-                      {cinetpayConfig.enabledChannels.mobileMoney && (
-                        <div className={`p-4 border-t border-gray-200 ${selectedPaymentOption === 'cinetpay_mobile_money' ? 'bg-gray-50' : ''}`}>
-                          <div className="flex items-center space-x-3">
-                            <input
-                              type="radio"
-                              name="paymentMethod"
-                              id="cinetpay_mobile_money"
-                              checked={selectedPaymentOption === 'cinetpay_mobile_money'}
-                              onChange={() => handlePaymentMethodSelect('cinetpay_mobile_money')}
-                              className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300"
-                            />
-                            <label htmlFor="cinetpay_mobile_money" className="flex items-center space-x-3 cursor-pointer flex-1">
-                              <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-                                <span className="text-white font-bold text-sm">CM</span>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Date d'expiration (MM/AA) *
+                                </label>
+                                <input
+                                  type="text"
+                                  value={paymentFormData.expiryDate}
+                                  onChange={(e) => handlePaymentFormChange('expiryDate', e.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                                  placeholder="MM/AA"
+                                />
                               </div>
-                              <span className="font-medium text-gray-900">Mobile Money (CinetPay)</span>
-                              <span className="text-xs text-gray-500">MTN • Orange</span>
-                            </label>
-                          </div>
-                          
-                          {/* CinetPay Mobile Money Form */}
-                          {selectedPaymentOption === 'cinetpay_mobile_money' && (
-                            <div className="mt-4 pl-8">
-                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                <div className="flex items-center space-x-2 text-blue-700 mb-2">
-                                  <CreditCard className="h-4 w-4" />
-                                  <span className="font-medium text-sm">Paiement en ligne sécurisé</span>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Code de sécurité *
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type="text"
+                                    value={paymentFormData.securityCode}
+                                    onChange={(e) => handlePaymentFormChange('securityCode', e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                                    placeholder="123"
+                                  />
+                                  <HelpCircle className="h-4 w-4 text-gray-400 absolute right-3 top-3" />
                                 </div>
-                                <p className="text-sm text-blue-600">
-                                  Payez en toute sécurité avec MTN Money ou Orange Money. Vous serez redirigé vers une page de paiement sécurisée.
-                                </p>
                               </div>
                             </div>
-                          )}
-                        </div>
-                      )}
 
-                      {/* CinetPay Credit Card */}
-                      {cinetpayConfig.enabledChannels.creditCard && (
-                        <div className={`p-4 border-t border-gray-200 ${selectedPaymentOption === 'cinetpay_credit_card' ? 'bg-gray-50' : ''}`}>
-                          <div className="flex items-center space-x-3">
-                            <input
-                              type="radio"
-                              name="paymentMethod"
-                              id="cinetpay_credit_card"
-                              checked={selectedPaymentOption === 'cinetpay_credit_card'}
-                              onChange={() => handlePaymentMethodSelect('cinetpay_credit_card')}
-                              className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300"
-                            />
-                            <label htmlFor="cinetpay_credit_card" className="flex items-center space-x-3 cursor-pointer flex-1">
-                              <CreditCard className="h-5 w-5 text-gray-600" />
-                              <span className="font-medium text-gray-900">Carte de crédit (CinetPay)</span>
-                              <div className="flex space-x-1 ml-auto">
-                                <div className="w-8 h-5 bg-blue-600 rounded text-white text-xs flex items-center justify-center">V</div>
-                                <div className="w-8 h-5 bg-red-600 rounded text-white text-xs flex items-center justify-center">M</div>
-                              </div>
-                            </label>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Nom sur la carte *
+                              </label>
+                              <input
+                                type="text"
+                                value={paymentFormData.nameOnCard}
+                                onChange={(e) => handlePaymentFormChange('nameOnCard', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                                placeholder="Entrez le nom tel qu'il apparaît sur la carte"
+                              />
+                            </div>
                           </div>
-                          
-                          {/* CinetPay Credit Card Form */}
-                          {selectedPaymentOption === 'cinetpay_credit_card' && (
-                            <div className="mt-4 pl-8">
-                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                <div className="flex items-center space-x-2 text-blue-700 mb-2">
-                                  <CreditCard className="h-4 w-4" />
-                                  <span className="font-medium text-sm">Paiement par carte sécurisé</span>
-                                </div>
-                                <p className="text-sm text-blue-600">
-                                  Payez en toute sécurité avec Visa ou Mastercard. Vous serez redirigé vers une page de paiement sécurisée.
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                        )}
+                      </div>
+                    )}
 
-                      {/* CinetPay Wallet */}
-                      {cinetpayConfig.enabledChannels.wallet && (
-                        <div className={`p-4 border-t border-gray-200 ${selectedPaymentOption === 'cinetpay_wallet' ? 'bg-gray-50' : ''}`}>
-                          <div className="flex items-center space-x-3">
-                            <input
-                              type="radio"
-                              name="paymentMethod"
-                              id="cinetpay_wallet"
-                              checked={selectedPaymentOption === 'cinetpay_wallet'}
-                              onChange={() => handlePaymentMethodSelect('cinetpay_wallet')}
-                              className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300"
-                            />
-                            <label htmlFor="cinetpay_wallet" className="flex items-center space-x-3 cursor-pointer flex-1">
-                              <div className="w-8 h-8 bg-purple-600 rounded flex items-center justify-center">
-                                <span className="text-white font-bold text-sm">W</span>
+                    {/* CinetPay Online Payment Options */}
+                    {cinetpayConfig && isCinetPayConfigured(cinetpayConfig) && (
+                      <>
+                        {/* CinetPay Mobile Money */}
+                        {cinetpayConfig.enabledChannels.mobileMoney && (
+                          <div className={`p-4 border-t border-gray-200 ${selectedPaymentOption === 'cinetpay_mobile_money' ? 'bg-gray-50' : ''}`}>
+                            <div className="flex items-center space-x-3">
+                              <input
+                                type="radio"
+                                name="paymentMethod"
+                                id="cinetpay_mobile_money"
+                                checked={selectedPaymentOption === 'cinetpay_mobile_money'}
+                                onChange={() => handlePaymentMethodSelect('cinetpay_mobile_money')}
+                                className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300"
+                              />
+                              <label htmlFor="cinetpay_mobile_money" className="flex items-center space-x-3 cursor-pointer flex-1">
+                                <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
+                                  <span className="text-white font-bold text-sm">CM</span>
+                                </div>
+                                <span className="font-medium text-gray-900">Mobile Money (CinetPay)</span>
+                                <span className="text-xs text-gray-500">MTN • Orange</span>
+                              </label>
+                            </div>
+
+                            {/* CinetPay Mobile Money Form */}
+                            {selectedPaymentOption === 'cinetpay_mobile_money' && (
+                              <div className="mt-4 pl-8">
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                  <div className="flex items-center space-x-2 text-blue-700 mb-2">
+                                    <CreditCard className="h-4 w-4" />
+                                    <span className="font-medium text-sm">Paiement en ligne sécurisé</span>
+                                  </div>
+                                  <p className="text-sm text-blue-600">
+                                    Payez en toute sécurité avec MTN Money ou Orange Money. Vous serez redirigé vers une page de paiement sécurisée.
+                                  </p>
+                                </div>
                               </div>
-                              <span className="font-medium text-gray-900">Portefeuille numérique (CinetPay)</span>
-                            </label>
+                            )}
                           </div>
-                          
-                          {/* CinetPay Wallet Form */}
-                          {selectedPaymentOption === 'cinetpay_wallet' && (
-                            <div className="mt-4 pl-8">
-                              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                                <div className="flex items-center space-x-2 text-purple-700 mb-2">
-                                  <CreditCard className="h-4 w-4" />
-                                  <span className="font-medium text-sm">Paiement par portefeuille numérique</span>
-                                </div>
-                                <p className="text-sm text-purple-600">
-                                  Payez avec votre portefeuille numérique. Vous serez redirigé vers une page de paiement sécurisée.
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
+                        )}
 
-                  {/* Campay Payment Option */}
-                  {isCampayInitialized && (
-                    <div 
-                      className={`p-4 border-t border-gray-200 transition-all duration-200 ${
-                        selectedPaymentOption === 'campay' 
-                          ? 'bg-emerald-50 border-l-4 border-l-emerald-500' 
+                        {/* CinetPay Credit Card */}
+                        {cinetpayConfig.enabledChannels.creditCard && (
+                          <div className={`p-4 border-t border-gray-200 ${selectedPaymentOption === 'cinetpay_credit_card' ? 'bg-gray-50' : ''}`}>
+                            <div className="flex items-center space-x-3">
+                              <input
+                                type="radio"
+                                name="paymentMethod"
+                                id="cinetpay_credit_card"
+                                checked={selectedPaymentOption === 'cinetpay_credit_card'}
+                                onChange={() => handlePaymentMethodSelect('cinetpay_credit_card')}
+                                className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300"
+                              />
+                              <label htmlFor="cinetpay_credit_card" className="flex items-center space-x-3 cursor-pointer flex-1">
+                                <CreditCard className="h-5 w-5 text-gray-600" />
+                                <span className="font-medium text-gray-900">Carte de crédit (CinetPay)</span>
+                                <div className="flex space-x-1 ml-auto">
+                                  <div className="w-8 h-5 bg-blue-600 rounded text-white text-xs flex items-center justify-center">V</div>
+                                  <div className="w-8 h-5 bg-red-600 rounded text-white text-xs flex items-center justify-center">M</div>
+                                </div>
+                              </label>
+                            </div>
+
+                            {/* CinetPay Credit Card Form */}
+                            {selectedPaymentOption === 'cinetpay_credit_card' && (
+                              <div className="mt-4 pl-8">
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                  <div className="flex items-center space-x-2 text-blue-700 mb-2">
+                                    <CreditCard className="h-4 w-4" />
+                                    <span className="font-medium text-sm">Paiement par carte sécurisé</span>
+                                  </div>
+                                  <p className="text-sm text-blue-600">
+                                    Payez en toute sécurité avec Visa ou Mastercard. Vous serez redirigé vers une page de paiement sécurisée.
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* CinetPay Wallet */}
+                        {cinetpayConfig.enabledChannels.wallet && (
+                          <div className={`p-4 border-t border-gray-200 ${selectedPaymentOption === 'cinetpay_wallet' ? 'bg-gray-50' : ''}`}>
+                            <div className="flex items-center space-x-3">
+                              <input
+                                type="radio"
+                                name="paymentMethod"
+                                id="cinetpay_wallet"
+                                checked={selectedPaymentOption === 'cinetpay_wallet'}
+                                onChange={() => handlePaymentMethodSelect('cinetpay_wallet')}
+                                className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300"
+                              />
+                              <label htmlFor="cinetpay_wallet" className="flex items-center space-x-3 cursor-pointer flex-1">
+                                <div className="w-8 h-8 bg-purple-600 rounded flex items-center justify-center">
+                                  <span className="text-white font-bold text-sm">W</span>
+                                </div>
+                                <span className="font-medium text-gray-900">Portefeuille numérique (CinetPay)</span>
+                              </label>
+                            </div>
+
+                            {/* CinetPay Wallet Form */}
+                            {selectedPaymentOption === 'cinetpay_wallet' && (
+                              <div className="mt-4 pl-8">
+                                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                                  <div className="flex items-center space-x-2 text-purple-700 mb-2">
+                                    <CreditCard className="h-4 w-4" />
+                                    <span className="font-medium text-sm">Paiement par portefeuille numérique</span>
+                                  </div>
+                                  <p className="text-sm text-purple-600">
+                                    Payez avec votre portefeuille numérique. Vous serez redirigé vers une page de paiement sécurisée.
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Campay Payment Option */}
+                    {isCampayInitialized && (
+                      <div
+                        className={`p-4 border-t border-gray-200 transition-all duration-200 ${selectedPaymentOption === 'campay'
+                          ? 'bg-emerald-50 border-l-4 border-l-emerald-500'
                           : 'hover:bg-gray-50'
-                      }`}
-                      role="group"
-                      aria-labelledby="campay-payment-label"
+                          }`}
+                        role="group"
+                        aria-labelledby="campay-payment-label"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="radio"
+                            name="paymentMethod"
+                            id="campay"
+                            value="campay"
+                            checked={selectedPaymentOption === 'campay'}
+                            onChange={() => handlePaymentMethodSelect('campay')}
+                            className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 cursor-pointer"
+                            aria-labelledby="campay-payment-label"
+                            aria-describedby="campay-payment-description"
+                          />
+                          <label
+                            htmlFor="campay"
+                            id="campay-payment-label"
+                            className="flex items-center space-x-3 cursor-pointer flex-1"
+                          >
+                            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center shadow-sm transition-transform duration-200 hover:scale-105">
+                              <Smartphone className="h-5 w-5 text-white" />
+                            </div>
+                            <div className="flex-1">
+                              <span className="font-medium text-gray-900 block">MTN ou Orange Money</span>
+                              <span className="text-xs text-gray-500 block mt-0.5">Paiement mobile par Campay</span>
+                            </div>
+                            {selectedPaymentOption === 'campay' && (
+                              <div className="flex items-center text-emerald-600 animate-fade-in">
+                                <Check className="h-5 w-5" aria-label="Selected" />
+                              </div>
+                            )}
+                          </label>
+                        </div>
+
+                        {/* Campay Payment Form */}
+                        {selectedPaymentOption === 'campay' && (
+                          <div
+                            className="mt-4 pl-8 animate-slide-down"
+                            id="campay-payment-description"
+                            role="region"
+                            aria-labelledby="campay-payment-label"
+                          >
+                            <div className="bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200 rounded-lg p-4 shadow-sm">
+                              <div className="flex items-start space-x-3 mb-3">
+                                <div className="flex-shrink-0 mt-0.5">
+                                  <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
+                                    <Smartphone className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+                                  </div>
+                                </div>
+                                <div className="flex-1">
+                                  <h4 className="font-medium text-emerald-900 mb-1">Paiement sécurisé via Campay</h4>
+                                  <p className="text-sm text-emerald-700 leading-relaxed">
+                                    Payez en toute sécurité avec MTN Mobile Money ou Orange Money.
+                                  </p>
+                                  <p className="text-sm text-emerald-700 leading-relaxed mt-2">
+                                    Nom de confirmation de paiement: TAKWID GROUP
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Payment Methods Icons */}
+                              <div className="flex items-center space-x-2 mt-3 pt-3 border-t border-emerald-200">
+                                <span className="text-xs text-emerald-600 font-medium">Méthodes acceptées:</span>
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-6 h-6 bg-yellow-500 rounded flex items-center justify-center" title="MTN Mobile Money">
+                                    <span className="text-white text-xs font-bold">M</span>
+                                  </div>
+                                  <div className="w-6 h-6 bg-orange-500 rounded flex items-center justify-center" title="Orange Money">
+                                    <span className="text-white text-xs font-bold">O</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Pay Onsite Option */}
+                    {checkoutSettings && checkoutSettings.enabledPaymentMethods && checkoutSettings.enabledPaymentMethods.payOnsite === true && (
+                      <div className={`p-4 border-t border-gray-200 ${selectedPaymentOption === 'pay_onsite' ? 'bg-gray-50' : ''}`}>
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="radio"
+                            name="paymentMethod"
+                            id="pay_onsite"
+                            checked={selectedPaymentOption === 'pay_onsite'}
+                            onChange={() => handlePaymentMethodSelect('pay_onsite')}
+                            className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300"
+                          />
+                          <label htmlFor="pay_onsite" className="flex items-center space-x-3 cursor-pointer flex-1">
+                            <Truck className="h-5 w-5 text-emerald-600" />
+                            <span className="font-medium text-gray-900">{t('checkout.paymentMethods.payOnsite')}</span>
+                          </label>
+                        </div>
+
+                        {/* Pay Onsite Form - appears directly under the option */}
+                        {selectedPaymentOption === 'pay_onsite' && (
+                          <div className="mt-4 pl-8">
+                            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                              <div className="flex items-center space-x-2 text-emerald-700 mb-2">
+                                <Truck className="h-4 w-4" />
+                                <span className="font-medium text-sm">Payer à la réception</span>
+                              </div>
+                              <p className="text-sm text-emerald-600">
+                                Vous paierez lors de la réception de votre commande. Une confirmation WhatsApp sera envoyée avec les instructions de retrait.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* No payment methods available message */}
+                    {(!checkoutSettings || !checkoutSettings.enabledPaymentMethods || checkoutSettings.enabledPaymentMethods.mtnMoney !== true) &&
+                      (!checkoutSettings || !checkoutSettings.enabledPaymentMethods || checkoutSettings.enabledPaymentMethods.orangeMoney !== true) &&
+                      (!checkoutSettings || !checkoutSettings.enabledPaymentMethods || checkoutSettings.enabledPaymentMethods.visaCard !== true) &&
+                      (!checkoutSettings || !checkoutSettings.enabledPaymentMethods || checkoutSettings.enabledPaymentMethods.payOnsite !== true) &&
+                      !(cinetpayConfig && isCinetPayConfigured(cinetpayConfig)) &&
+                      !isCampayInitialized && (
+                        <div className="p-4 text-center text-gray-500">
+                          <p className="text-sm">Aucun mode de paiement disponible. Veuillez activer au moins un mode de paiement dans les paramètres.</p>
+                        </div>
+                      )}
+                  </div>
+                </div>
+              )}
+
+            {/* Order Summary */}
+            {checkoutSettings?.showOrderSummary && (
+              <div className="lg:sticky lg:top-8" id="cart-section">
+                <div className="bg-white rounded-lg shadow-sm border p-6">
+                  <h3 className="text-lg font-semibold mb-6" style={{ color: getCompanyColors().primary }}>{t('checkout.orderSummary')}</h3>
+
+                  {/* Cart Items */}
+                  <div className="space-y-4 mb-6">
+                    {cart.map((item) => (
+                      <div key={`${item.productId}-${item.selectedColor || 'default'}-${item.selectedSize || 'default'}`}
+                        className="flex items-center space-x-3">
+                        <div className="relative">
+                          <ImageWithSkeleton
+                            src={item.image || '/placeholder.png'}
+                            alt={item.name}
+                            className="w-16 h-16 object-cover rounded"
+                          />
+                          <div className="absolute -top-2 -right-2 bg-gray-900 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center">
+                            {item.quantity}
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-medium text-sm text-gray-900">{item.name}</h4>
+                          <p className="text-xs text-gray-500">
+                            {item.selectedColor && `${item.selectedColor}`}
+                            {item.selectedColor && item.selectedSize && ' • '}
+                            {item.selectedSize && `${item.selectedSize}`}
+                          </p>
+                          <p className="text-sm font-medium text-emerald-600">
+                            {formatPrice(item.price * item.quantity)} XAF
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Discount Code (Hard Removed) */}
+                  {/* {checkoutSettings?.showDiscountCode && (
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Discount code or gift card
+                      </label>
+                      <div className="flex space-x-2">
+                        <input
+                          type="text"
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                          placeholder="Enter code"
+                        />
+                        <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                          Apply
+                        </button>
+                      </div>
+                    </div>
+                  )} */}
+
+                  {/* Cost Breakdown */}
+                  <div className="space-y-3 mb-6">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">{t('checkout.orderSummaryDetails.subtotal')}</span>
+                      <span className="font-medium">
+                        {formatPrice(subtotal)} XAF
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Livraison</span>
+                      <span className="font-medium">
+                        {deliveryFee > 0 ? `${formatPrice(deliveryFee)} XAF` : 'À confirmer'}
+                      </span>
+                    </div>
+                    <div className="border-t border-gray-200 pt-3">
+                      <div className="flex justify-between text-lg font-bold">
+                        <span>{t('checkout.orderSummaryDetails.total')}</span>
+                        <span className="text-emerald-600">
+                          {formatPrice(finalTotal)} XAF
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Trust Badges */}
+                  {checkoutSettings?.showTrustBadges && (
+                    <div className="space-y-3 mb-6">
+                      <div className="flex items-center space-x-2 text-sm text-gray-600">
+                        <Lock className="h-4 w-4 text-yellow-500" />
+                        <span>PAIEMENT SÉCURISÉ</span>
+                      </div>
+                      <div className="flex items-center space-x-2 text-sm text-gray-600">
+                        <Shield className="h-4 w-4 text-yellow-500" />
+                        <span>SERVICE CLIENT EXCEPTIONNEL</span>
+                      </div>
+                      <div className="flex items-center space-x-2 text-sm text-gray-600">
+                        <RotateCcw className="h-4 w-4 text-yellow-500" />
+                        <span>RETOURS 14 JOURS</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Complete Order Button */}
+                  {!orderCreated ? (
+                    <button
+                      onClick={handleCreateOrder}
+                      disabled={submitting}
+                      className="w-full text-white py-4 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                      style={{
+                        backgroundColor: getCompanyColors().primary,
+                        '--tw-bg-opacity': '1'
+                      } as React.CSSProperties}
+                      onMouseEnter={(e) => {
+                        if (!submitting) {
+                          (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().secondary;
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!submitting) {
+                          (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().primary;
+                        }
+                      }}
                     >
-                      <div className="flex items-center space-x-3">
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          id="campay"
-                          value="campay"
-                          checked={selectedPaymentOption === 'campay'}
-                          onChange={() => handlePaymentMethodSelect('campay')}
-                          className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 cursor-pointer"
-                          aria-labelledby="campay-payment-label"
-                          aria-describedby="campay-payment-description"
-                        />
-                        <label 
-                          htmlFor="campay" 
-                          id="campay-payment-label"
-                          className="flex items-center space-x-3 cursor-pointer flex-1"
-                        >
-                          <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center shadow-sm transition-transform duration-200 hover:scale-105">
-                            <Smartphone className="h-5 w-5 text-white" />
-                          </div>
-                          <div className="flex-1">
-                            <span className="font-medium text-gray-900 block">MTN ou Orange Money</span>
-                            <span className="text-xs text-gray-500 block mt-0.5">Paiement mobile par Campay</span>
-                          </div>
-                          {selectedPaymentOption === 'campay' && (
-                            <div className="flex items-center text-emerald-600 animate-fade-in">
-                              <Check className="h-5 w-5" aria-label="Selected" />
-                            </div>
-                          )}
-                        </label>
-                      </div>
-                      
-                      {/* Campay Payment Form */}
-                      {selectedPaymentOption === 'campay' && (
-                        <div 
-                          className="mt-4 pl-8 animate-slide-down"
-                          id="campay-payment-description"
-                          role="region"
-                          aria-labelledby="campay-payment-label"
-                        >
-                          <div className="bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200 rounded-lg p-4 shadow-sm">
-                            <div className="flex items-start space-x-3 mb-3">
-                              <div className="flex-shrink-0 mt-0.5">
-                                <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
-                                  <Smartphone className="h-4 w-4 text-emerald-600" aria-hidden="true" />
-                                </div>
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="font-medium text-emerald-900 mb-1">Paiement sécurisé via Campay</h4>
-                                <p className="text-sm text-emerald-700 leading-relaxed">
-                                  Payez en toute sécurité avec MTN Mobile Money ou Orange Money.
-                                </p>
-                                <p className="text-sm text-emerald-700 leading-relaxed mt-2">
-                                  Nom de confirmation de paiement: TAKWID GROUP
-                                </p>
-                              </div>
-                            </div>
-                            
-                            {/* Payment Methods Icons */}
-                            <div className="flex items-center space-x-2 mt-3 pt-3 border-t border-emerald-200">
-                              <span className="text-xs text-emerald-600 font-medium">Méthodes acceptées:</span>
-                              <div className="flex items-center space-x-2">
-                                <div className="w-6 h-6 bg-yellow-500 rounded flex items-center justify-center" title="MTN Mobile Money">
-                                  <span className="text-white text-xs font-bold">M</span>
-                                </div>
-                                <div className="w-6 h-6 bg-orange-500 rounded flex items-center justify-center" title="Orange Money">
-                                  <span className="text-white text-xs font-bold">O</span>
-                                </div>
-                              </div>
-                            </div>
-                            
-                          </div>
-                        </div>
+                      {submitting ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                          Traitement en cours...
+                        </>
+                      ) : (
+                        t('checkout.completeOrder')
                       )}
-                    </div>
-                  )}
-
-                  {/* Pay Onsite Option */}
-                  {checkoutSettings && checkoutSettings.enabledPaymentMethods && checkoutSettings.enabledPaymentMethods.payOnsite === true && (
-                    <div className={`p-4 border-t border-gray-200 ${selectedPaymentOption === 'pay_onsite' ? 'bg-gray-50' : ''}`}>
-                      <div className="flex items-center space-x-3">
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          id="pay_onsite"
-                          checked={selectedPaymentOption === 'pay_onsite'}
-                          onChange={() => handlePaymentMethodSelect('pay_onsite')}
-                          className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300"
-                        />
-                        <label htmlFor="pay_onsite" className="flex items-center space-x-3 cursor-pointer flex-1">
-                          <Truck className="h-5 w-5 text-emerald-600" />
-                          <span className="font-medium text-gray-900">{t('checkout.paymentMethods.payOnsite')}</span>
-                        </label>
+                    </button>
+                  ) : (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-2 mb-4" style={{ color: getCompanyColors().primary }}>
+                        <CheckCircle className="h-8 w-8" />
+                        <span className="font-medium text-xl">Order Created Successfully!</span>
                       </div>
-                      
-                      {/* Pay Onsite Form - appears directly under the option */}
-                      {selectedPaymentOption === 'pay_onsite' && (
-                        <div className="mt-4 pl-8">
-                          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-                            <div className="flex items-center space-x-2 text-emerald-700 mb-2">
-                              <Truck className="h-4 w-4" />
-                              <span className="font-medium text-sm">Payer à la réception</span>
-                            </div>
-                            <p className="text-sm text-emerald-600">
-                              Vous paierez lors de la réception de votre commande. Une confirmation WhatsApp sera envoyée avec les instructions de retrait.
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
 
-                  {/* No payment methods available message */}
-                  {(!checkoutSettings || !checkoutSettings.enabledPaymentMethods || checkoutSettings.enabledPaymentMethods.mtnMoney !== true) &&
-                   (!checkoutSettings || !checkoutSettings.enabledPaymentMethods || checkoutSettings.enabledPaymentMethods.orangeMoney !== true) &&
-                   (!checkoutSettings || !checkoutSettings.enabledPaymentMethods || checkoutSettings.enabledPaymentMethods.visaCard !== true) &&
-                   (!checkoutSettings || !checkoutSettings.enabledPaymentMethods || checkoutSettings.enabledPaymentMethods.payOnsite !== true) &&
-                   !(cinetpayConfig && isCinetPayConfigured(cinetpayConfig)) &&
-                   !isCampayInitialized && (
-                    <div className="p-4 text-center text-gray-500">
-                      <p className="text-sm">Aucun mode de paiement disponible. Veuillez activer au moins un mode de paiement dans les paramètres.</p>
+                      <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                        <p className="text-lg font-semibold text-gray-900 mb-2">
+                          Order Number: {createdOrder?.orderNumber}
+                        </p>
+                        <p className="text-gray-600">
+                          {selectedPaymentOption === 'pay_onsite'
+                            ? 'WhatsApp confirmation has been sent. Please check your messages for pickup instructions.'
+                            : 'Payment integration coming soon. We will contact you for payment details.'
+                          }
+                        </p>
+                        <p className="text-sm text-gray-500 mt-2">
+                          You will be redirected to the catalogue in a few seconds...
+                        </p>
+                      </div>
+
+                      <div className="space-y-3">
+                        <button
+                          onClick={() => {
+                            if (company && companyId) {
+                              navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${companyId}`);
+                            } else {
+                              navigate('/');
+                            }
+                          }}
+                          className="w-full text-white py-3 rounded-lg font-semibold transition-colors"
+                          style={{ backgroundColor: getCompanyColors().primary }}
+                          onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().secondary}
+                          onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().primary}
+                        >
+                          Continue Shopping
+                        </button>
+                        <button
+                          onClick={() => navigate('/orders')}
+                          className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                        >
+                          View Orders
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
             )}
-
-            {/* Order Summary */}
-            {checkoutSettings?.showOrderSummary && (
-              <div className="lg:sticky lg:top-8" id="cart-section">
-              <div className="bg-white rounded-lg shadow-sm border p-6">
-                <h3 className="text-lg font-semibold mb-6" style={{color: getCompanyColors().primary}}>{t('checkout.orderSummary')}</h3>
-              
-              {/* Cart Items */}
-              <div className="space-y-4 mb-6">
-                {cart.map((item) => (
-                  <div key={`${item.productId}-${item.selectedColor || 'default'}-${item.selectedSize || 'default'}`} 
-                       className="flex items-center space-x-3">
-                    <div className="relative">
-                      <ImageWithSkeleton
-                        src={item.image || '/placeholder.png'}
-                        alt={item.name}
-                        className="w-16 h-16 object-cover rounded"
-                      />
-                      <div className="absolute -top-2 -right-2 bg-gray-900 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center">
-                        {item.quantity}
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-medium text-sm text-gray-900">{item.name}</h4>
-                      <p className="text-xs text-gray-500">
-                        {item.selectedColor && `${item.selectedColor}`}
-                        {item.selectedColor && item.selectedSize && ' • '}
-                        {item.selectedSize && `${item.selectedSize}`}
-                      </p>
-                      <p className="text-sm font-medium text-emerald-600">
-                        {formatPrice(item.price * item.quantity)} XAF
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Discount Code */}
-              {checkoutSettings?.showDiscountCode && (
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Discount code or gift card
-                  </label>
-                  <div className="flex space-x-2">
-                    <input
-                      type="text"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                      placeholder="Enter code"
-                    />
-                    <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
-                      Apply
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Cost Breakdown */}
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">{t('checkout.orderSummaryDetails.subtotal')}</span>
-                  <span className="font-medium">
-                    {formatPrice(subtotal)} XAF
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Livraison</span>
-                  <span className="font-medium">
-                    {deliveryFee > 0 ? `${formatPrice(deliveryFee)} XAF` : 'À confirmer'}
-                  </span>
-                </div>
-                <div className="border-t border-gray-200 pt-3">
-                  <div className="flex justify-between text-lg font-bold">
-                    <span>{t('checkout.orderSummaryDetails.total')}</span>
-                    <span className="text-emerald-600">
-                      {formatPrice(finalTotal)} XAF
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Trust Badges */}
-              {checkoutSettings?.showTrustBadges && (
-                <div className="space-y-3 mb-6">
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <Lock className="h-4 w-4 text-yellow-500" />
-                    <span>PAIEMENT SÉCURISÉ</span>
-                  </div>
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <Shield className="h-4 w-4 text-yellow-500" />
-                    <span>SERVICE CLIENT EXCEPTIONNEL</span>
-                  </div>
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <RotateCcw className="h-4 w-4 text-yellow-500" />
-                    <span>RETOURS 14 JOURS</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Complete Order Button */}
-              {!orderCreated ? (
-                <button
-                  onClick={handleCreateOrder}
-                  disabled={submitting}
-                  className="w-full text-white py-4 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                  style={{
-                    backgroundColor: getCompanyColors().primary,
-                    '--tw-bg-opacity': '1'
-                  } as React.CSSProperties}
-                  onMouseEnter={(e) => {
-                    if (!submitting) {
-                      (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().secondary;
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!submitting) {
-                      (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().primary;
-                    }
-                  }}
-                >
-                  {submitting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                      Traitement en cours...
-                    </>
-                  ) : (
-                    t('checkout.completeOrder')
-                  )}
-                </button>
-              ) : (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-4" style={{color: getCompanyColors().primary}}>
-                    <CheckCircle className="h-8 w-8" />
-                    <span className="font-medium text-xl">Order Created Successfully!</span>
-                  </div>
-                  
-                  <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                    <p className="text-lg font-semibold text-gray-900 mb-2">
-                      Order Number: {createdOrder?.orderNumber}
-                    </p>
-                    <p className="text-gray-600">
-                      {selectedPaymentOption === 'pay_onsite' 
-                        ? 'WhatsApp confirmation has been sent. Please check your messages for pickup instructions.'
-                        : 'Payment integration coming soon. We will contact you for payment details.'
-                      }
-                    </p>
-                    <p className="text-sm text-gray-500 mt-2">
-                      You will be redirected to the catalogue in a few seconds...
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    <button
-                      onClick={() => {
-                        if (company && companyId) {
-                          navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${companyId}`);
-                        } else {
-                          navigate('/');
-                        }
-                      }}
-                      className="w-full text-white py-3 rounded-lg font-semibold transition-colors"
-                      style={{backgroundColor: getCompanyColors().primary}}
-                      onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().secondary}
-                      onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().primary}
-                    >
-                      Continue Shopping
-                    </button>
-                    <button
-                      onClick={() => navigate('/orders')}
-                      className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
-                    >
-                      View Orders
-                    </button>
-                  </div>
-                </div>
-              )}
-              </div>
-            </div>
-          )}
           </div>
         </div>
       </div>
-      
+
       {/* Amount Too Low Modal */}
       <AmountTooLowModal
         isOpen={showAmountTooLowModal}

@@ -93,11 +93,12 @@ export interface CheckoutSettingsUpdate {
 }
 
 // Default settings for new companies
+// Default settings for new companies
 export const DEFAULT_CHECKOUT_SETTINGS: Omit<CheckoutSettings, 'id' | 'userId' | 'createdAt' | 'updatedAt'> = {
   // All sections enabled by default
   showContactSection: true,
   showDeliverySection: true,
-  showPaymentSection: true,
+  showPaymentSection: false,
 
   // Contact fields - Standard structure: name, phone, quarter
   showName: true,        // Enabled - Nom complet (requis)
@@ -128,7 +129,7 @@ export const DEFAULT_CHECKOUT_SETTINGS: Omit<CheckoutSettings, 'id' | 'userId' |
   showShippingMethod: true,
   defaultShippingFee: 0,
   showOrderSummary: true,
-  showDiscountCode: true,
+  showDiscountCode: false,
   showTrustBadges: true,
 
   // Catalogue display settings
