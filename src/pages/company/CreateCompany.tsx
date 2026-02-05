@@ -26,7 +26,8 @@ export default function CreateCompany() {
   const { t } = useTranslation();
   // Step state: 1 = company info, 2 = plan selection
   const [currentStep, setCurrentStep] = useState(1);
-  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'enterprise' | null>(null);
+  // Default to starter plan
+  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'enterprise' | null>('starter');
   const [formData, setFormData] = useState<CompanyFormData>({
     name: '',
     description: '',
@@ -163,7 +164,7 @@ export default function CreateCompany() {
         report_time: reportTime,
         location: formData.location.trim(),
         logo: formData.logo || undefined,
-        planType: selectedPlan || 'enterprise' // Use selected plan
+        planType: selectedPlan || 'starter' // Force starter by default if null
       });
 
       console.log('✅ Company créée avec succès:', company.id);
@@ -264,8 +265,8 @@ export default function CreateCompany() {
         </div>
       )}
 
-      {/* Step Indicator */}
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+      {/* Step Indicator - HIDDEN for now, single step process */}
+      {/* <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <div className="flex items-center justify-center space-x-4">
           <div className={`flex items-center ${currentStep >= 1 ? 'text-indigo-600' : 'text-gray-400'}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${currentStep >= 1 ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-300'}`}>
@@ -281,15 +282,13 @@ export default function CreateCompany() {
             <span className="ml-2 text-sm font-medium">Plan</span>
           </div>
         </div>
-      </div>
+      </div> */}
 
-      {/* Step 2: Plan Selection */}
-      {currentStep === 2 && (
+      {/* Step 2: Plan Selection - COMMENTED OUT */}
+      {/* {currentStep === 2 && (
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Card className="p-8">
-            {/* Success Message */}
-            {success && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex">
                   <div className="flex-shrink-0">
                     <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
@@ -303,23 +302,6 @@ export default function CreateCompany() {
                   </div>
                 </div>
               </div>
-            )}
-
-            {/* Error Message */}
-            {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-red-800">{error}</p>
-                  </div>
-                </div>
-              </div>
-            )}
 
             <PackageSelector
               selectedPlan={selectedPlan}
@@ -327,7 +309,6 @@ export default function CreateCompany() {
               disabled={isLoading || success}
             />
 
-            {/* Navigation */}
             <div className="flex justify-between mt-8 pt-6 border-t border-gray-200">
               <Button
                 type="button"
@@ -359,228 +340,261 @@ export default function CreateCompany() {
             </div>
           </Card>
         </div>
-      )}
+      )} */}
 
-      {/* Step 1: Company Info Form */}
-      {currentStep === 1 && (
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Card className="p-8">
-            <form onSubmit={(e) => { e.preventDefault(); if (validateForm()) setCurrentStep(2); }} className="space-y-6">
-              {/* Logo Upload */}
-              <div className="text-center">
-                <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4 relative">
-                  {isUploadingLogo ? (
-                    <div className="flex flex-col items-center">
-                      <div className="animate-pulse bg-gray-200 w-6 h-6 rounded-full" />
-                      <span className="text-xs text-gray-500 mt-1">Upload...</span>
-                    </div>
-                  ) : formData.logo ? (
-                    <img
-                      src={formData.logo}
-                      alt="Logo"
-                      className="w-24 h-24 rounded-full object-cover"
-                    />
-                  ) : (
-                    <Building2 className="h-8 w-8 text-gray-400" />
-                  )}
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleLogoUpload}
-                  className="hidden"
-                  id="logo-upload"
-                  disabled={isUploadingLogo}
-                />
-                <label
-                  htmlFor="logo-upload"
-                  className={`cursor-pointer inline-block ${isUploadingLogo ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  aria-label="Sélectionner un logo"
-                >
-                  <div className={`flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md transition-colors ${isUploadingLogo
-                    ? 'opacity-50 cursor-not-allowed bg-gray-100'
-                    : 'hover:bg-gray-50'
-                    }`}>
-                    <Upload className="h-4 w-4 mr-2" />
-                    {isUploadingLogo ? 'Upload en cours...' : formData.logo ? 'Changer le logo' : 'Ajouter un logo'}
+      {/* Step 1: Company Info Form - Always visible as it's the only step now */}
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Card className="p-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
+
+            {/* Success Message */}
+            {success && (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
                   </div>
-                </label>
-
-                {formData.logo && (
-                  <button
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, logo: '' }))}
-                    className="mt-2 text-sm text-red-600 hover:text-red-800"
-                    disabled={isUploadingLogo}
-                  >
-                    Supprimer le logo
-                  </button>
-                )}
-              </div>
-
-              {/* Company Name */}
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                  Nom de l'entreprise *
-                </label>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.name ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                  placeholder="Nom de votre entreprise"
-                />
-                {errors.name && (
-                  <p className="mt-1 text-sm text-red-600">{errors.name}</p>
-                )}
-              </div>
-
-              {/* Description */}
-              <div>
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
-                </label>
-                <textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Décrivez votre entreprise en quelques mots"
-                />
-              </div>
-
-              {/* Phone and Email */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                    Téléphone *
-                  </label>
-                  <div className="flex rounded-md shadow-sm">
-                    <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
-                      +237
-                    </span>
-                    <Input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handlePhoneChange}
-                      placeholder="678904568"
-                      className={`flex-1 rounded-l-none ${errors.phone ? 'border-red-300' : ''
-                        }`}
-                      error={errors.phone}
-                      helpText="9 chiffres après +237"
-                      required
-                    />
+                  <div className="ml-3">
+                    <p className="text-sm text-green-800">
+                      Company créée avec succès ! Redirection en cours...
+                    </p>
                   </div>
                 </div>
+              </div>
+            )}
 
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                    Email *
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.email ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                    placeholder="contact@entreprise.com"
+            {/* Error Message */}
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-red-800">{error}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Logo Upload */}
+            <div className="text-center">
+              <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4 relative">
+                {isUploadingLogo ? (
+                  <div className="flex flex-col items-center">
+                    <div className="animate-pulse bg-gray-200 w-6 h-6 rounded-full" />
+                    <span className="text-xs text-gray-500 mt-1">Upload...</span>
+                  </div>
+                ) : formData.logo ? (
+                  <img
+                    src={formData.logo}
+                    alt="Logo"
+                    className="w-24 h-24 rounded-full object-cover"
                   />
-                  {errors.email && (
-                    <p className="mt-1 text-sm text-red-600">{errors.email}</p>
-                  )}
+                ) : (
+                  <Building2 className="h-8 w-8 text-gray-400" />
+                )}
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleLogoUpload}
+                className="hidden"
+                id="logo-upload"
+                disabled={isUploadingLogo}
+              />
+              <label
+                htmlFor="logo-upload"
+                className={`cursor-pointer inline-block ${isUploadingLogo ? 'opacity-50 cursor-not-allowed' : ''}`}
+                aria-label="Sélectionner un logo"
+              >
+                <div className={`flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md transition-colors ${isUploadingLogo
+                  ? 'opacity-50 cursor-not-allowed bg-gray-100'
+                  : 'hover:bg-gray-50'
+                  }`}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  {isUploadingLogo ? 'Upload en cours...' : formData.logo ? 'Changer le logo' : 'Ajouter un logo'}
+                </div>
+              </label>
+
+              {formData.logo && (
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, logo: '' }))}
+                  className="mt-2 text-sm text-red-600 hover:text-red-800"
+                  disabled={isUploadingLogo}
+                >
+                  Supprimer le logo
+                </button>
+              )}
+            </div>
+
+            {/* Company Name */}
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                Nom de l'entreprise *
+              </label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.name ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                placeholder="Nom de votre entreprise"
+              />
+              {errors.name && (
+                <p className="mt-1 text-sm text-red-600">{errors.name}</p>
+              )}
+            </div>
+
+            {/* Description */}
+            <div>
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+                Description
+              </label>
+              <textarea
+                id="description"
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Décrivez votre entreprise en quelques mots"
+              />
+            </div>
+
+            {/* Phone and Email */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                  Téléphone *
+                </label>
+                <div className="flex rounded-md shadow-sm">
+                  <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                    +237
+                  </span>
+                  <Input
+                    type="tel"
+                    id="phone"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handlePhoneChange}
+                    placeholder="678904568"
+                    className={`flex-1 rounded-l-none ${errors.phone ? 'border-red-300' : ''
+                      }`}
+                    error={errors.phone}
+                    helpText="9 chiffres après +237"
+                    required
+                  />
                 </div>
               </div>
 
-              {/* Report Mail */}
               <div>
-                <label htmlFor="report_mail" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email pour les rapports de vente *
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email *
                 </label>
                 <input
                   type="email"
-                  id="report_mail"
-                  name="report_mail"
-                  value={formData.report_mail}
+                  id="email"
+                  name="email"
+                  value={formData.email}
                   onChange={handleInputChange}
-                  onBlur={() => {
-                    if (formData.report_mail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.report_mail)) {
-                      setErrors(prev => ({ ...prev, report_mail: 'Format d\'email invalide' }));
-                    }
-                  }}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.report_mail ? 'border-red-300' : 'border-gray-300'
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.email ? 'border-red-300' : 'border-gray-300'
                     }`}
-                  placeholder="rapports@entreprise.com"
+                  placeholder="contact@entreprise.com"
                 />
-                {errors.report_mail && (
-                  <p className="mt-1 text-sm text-red-600">{errors.report_mail}</p>
+                {errors.email && (
+                  <p className="mt-1 text-sm text-red-600">{errors.email}</p>
                 )}
               </div>
+            </div>
 
-              {/* Report Time */}
-              <div>
-                <label htmlFor="report_time" className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('settingsPage.account.reportTime')}
-                </label>
-                <input
-                  type="time"
-                  id="report_time"
-                  name="report_time"
-                  value={formData.report_time}
-                  onChange={handleInputChange}
-                  className="block w-full px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  required
-                />
-                <p className="mt-1 text-sm text-gray-500">
-                  {t('settingsPage.account.reportTimeHelp')}
-                </p>
-              </div>
+            {/* Report Mail */}
+            <div>
+              <label htmlFor="report_mail" className="block text-sm font-medium text-gray-700 mb-2">
+                Email pour les rapports de vente *
+              </label>
+              <input
+                type="email"
+                id="report_mail"
+                name="report_mail"
+                value={formData.report_mail}
+                onChange={handleInputChange}
+                onBlur={() => {
+                  if (formData.report_mail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.report_mail)) {
+                    setErrors(prev => ({ ...prev, report_mail: 'Format d\'email invalide' }));
+                  }
+                }}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.report_mail ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                placeholder="rapports@entreprise.com"
+              />
+              {errors.report_mail && (
+                <p className="mt-1 text-sm text-red-600">{errors.report_mail}</p>
+              )}
+            </div>
 
-              {/* Location */}
-              <div>
-                <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
-                  Localisation
-                </label>
-                <input
-                  type="text"
-                  id="location"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Ville, Pays"
-                />
-              </div>
+            {/* Report Time */}
+            <div>
+              <label htmlFor="report_time" className="block text-sm font-medium text-gray-700 mb-2">
+                {t('settingsPage.account.reportTime')}
+              </label>
+              <input
+                type="time"
+                id="report_time"
+                name="report_time"
+                value={formData.report_time}
+                onChange={handleInputChange}
+                className="block w-full px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                required
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                {t('settingsPage.account.reportTimeHelp')}
+              </p>
+            </div>
 
-              {/* Navigation Buttons */}
-              <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate(-1)}
-                  disabled={isUploadingLogo}
-                >
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isUploadingLogo}
-                >
-                  {isUploadingLogo ? 'Upload en cours...' : 'Continuer'}
-                </Button>
-              </div>
-            </form>
-          </Card>
-        </div>
-      )}
+            {/* Location */}
+            <div>
+              <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
+                Localisation
+              </label>
+              <input
+                type="text"
+                id="location"
+                name="location"
+                value={formData.location}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Ville, Pays"
+              />
+            </div>
+
+            {/* Navigation Buttons */}
+            <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => navigate(-1)}
+                disabled={isUploadingLogo}
+              >
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                disabled={isUploadingLogo || isLoading || success}
+              >
+                {isLoading ? 'Création...' : success ? 'Créée !' : 'Créer la companie'}
+              </Button>
+            </div>
+          </form>
+        </Card>
+      </div>
     </div>
   );
 }

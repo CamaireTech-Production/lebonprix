@@ -1,0 +1,73 @@
+name: Deploy to Starter Demo
+
+on:
+  push:
+    branches:
+      - Geskap-starter-demo
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Verify repository structure
+      run: |
+        pwd
+        ls -la
+        if [ -f "package.json" ]; then
+          echo "✅ package.json found"
+          cat package.json | head -5
+        else
+          echo "❌ package.json NOT found"
+          exit 1
+        fi
+
+    - name: Create .env file
+      run: |
+        echo "VITE_FIREBASE_ENV=dev" >> .env
+        echo "VITE_FIREBASE_SOURCE=old" >> .env
+        echo "VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY_STARTER_DEMO }}" >> .env
+        echo "VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN_STARTER_DEMO }}" >> .env
+        echo "VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID_STARTER_DEMO }}" >> .env
+        echo "VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.VITE_FIREBASE_STORAGE_BUCKET_STARTER_DEMO }}" >> .env
+        echo "VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID_STARTER_DEMO }}" >> .env
+        echo "VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID_STARTER_DEMO }}" >> .env
+        echo "VITE_FIREBASE_MEASUREMENT_ID=${{ secrets.VITE_FIREBASE_MEASUREMENT_ID_STARTER_DEMO }}" >> .env
+        echo "VITE_FIREBASE_VAPID_KEY=${{ secrets.VITE_FIREBASE_VAPID_KEY_STARTER_DEMO }}" >> .env
+        
+        # Get backend URL from single secret (use domain with HTTP on port 8888)
+        # Default to domain if secret not set
+        BACKEND_URL="${{ secrets.VITE_BACKEND_API_URL || 'http://geskap-api.camairetech.com:8888' }}"
+        echo "VITE_BACKEND_API_URL=$BACKEND_URL" >> .env
+        echo "VITE_BACKEND_API_KEY=${{ secrets.VITE_BACKEND_API_KEY_STARTER_DEMO }}" >> .env
+        
+        echo "✅ Backend URL configured:"
+        grep VITE_BACKEND_API_URL .env
+
+    - name: Clean and install dependencies
+      run: |
+        rm -rf node_modules package-lock.json
+        npm install --include=optional
+
+    - name: Build project
+      run: npm run build
+
+    - name: Deploy to FTP
+      uses: SamKirkland/FTP-Deploy-Action@4.3.0
+      with:
+        server: ftp.camairetech.com
+        username: ${{ secrets.FTP_USERNAME_STARTER_DEMO }}
+        password: ${{ secrets.FTP_PASSWORD_STARTER_DEMO }}
+        local-dir: dist/
+        server-dir: /
+        protocol: ftp
+        dangerous-clean-slate: false
+        log-level: verbose
