@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { Card, Button, SkeletonLoader } from '@components/common';
 import Modal, { ModalFooter } from '@components/common/Modal';
 import { Plus, Edit, Trash2, Users } from 'lucide-react';
-import { 
-  getCompanyTemplates, 
-  createTemplate, 
+import {
+  getCompanyTemplates,
+  createTemplate,
   updateTemplate,
   deleteTemplate
 } from '@services/firestore/employees/permissionTemplateService';
@@ -13,6 +13,7 @@ import { getDefaultPermissionTemplates } from '../../types/permissions';
 import { PermissionTemplate } from '../../types/permissions';
 import PermissionTemplateForm from './PermissionTemplateForm';
 import { clearAllPermissionCaches } from '../../hooks/business/usePermissionCache';
+import { useModules } from '@hooks/business/useModules';
 
 interface PermissionTemplateManagerProps {
   onTemplateChange?: () => void;
@@ -20,6 +21,7 @@ interface PermissionTemplateManagerProps {
 
 const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManagerProps) => {
   const { company, user } = useAuth();
+  const { isStarter } = useModules(); // Check if Starter plan
   const [templates, setTemplates] = useState<PermissionTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -32,7 +34,7 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
 
   const loadTemplates = useCallback(async () => {
     if (!company?.id) return;
-    
+
     try {
       setLoading(true);
       const companyTemplates = await getCompanyTemplates(company.id);
@@ -50,7 +52,7 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
 
   const handleCreateTemplate = async (templateData: Omit<PermissionTemplate, 'id' | 'companyId' | 'createdAt' | 'updatedAt' | 'createdBy'>) => {
     if (!company?.id || !user?.uid) return;
-    
+
     try {
       await createTemplate(company.id, user.uid, templateData);
       await loadTemplates();
@@ -64,20 +66,20 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
 
   const handleUpdateTemplate = async (templateData: Omit<PermissionTemplate, 'id' | 'companyId' | 'createdAt' | 'updatedAt' | 'createdBy'>) => {
     if (!company?.id || !editingTemplate) return;
-    
+
     try {
       await updateTemplate(company.id, editingTemplate.id, templateData);
-      
+
       // Clear all permission caches to force refresh for all users using this template
       clearAllPermissionCaches();
-      
+
       // Broadcast event to notify active users to refresh their permissions
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('permission-template-updated', {
           detail: { companyId: company.id, templateId: editingTemplate.id }
         }));
       }
-      
+
       await loadTemplates();
       setShowForm(false);
       setEditingTemplate(null);
@@ -104,21 +106,21 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
 
   const handleDeleteTemplate = async () => {
     if (!company?.id || !templateToDelete) return;
-    
+
     setIsDeleting(true);
     try {
       await deleteTemplate(company.id, templateToDelete.id);
-      
+
       // Clear all permission caches when template is deleted
       clearAllPermissionCaches();
-      
+
       // Broadcast event to notify active users
       if (typeof window !== 'undefined' && company.id && templateToDelete.id) {
         window.dispatchEvent(new CustomEvent('permission-template-updated', {
           detail: { companyId: company.id, templateId: templateToDelete.id }
         }));
       }
-      
+
       await loadTemplates();
       onTemplateChange?.();
       setDeleteModalOpen(false);
@@ -132,7 +134,7 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
 
   const handleUseDefaultTemplate = async (defaultTemplate: ReturnType<typeof getDefaultPermissionTemplates>[0]) => {
     if (!company?.id || !user?.uid) return;
-    
+
     try {
       setUsingDefaultTemplateName(defaultTemplate.name);
       await createTemplate(company.id, user.uid, {
@@ -196,7 +198,16 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
     );
   }
 
-  const defaultTemplates = getDefaultPermissionTemplates();
+  // Get default templates and filter for Starter plan
+  // Enterprise-only templates: Production Supervisor, Warehouse Clerk, HR Manager
+  const allDefaultTemplates = getDefaultPermissionTemplates();
+  const enterpriseOnlyTemplates = ['Production Supervisor', 'Warehouse Clerk', 'HR Manager'];
+  const defaultTemplates = useMemo(() => {
+    if (isStarter) {
+      return allDefaultTemplates.filter(t => !enterpriseOnlyTemplates.includes(t.name));
+    }
+    return allDefaultTemplates;
+  }, [isStarter, allDefaultTemplates]);
 
   return (
     <div className="space-y-6">
@@ -226,7 +237,7 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
               {showDefaults ? 'Hide' : 'Show'} Defaults
             </Button>
           </div>
-          
+
           {showDefaults && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {defaultTemplates.map((template, index) => (
@@ -254,7 +265,7 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
       <Card>
         <div className="p-4">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Your Templates ({templates.length})</h3>
-          
+
           {templates.length === 0 ? (
             <div className="text-center py-8">
               <Users size={48} className="mx-auto text-gray-400 mb-4" />
@@ -290,11 +301,11 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
                       </Button>
                     </div>
                   </div>
-                  
+
                   {template.description && (
                     <p className="text-sm text-gray-600 mb-3">{template.description}</p>
                   )}
-                  
+
                   <div className="flex items-center justify-between text-sm text-gray-500">
                     <span>{getPermissionCount(template)} permissions</span>
                     <span>Created {new Date(template.createdAt.seconds * 1000).toLocaleDateString()}</span>

@@ -30,6 +30,7 @@ import BarcodeGenerator from '../../components/products/BarcodeGenerator';
 import ProductsReportModal from '../../components/reports/ProductsReportModal';
 import { PermissionButton, usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
+import { useModules } from '@hooks/business/useModules';
 
 interface CsvRow {
   [key: string]: string;
@@ -56,6 +57,8 @@ const Products = () => {
     refresh,
     updateLocalProduct
   } = useInfiniteProducts();
+
+  const { isStarter } = useModules();
 
   // Keep original hook for adding/updating products
   const { addProduct, updateProductData } = useProducts();
@@ -2471,121 +2474,124 @@ const Products = () => {
 
               {/* These price fields are ALWAYS visible */}
               {/* Location selection (optional). If left empty, default shop/warehouse will be used. */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
-                <h3 className="text-sm font-semibold text-gray-900">
-                  {t('products.form.step2.locationSectionTitle') || 'Emplacement du stock initial'}
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      {t('products.form.step2.locationTypeLabel') || 'Type de source (optionnel)'}
-                    </label>
-                    <select
-                      name="sourceType"
-                      value={step2Data.sourceType}
-                      onChange={(e) =>
-                        setStep2Data(prev => ({
-                          ...prev,
-                          sourceType: e.target.value as '' | 'shop' | 'warehouse',
-                          shopId: e.target.value === 'shop' ? prev.shopId : '',
-                          warehouseId: e.target.value === 'warehouse' ? prev.warehouseId : '',
-                        }))
-                      }
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    >
-                      <option value="">
-                        {t('products.form.step2.locationTypePlaceholder') || 'Utiliser le magasin / entrepôt par défaut'}
-                      </option>
-                      <option value="shop">{t('products.form.step2.shopOption') || 'Boutique'}</option>
-                      <option value="warehouse">{t('products.form.step2.warehouseOption') || 'Entrepôt'}</option>
-                    </select>
+              {/* Hidden for Starter users - auto-defaults to shop */}
+              {!isStarter && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    {t('products.form.step2.locationSectionTitle') || 'Emplacement du stock initial'}
+                  </h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        {t('products.form.step2.locationTypeLabel') || 'Type de source (optionnel)'}
+                      </label>
+                      <select
+                        name="sourceType"
+                        value={step2Data.sourceType}
+                        onChange={(e) =>
+                          setStep2Data(prev => ({
+                            ...prev,
+                            sourceType: e.target.value as '' | 'shop' | 'warehouse',
+                            shopId: e.target.value === 'shop' ? prev.shopId : '',
+                            warehouseId: e.target.value === 'warehouse' ? prev.warehouseId : '',
+                          }))
+                        }
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      >
+                        <option value="">
+                          {t('products.form.step2.locationTypePlaceholder') || 'Utiliser le magasin / entrepôt par défaut'}
+                        </option>
+                        <option value="shop">{t('products.form.step2.shopOption') || 'Boutique'}</option>
+                        <option value="warehouse">{t('products.form.step2.warehouseOption') || 'Entrepôt'}</option>
+                      </select>
+                    </div>
+
+                    {step2Data.sourceType === 'shop' && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          {t('products.form.step2.shopLabel') || 'Boutique (optionnel)'}
+                        </label>
+                        {shopsLoading ? (
+                          <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
+                            {t('products.form.step2.shopsLoading') || 'Chargement des boutiques...'}
+                          </div>
+                        ) : shopsError ? (
+                          <div className="w-full px-3 py-2 text-sm border border-red-300 rounded-md bg-red-50 text-red-700">
+                            {t('products.form.step2.shopsError') || 'Erreur lors du chargement des boutiques'}
+                          </div>
+                        ) : shops && shops.length === 0 ? (
+                          <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
+                            {t('products.form.step2.noShops') || 'Aucune boutique disponible. Le stock sera affecté au magasin par défaut si configuré.'}
+                          </div>
+                        ) : (
+                          <select
+                            name="shopId"
+                            value={step2Data.shopId}
+                            onChange={(e) =>
+                              setStep2Data(prev => ({
+                                ...prev,
+                                shopId: e.target.value,
+                              }))
+                            }
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          >
+                            <option value="">
+                              {t('products.form.step2.shopPlaceholder') || 'Sélectionner une boutique (optionnel)'}
+                            </option>
+                            {shops?.map(shop => (
+                              <option key={shop.id} value={shop.id}>
+                                {shop.name} {shop.isDefault && '(Par défaut)'}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    )}
+
+                    {step2Data.sourceType === 'warehouse' && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          {t('products.form.step2.warehouseLabel') || 'Entrepôt (optionnel)'}
+                        </label>
+                        {warehousesLoading ? (
+                          <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
+                            {t('products.form.step2.warehousesLoading') || 'Chargement des entrepôts...'}
+                          </div>
+                        ) : warehousesError ? (
+                          <div className="w-full px-3 py-2 text-sm border border-red-300 rounded-md bg-red-50 text-red-700">
+                            {t('products.form.step2.warehousesError') || 'Erreur lors du chargement des entrepôts'}
+                          </div>
+                        ) : warehouses && warehouses.length === 0 ? (
+                          <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
+                            {t('products.form.step2.noWarehouses') || 'Aucun entrepôt disponible. Le stock sera affecté au magasin par défaut si configuré.'}
+                          </div>
+                        ) : (
+                          <select
+                            name="warehouseId"
+                            value={step2Data.warehouseId}
+                            onChange={(e) =>
+                              setStep2Data(prev => ({
+                                ...prev,
+                                warehouseId: e.target.value,
+                              }))
+                            }
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          >
+                            <option value="">
+                              {t('products.form.step2.warehousePlaceholder') || 'Sélectionner un entrepôt (optionnel)'}
+                            </option>
+                            {warehouses?.map(warehouse => (
+                              <option key={warehouse.id} value={warehouse.id}>
+                                {warehouse.name} {warehouse.isDefault && '(Par défaut)'}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    )}
                   </div>
-
-                  {step2Data.sourceType === 'shop' && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        {t('products.form.step2.shopLabel') || 'Boutique (optionnel)'}
-                      </label>
-                      {shopsLoading ? (
-                        <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
-                          {t('products.form.step2.shopsLoading') || 'Chargement des boutiques...'}
-                        </div>
-                      ) : shopsError ? (
-                        <div className="w-full px-3 py-2 text-sm border border-red-300 rounded-md bg-red-50 text-red-700">
-                          {t('products.form.step2.shopsError') || 'Erreur lors du chargement des boutiques'}
-                        </div>
-                      ) : shops && shops.length === 0 ? (
-                        <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
-                          {t('products.form.step2.noShops') || 'Aucune boutique disponible. Le stock sera affecté au magasin par défaut si configuré.'}
-                        </div>
-                      ) : (
-                        <select
-                          name="shopId"
-                          value={step2Data.shopId}
-                          onChange={(e) =>
-                            setStep2Data(prev => ({
-                              ...prev,
-                              shopId: e.target.value,
-                            }))
-                          }
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        >
-                          <option value="">
-                            {t('products.form.step2.shopPlaceholder') || 'Sélectionner une boutique (optionnel)'}
-                          </option>
-                          {shops?.map(shop => (
-                            <option key={shop.id} value={shop.id}>
-                              {shop.name} {shop.isDefault && '(Par défaut)'}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                  )}
-
-                  {step2Data.sourceType === 'warehouse' && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        {t('products.form.step2.warehouseLabel') || 'Entrepôt (optionnel)'}
-                      </label>
-                      {warehousesLoading ? (
-                        <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
-                          {t('products.form.step2.warehousesLoading') || 'Chargement des entrepôts...'}
-                        </div>
-                      ) : warehousesError ? (
-                        <div className="w-full px-3 py-2 text-sm border border-red-300 rounded-md bg-red-50 text-red-700">
-                          {t('products.form.step2.warehousesError') || 'Erreur lors du chargement des entrepôts'}
-                        </div>
-                      ) : warehouses && warehouses.length === 0 ? (
-                        <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
-                          {t('products.form.step2.noWarehouses') || 'Aucun entrepôt disponible. Le stock sera affecté au magasin par défaut si configuré.'}
-                        </div>
-                      ) : (
-                        <select
-                          name="warehouseId"
-                          value={step2Data.warehouseId}
-                          onChange={(e) =>
-                            setStep2Data(prev => ({
-                              ...prev,
-                              warehouseId: e.target.value,
-                            }))
-                          }
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        >
-                          <option value="">
-                            {t('products.form.step2.warehousePlaceholder') || 'Sélectionner un entrepôt (optionnel)'}
-                          </option>
-                          {warehouses?.map(warehouse => (
-                            <option key={warehouse.id} value={warehouse.id}>
-                              {warehouse.name} {warehouse.isDefault && '(Par défaut)'}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                  )}
                 </div>
-              </div>
+              )}
 
               <PriceInput
                 label={t('products.form.step2.stockCostPrice')}

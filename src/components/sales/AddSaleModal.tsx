@@ -17,6 +17,7 @@ import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory
 import { useShops, useWarehouses } from '@hooks/data/useFirestore';
 import { getDefaultShop } from '@services/firestore/shops/shopService';
 import { useProductSearch } from '@hooks/search/useProductSearch';
+import { useModules } from '@hooks/business/useModules';
 
 const LOW_STOCK_THRESHOLD = 5;
 
@@ -36,6 +37,7 @@ interface ProductStockInfo {
 const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdded }) => {
   const { t } = useTranslation();
   const { company, user, isOwner } = useAuth();
+  const { isStarter } = useModules(); // Check if Starter plan
   const { shops, loading: shopsLoading, error: shopsError } = useShops();
   const { warehouses, loading: warehousesLoading, error: warehousesError } = useWarehouses();
 
@@ -78,7 +80,27 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     handleSelectCustomer,
   } = useAddSaleForm();
 
-  // No default shop initialization - user must explicitly select
+  // Auto-select default shop for Starter users when modal opens
+  useEffect(() => {
+    if (isOpen && isStarter && company?.id && !formData.shopId) {
+      const autoSelectDefaultShop = async () => {
+        try {
+          const defaultShop = await getDefaultShop(company.id);
+          if (defaultShop && defaultShop.isActive !== false) {
+            setFormData(prev => ({
+              ...prev,
+              sourceType: 'shop',
+              shopId: defaultShop.id
+            }));
+            setIsLocationUserSelected(true); // Enable products display
+          }
+        } catch (error) {
+          logError('Error auto-selecting default shop for Starter:', error);
+        }
+      };
+      autoSelectDefaultShop();
+    }
+  }, [isOpen, isStarter, company?.id, formData.shopId, setFormData]);
 
   // Filter active shops/warehouses (for employees, owner/admin can see all)
   const getActiveShops = useCallback(() => {
@@ -476,128 +498,129 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
         <div className="flex flex-col lg:flex-row gap-6 max-w-4xl mx-auto">
           {/* Main Form */}
           <div className="flex-1 space-y-6">
-            {/* Source Location Selection */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
-              <h3 className="text-sm font-semibold text-gray-900">Source de la vente</h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Type de source
-                  </label>
-                  <select
-                    value={formData.sourceType}
-                    onChange={(e) => {
-                      const newSourceType = e.target.value as 'shop' | 'warehouse' | '';
-                      setFormData(prev => ({
-                        ...prev,
-                        sourceType: newSourceType,
-                        // Clear the opposite location when type changes
-                        shopId: newSourceType === 'shop' ? prev.shopId : '',
-                        warehouseId: newSourceType === 'warehouse' ? prev.warehouseId : ''
-                      }));
-                      // Reset location selection flag when source type changes
-                      setIsLocationUserSelected(false);
-                      setProductsWithStock(new Map()); // Clear products when type changes
-                    }}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Sélectionner un type de source</option>
-                    <option value="shop">Boutique</option>
-                    <option value="warehouse">Entrepôt</option>
-                  </select>
+            {/* Source Location Selection - Hidden for Starter (auto-selected), shown for Enterprise */}
+            {!isStarter ? (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-gray-900">Source de la vente</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Type de source
+                    </label>
+                    <select
+                      value={formData.sourceType}
+                      onChange={(e) => {
+                        const newSourceType = e.target.value as 'shop' | 'warehouse' | '';
+                        setFormData(prev => ({
+                          ...prev,
+                          sourceType: newSourceType,
+                          // Clear the opposite location when type changes
+                          shopId: newSourceType === 'shop' ? prev.shopId : '',
+                          warehouseId: newSourceType === 'warehouse' ? prev.warehouseId : ''
+                        }));
+                        // Reset location selection flag when source type changes
+                        setIsLocationUserSelected(false);
+                        setProductsWithStock(new Map()); // Clear products when type changes
+                      }}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Sélectionner un type de source</option>
+                      <option value="shop">Boutique</option>
+                      <option value="warehouse">Entrepôt</option>
+                    </select>
+                  </div>
+
+                  {formData.sourceType === 'shop' ? (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Boutique <span className="text-red-500">*</span>
+                      </label>
+                      {shopsLoading ? (
+                        <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
+                          Chargement des boutiques...
+                        </div>
+                      ) : shopsError ? (
+                        <div className="w-full px-3 py-2 text-sm border border-red-300 rounded-md bg-red-50 text-red-700">
+                          Erreur lors du chargement des boutiques
+                        </div>
+                      ) : activeShops.length === 0 ? (
+                        <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
+                          Aucune boutique active disponible. Veuillez créer une boutique ou activer une boutique existante.
+                        </div>
+                      ) : (
+                        <select
+                          value={formData.shopId}
+                          onChange={(e) => {
+                            const selectedShop = activeShops.find(s => s.id === e.target.value);
+                            if (selectedShop && selectedShop.isActive === false) {
+                              showWarningToast('Cette boutique est désactivée. Veuillez sélectionner une boutique active.');
+                              return;
+                            }
+                            setFormData(prev => ({ ...prev, shopId: e.target.value }));
+                            // Mark as user-selected when shop is explicitly chosen
+                            setIsLocationUserSelected(true);
+                          }}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        >
+                          <option value="">Sélectionner une boutique</option>
+                          {activeShops.map(shop => (
+                            <option key={shop.id} value={shop.id}>
+                              {shop.name} {shop.isDefault && '(Par défaut)'} {shop.isActive === false && '(Désactivé)'}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  ) : formData.sourceType === 'warehouse' ? (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Entrepôt <span className="text-red-500">*</span>
+                      </label>
+                      {warehousesLoading ? (
+                        <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
+                          Chargement des entrepôts...
+                        </div>
+                      ) : warehousesError ? (
+                        <div className="w-full px-3 py-2 text-sm border border-red-300 rounded-md bg-red-50 text-red-700">
+                          Erreur lors du chargement des entrepôts
+                        </div>
+                      ) : activeWarehouses.length === 0 ? (
+                        <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
+                          Aucun entrepôt actif disponible. Veuillez créer un entrepôt ou activer un entrepôt existant.
+                        </div>
+                      ) : (
+                        <select
+                          value={formData.warehouseId}
+                          onChange={(e) => {
+                            const selectedWarehouse = activeWarehouses.find(w => w.id === e.target.value);
+                            if (selectedWarehouse && selectedWarehouse.isActive === false) {
+                              showWarningToast('Cet entrepôt est désactivé. Veuillez sélectionner un entrepôt actif.');
+                              return;
+                            }
+                            setFormData(prev => ({ ...prev, warehouseId: e.target.value }));
+                            // Mark as user-selected when warehouse is explicitly chosen
+                            setIsLocationUserSelected(true);
+                          }}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        >
+                          <option value="">Sélectionner un entrepôt</option>
+                          {activeWarehouses.map(warehouse => (
+                            <option key={warehouse.id} value={warehouse.id}>
+                              {warehouse.name} {warehouse.isDefault && '(Par défaut)'} {warehouse.isActive === false && '(Désactivé)'}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
-
-                {formData.sourceType === 'shop' ? (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Boutique <span className="text-red-500">*</span>
-                    </label>
-                    {shopsLoading ? (
-                      <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
-                        Chargement des boutiques...
-                      </div>
-                    ) : shopsError ? (
-                      <div className="w-full px-3 py-2 text-sm border border-red-300 rounded-md bg-red-50 text-red-700">
-                        Erreur lors du chargement des boutiques
-                      </div>
-                    ) : activeShops.length === 0 ? (
-                      <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
-                        Aucune boutique active disponible. Veuillez créer une boutique ou activer une boutique existante.
-                      </div>
-                    ) : (
-                      <select
-                        value={formData.shopId}
-                        onChange={(e) => {
-                          const selectedShop = activeShops.find(s => s.id === e.target.value);
-                          if (selectedShop && selectedShop.isActive === false) {
-                            showWarningToast('Cette boutique est désactivée. Veuillez sélectionner une boutique active.');
-                            return;
-                          }
-                          setFormData(prev => ({ ...prev, shopId: e.target.value }));
-                          // Mark as user-selected when shop is explicitly chosen
-                          setIsLocationUserSelected(true);
-                        }}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      >
-                        <option value="">Sélectionner une boutique</option>
-                        {activeShops.map(shop => (
-                          <option key={shop.id} value={shop.id}>
-                            {shop.name} {shop.isDefault && '(Par défaut)'} {shop.isActive === false && '(Désactivé)'}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                ) : formData.sourceType === 'warehouse' ? (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Entrepôt <span className="text-red-500">*</span>
-                    </label>
-                    {warehousesLoading ? (
-                      <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
-                        Chargement des entrepôts...
-                      </div>
-                    ) : warehousesError ? (
-                      <div className="w-full px-3 py-2 text-sm border border-red-300 rounded-md bg-red-50 text-red-700">
-                        Erreur lors du chargement des entrepôts
-                      </div>
-                    ) : activeWarehouses.length === 0 ? (
-                      <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
-                        Aucun entrepôt actif disponible. Veuillez créer un entrepôt ou activer un entrepôt existant.
-                      </div>
-                    ) : (
-                      <select
-                        value={formData.warehouseId}
-                        onChange={(e) => {
-                          const selectedWarehouse = activeWarehouses.find(w => w.id === e.target.value);
-                          if (selectedWarehouse && selectedWarehouse.isActive === false) {
-                            showWarningToast('Cet entrepôt est désactivé. Veuillez sélectionner un entrepôt actif.');
-                            return;
-                          }
-                          setFormData(prev => ({ ...prev, warehouseId: e.target.value }));
-                          // Mark as user-selected when warehouse is explicitly chosen
-                          setIsLocationUserSelected(true);
-                        }}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      >
-                        <option value="">Sélectionner un entrepôt</option>
-                        {activeWarehouses.map(warehouse => (
-                          <option key={warehouse.id} value={warehouse.id}>
-                            {warehouse.name} {warehouse.isDefault && '(Par défaut)'} {warehouse.isActive === false && '(Désactivé)'}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                ) : null}
+                <p className="text-xs text-gray-500">
+                  Le stock sera consommé depuis l'emplacement sélectionné
+                </p>
               </div>
-              <p className="text-xs text-gray-500">
-                Le stock sera consommé depuis l'emplacement sélectionné
-              </p>
-            </div>
-
+            ) : null}
             {/* Customer Information Section */}
             <div className="space-y-4">
               <div className="relative">

@@ -2,6 +2,7 @@ import { ArrowLeft, Clock, X, CreditCard } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { useModules } from '@hooks/business/useModules';
 
 interface POSHeaderProps {
   companyName: string;
@@ -13,6 +14,7 @@ interface POSHeaderProps {
 
 export const POSHeader: React.FC<POSHeaderProps> = ({ companyName, shops, selectedShopId, onShopChange, creditSalesCount = 0 }) => {
   const { user, currentEmployee, isOwner, company } = useAuth();
+  const { isStarter } = useModules(); // Module check for Starter plan
   const navigate = useNavigate();
   const { companyId } = useParams<{ companyId: string }>();
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -41,8 +43,8 @@ export const POSHeader: React.FC<POSHeaderProps> = ({ companyName, shops, select
   const cashierName = currentEmployee
     ? currentEmployee.username
     : isOwner && user
-    ? `${user.displayName || user.email || 'Owner'}`
-    : 'Unknown';
+      ? `${user.displayName || user.email || 'Owner'}`
+      : 'Unknown';
 
   const handleBackToDashboard = () => {
     if (companyId) {
@@ -57,7 +59,7 @@ export const POSHeader: React.FC<POSHeaderProps> = ({ companyName, shops, select
   };
 
   return (
-    <div 
+    <div
       className="h-16 text-white flex items-center justify-between px-6 shadow-md"
       style={{ backgroundColor: colors.primary }}
     >
@@ -65,7 +67,7 @@ export const POSHeader: React.FC<POSHeaderProps> = ({ companyName, shops, select
         <button
           onClick={handleBackToDashboard}
           className="flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:opacity-90"
-          style={{ 
+          style={{
             backgroundColor: colors.tertiary,
             color: colors.headerText
           }}
@@ -76,8 +78,8 @@ export const POSHeader: React.FC<POSHeaderProps> = ({ companyName, shops, select
         </button>
         <h1 className="text-xl font-bold flex items-center space-x-3" style={{ color: colors.headerText }}>
           {company?.logo && (
-            <img 
-              src={company.logo} 
+            <img
+              src={company.logo}
               alt={`${company.name} Logo`}
               className="h-8 w-8 object-contain rounded"
             />
@@ -88,8 +90,8 @@ export const POSHeader: React.FC<POSHeaderProps> = ({ companyName, shops, select
           <span className="opacity-90">Cashier:</span>
           <span className="font-semibold">{cashierName}</span>
         </div>
-        {/* Shop Selector */}
-        {shops && shops.length > 1 && (
+        {/* Shop Selector - Only show dropdown for Enterprise users with multiple shops */}
+        {!isStarter && shops && shops.length > 1 && (
           <div className="flex items-center space-x-2">
             <span className="text-sm opacity-90" style={{ color: colors.headerText }}>Boutique:</span>
             <select
@@ -100,7 +102,7 @@ export const POSHeader: React.FC<POSHeaderProps> = ({ companyName, shops, select
                 }
               }}
               className="px-3 py-1 rounded-md text-sm font-medium border-0 focus:outline-none focus:ring-2 focus:ring-white/50"
-              style={{ 
+              style={{
                 backgroundColor: colors.tertiary,
                 color: colors.headerText
               }}
@@ -113,10 +115,11 @@ export const POSHeader: React.FC<POSHeaderProps> = ({ companyName, shops, select
             </select>
           </div>
         )}
-        {shops && shops.length === 1 && selectedShopId && (
+        {/* For Starter OR single shop: just show shop name, no dropdown */}
+        {(isStarter || (shops && shops.length === 1)) && selectedShopId && shops && (
           <div className="flex items-center space-x-2 text-sm" style={{ color: colors.headerText }}>
             <span className="opacity-90">Boutique:</span>
-            <span className="font-semibold">{shops[0].name}</span>
+            <span className="font-semibold">{shops.find(s => s.id === selectedShopId)?.name || shops[0]?.name}</span>
           </div>
         )}
       </div>
@@ -127,7 +130,7 @@ export const POSHeader: React.FC<POSHeaderProps> = ({ companyName, shops, select
           <button
             onClick={handleCreditSalesClick}
             className="relative flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:opacity-90"
-            style={{ 
+            style={{
               backgroundColor: colors.tertiary,
               color: colors.headerText
             }}
@@ -135,9 +138,9 @@ export const POSHeader: React.FC<POSHeaderProps> = ({ companyName, shops, select
           >
             <CreditCard size={16} />
             <span className="text-sm font-medium">Credit</span>
-            <span 
+            <span
               className="px-2 py-0.5 rounded-full text-xs font-bold"
-              style={{ 
+              style={{
                 backgroundColor: '#f97316',
                 color: 'white'
               }}
@@ -153,7 +156,7 @@ export const POSHeader: React.FC<POSHeaderProps> = ({ companyName, shops, select
         <button
           onClick={handleBackToDashboard}
           className="flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors hover:opacity-90"
-          style={{ 
+          style={{
             backgroundColor: colors.tertiary,
             color: colors.headerText
           }}
