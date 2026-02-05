@@ -35,7 +35,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
   const { sources } = useCustomerSources();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [customerSource, setCustomerSource] = useState<CustomerSource | null>(null);
-  
+
   // Collapsible sections state
   const [isCustomerExpanded, setIsCustomerExpanded] = useState(false);
   const [isInvoiceExpanded, setIsInvoiceExpanded] = useState(false);
@@ -47,13 +47,13 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
     if (sale && customers) {
       // Normaliser les numéros de téléphone pour la comparaison
       const salePhone = normalizePhoneForComparison(sale.customerInfo.phone);
-      
+
       const foundCustomer = customers.find(c => {
         const customerPhone = normalizePhoneForComparison(c.phone);
         return customerPhone === salePhone;
       });
-      
-      
+
+
       setCustomer(foundCustomer || null);
     } else {
       setCustomer(null);
@@ -348,20 +348,39 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
   // Build complete status history
   const statusHistory = sale.statusHistory || [];
   const currentStatusInHistory = statusHistory.some(entry => entry.status === sale.status);
-  const completeHistory = currentStatusInHistory 
-    ? statusHistory 
+  const completeHistory = currentStatusInHistory
+    ? statusHistory
     : [
-        ...statusHistory,
-        {
-          status: sale.status,
-          timestamp: sale.createdAt?.seconds 
-            ? new Date(sale.createdAt.seconds * 1000).toISOString()
-            : new Date().toISOString(),
-          userId: sale.userId || sale.companyId
-        }
-      ];
+      ...statusHistory,
+      {
+        status: sale.status,
+        timestamp: sale.createdAt?.seconds
+          ? new Date(sale.createdAt.seconds * 1000).toISOString()
+          : new Date().toISOString(),
+        userId: sale.userId || sale.companyId
+      }
+    ];
 
-  // Calculate subtotal
+  // Helper to calculate profit for a product with fallback logic
+  const getProductProfit = (saleProduct: any, catalogProduct: any) => {
+    const unitPrice = saleProduct.negotiatedPrice || saleProduct.basePrice;
+
+    // 1. If we have explicit batch consumption data (accurate)
+    if (saleProduct.batchLevelProfits && saleProduct.batchLevelProfits.length > 0) {
+      return saleProduct.batchLevelProfits.reduce(
+        (batchSum: number, batch: any) => batchSum + (unitPrice - batch.costPrice) * batch.consumedQuantity,
+        0
+      );
+    }
+
+    // 2. Fallback: Use stored costPrice if valid (> 0), otherwise use current catalog costPrice (Estimation)
+    const cost = (saleProduct.costPrice && saleProduct.costPrice > 0)
+      ? saleProduct.costPrice
+      : (catalogProduct?.costPrice || 0);
+
+    return (unitPrice - cost) * saleProduct.quantity;
+  };
+
   const calculateSubtotal = () => {
     return sale.products.reduce((total, product) => {
       const price = product.negotiatedPrice || product.basePrice;
@@ -371,6 +390,11 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
 
   const subtotal = calculateSubtotal();
   const totalAmount = subtotal + (sale.deliveryFee ?? 0);
+
+  const totalProfit = sale.products.reduce((total, product) => {
+    const productData = products?.find(p => p.id === product.productId);
+    return total + getProductProfit(product, productData);
+  }, 0);
 
   return (
     <Modal
@@ -397,8 +421,8 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
             </div>
             <Badge variant={
               sale.status === 'paid' ? 'success' :
-              sale.status === 'credit' ? 'warning' :
-              sale.status === 'under_delivery' ? 'info' : 'default'
+                sale.status === 'credit' ? 'warning' :
+                  sale.status === 'under_delivery' ? 'info' : 'default'
             }>
               {t(`sales.filters.status.${sale.status}`)}
             </Badge>
@@ -446,7 +470,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                   <div>
                     <p className="text-xs text-gray-500 mb-1">{t('sales.modals.view.summary.date') || 'Date'}</p>
                     <p className="text-sm font-medium text-gray-900">
-                      {sale.createdAt?.seconds 
+                      {sale.createdAt?.seconds
                         ? new Date(sale.createdAt.seconds * 1000).toLocaleDateString()
                         : 'N/A'}
                     </p>
@@ -481,6 +505,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                         <th className="text-left py-2 px-2 font-medium text-gray-700">{t('sales.modals.view.products.table.product') || 'Product'}</th>
                         <th className="text-right py-2 px-2 font-medium text-gray-700">{t('sales.modals.view.products.table.qty') || 'Qty'}</th>
                         <th className="text-right py-2 px-2 font-medium text-gray-700">{t('sales.modals.view.products.table.unitPrice') || 'Unit Price'}</th>
+                        <th className="text-right py-2 px-2 font-medium text-gray-700">{t('sales.modals.view.products.table.profit') || 'Profit'}</th>
                         <th className="text-right py-2 px-2 font-medium text-gray-700">{t('sales.modals.view.products.table.total') || 'Total'}</th>
                       </tr>
                     </thead>
@@ -489,6 +514,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                         const productData = products?.find(p => p.id === product.productId);
                         const unitPrice = product.negotiatedPrice || product.basePrice;
                         const productTotal = unitPrice * product.quantity;
+                        const profit = getProductProfit(product, productData);
                         return (
                           <tr key={index} className="border-b border-gray-100">
                             <td className="py-2 px-2">
@@ -501,6 +527,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                             </td>
                             <td className="text-right py-2 px-2 text-gray-900">{product.quantity}</td>
                             <td className="text-right py-2 px-2 text-gray-900">{formatPrice(unitPrice)} XAF</td>
+                            <td className="text-right py-2 px-2 text-emerald-600">{formatPrice(profit)} XAF</td>
                             <td className="text-right py-2 px-2 font-medium text-emerald-600">{formatPrice(productTotal)} XAF</td>
                           </tr>
                         );
@@ -586,6 +613,10 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                     <span className="text-gray-600">{t('sales.modals.view.orderSummary.subtotal')}</span>
                     <span className="text-gray-900">{formatPrice(subtotal)} XAF</span>
                   </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 font-medium">{t('sales.modals.view.orderSummary.totalProfit') || 'Total Profit'}</span>
+                    <span className="text-emerald-600 font-medium">{formatPrice(totalProfit)} XAF</span>
+                  </div>
                   {(sale.deliveryFee ?? 0) > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">{t('sales.modals.view.orderSummary.deliveryFee')}</span>
@@ -619,7 +650,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                         <div className="col-span-2">
                           <p className="text-xs text-orange-700">{t('sales.modals.view.creditSale.dueDate') || 'Due Date'}</p>
                           <p className="text-sm text-orange-900">
-                            {sale.creditDueDate.seconds 
+                            {sale.creditDueDate.seconds
                               ? new Date(sale.creditDueDate.seconds * 1000).toLocaleDateString()
                               : '-'}
                           </p>
@@ -644,7 +675,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                       onClick={() => setIsStatusHistoryExpanded(!isStatusHistoryExpanded)}
                       className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1"
                     >
-                      {isStatusHistoryExpanded 
+                      {isStatusHistoryExpanded
                         ? (t('sales.modals.view.statusTimeline.hideHistory') || 'Hide History')
                         : (t('sales.modals.view.statusTimeline.showHistory') || 'Show History')}
                       {isStatusHistoryExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -657,7 +688,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                       .slice()
                       .reverse()
                       .map((historyEntry, index) => {
-                        const date = historyEntry.timestamp 
+                        const date = historyEntry.timestamp
                           ? new Date(historyEntry.timestamp)
                           : null;
                         return (
@@ -666,8 +697,8 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                               <div className="flex items-center gap-2">
                                 <Badge variant={
                                   historyEntry.status === 'paid' ? 'success' :
-                                  historyEntry.status === 'credit' ? 'warning' :
-                                  historyEntry.status === 'under_delivery' ? 'info' : 'default'
+                                    historyEntry.status === 'credit' ? 'warning' :
+                                      historyEntry.status === 'under_delivery' ? 'info' : 'default'
                                 }>
                                   {t(`sales.filters.status.${historyEntry.status}`) || historyEntry.status}
                                 </Badge>
@@ -702,7 +733,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                         onClick={() => setIsRefundHistoryExpanded(!isRefundHistoryExpanded)}
                         className="text-xs text-gray-600 hover:text-gray-900 flex items-center gap-1"
                       >
-                        {isRefundHistoryExpanded 
+                        {isRefundHistoryExpanded
                           ? (t('sales.modals.view.refundHistory.hide') || 'Hide')
                           : (t('sales.modals.view.refundHistory.show') || 'Show')}
                         {isRefundHistoryExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -714,7 +745,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                           .slice()
                           .reverse()
                           .map((refund, index) => {
-                            const date = refund.timestamp 
+                            const date = refund.timestamp
                               ? new Date(refund.timestamp)
                               : null;
                             return (
@@ -812,7 +843,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                     <div>
                       <p className="text-xs text-gray-500 mb-1">{t('sales.modals.view.orderInformation.createdDate') || 'Created Date'}</p>
                       <p className="text-sm text-gray-900">
-                        {sale.createdAt?.seconds 
+                        {sale.createdAt?.seconds
                           ? new Date(sale.createdAt.seconds * 1000).toLocaleString()
                           : 'N/A'}
                       </p>
@@ -839,8 +870,8 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                       <p className="text-xs text-gray-500 mb-1">{t('sales.modals.view.paymentInformation.paymentStatus') || 'Payment Status'}</p>
                       <Badge variant={
                         sale.status === 'paid' ? 'success' :
-                        sale.status === 'credit' ? 'warning' :
-                        sale.status === 'under_delivery' ? 'info' : 'default'
+                          sale.status === 'credit' ? 'warning' :
+                            sale.status === 'under_delivery' ? 'info' : 'default'
                       }>
                         {t(`sales.filters.status.${sale.status}`)}
                       </Badge>

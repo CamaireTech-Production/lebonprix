@@ -555,7 +555,8 @@
         "under_delivery": "En livraison",
         "paid": "Payé",
         "credit": "Crédit",
-        "draft": "Brouillon"
+        "draft": "Brouillon",
+        "cancelled": "Annulé"
       },
       "creditSales": "Ventes en Crédit",
       "search": "Recherche par nom ou téléphone..."
@@ -726,12 +727,14 @@
             "product": "Produit",
             "qty": "Qté",
             "unitPrice": "Prix Unitaire",
+            "profit": "Profit",
             "total": "Total"
           }
         },
         "orderSummary": {
           "title": "Résumé de la Commande",
           "subtotal": "Sous-total",
+          "totalProfit": "Profit Total",
           "deliveryFee": "Frais de Livraison",
           "totalAmount": "Montant Total"
         },
@@ -843,6 +846,7 @@
     },
     "messages": {
       "saleAdded": "Vente ajoutée avec succès !",
+      "saleDeleted": "Vente supprimée avec succès !",
       "saleUpdated": "Vente mise à jour avec succès !",
       "linkCopied": "Lien copié !",
       "messageCopied": "Message copié avec succès !",

@@ -301,13 +301,24 @@ const Sales: React.FC = () => {
           )
         );
       }
-      return sum + (unitSalePrice - sp.costPrice) * sp.quantity;
+
+      // If we have a stored cost price, use it
+      if (sp.costPrice > 0) {
+        return sum + (unitSalePrice - sp.costPrice) * sp.quantity;
+      }
+
+      // Fallback for 'commande' or unconsumed stock: use current catalog cost price for estimation
+      // This prevents showing 100% profit for orders not yet paid/delivered
+      const catalogProduct = products?.find(p => p.id === sp.productId);
+      const estimatedCost = catalogProduct?.costPrice || 0;
+
+      return sum + (unitSalePrice - estimatedCost) * sp.quantity;
     }, 0);
   };
 
   // Compute overall profit from all filtered sales
   // Filter out soft-deleted sales (isAvailable === false)
-  let filteredSales: Sale[] = (sales || []).filter(sale => sale.isAvailable !== false);
+  let filteredSales: Sale[] = (sales || []).filter(sale => sale.isAvailable !== false && sale.isDeleted !== true);
 
   // Apply date range filter
   filteredSales = filteredSales.filter(sale => {
