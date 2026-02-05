@@ -3,6 +3,7 @@ import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2, Phone, ScanLine, Warehouse, Factory, Globe, Shield, Briefcase, Store, Package, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRolePermissions } from '../../hooks/business/useRolePermissions';
+import { useModules } from '../../hooks/business/useModules';
 import UserAvatar from '../common/UserAvatar';
 import { DownloadAppButton } from '../pwa';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +11,7 @@ import CreateCompanyModal from '../modals/CreateCompanyModal';
 import Modal, { ModalFooter } from '../common/Modal';
 import { RESOURCES } from '../../constants/resources';
 import { usePWA } from '../../hooks/usePWA';
+import type { ModuleName } from '../../types/models';
 
 interface SidebarProps {
   onClose: () => void;
@@ -23,6 +25,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const navigate = useNavigate();
   const { company, currentEmployee, isOwner, effectiveRole } = useAuth();
   const { canAccess, canCreate, canAccessFinance, canAccessHR, canAccessSettings, templateLoading } = useRolePermissions();
+  const { hasModule, isStarter, planType } = useModules(); // NEW: Module access
   const { isInstalled } = usePWA();
   const [showCreateCompanyModal, setShowCreateCompanyModal] = React.useState(false);
   const [showCompanyNavigationConfirm, setShowCompanyNavigationConfirm] = React.useState(false);
@@ -32,7 +35,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const [magasinMenuExpanded, setMagasinMenuExpanded] = React.useState(false);
   const [productionsMenuExpanded, setProductionsMenuExpanded] = React.useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  
+
   // Detect mobile device
   useEffect(() => {
     const checkMobile = () => {
@@ -42,12 +45,12 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-  
+
   // Vérifier si on doit afficher le loader pour le template
   const isActualOwner = isOwner || effectiveRole === 'owner';
   const showTemplateLoader = !isActualOwner && templateLoading;
 
-  
+
   // Get dashboard colors
   const getDashboardColors = () => {
     const colors = {
@@ -57,9 +60,9 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
     };
     return colors;
   };
-  
+
   const colors = getDashboardColors();
-  
+
   const isActive = (path: string) => {
     return location.pathname === path;
   };
@@ -78,10 +81,10 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   // Exclude productions/categories, expenses/categories, and magasin/categories to avoid false positives
   React.useEffect(() => {
     const isOnProductsRoute = location.pathname.includes('/products');
-    const isOnCategoriesRoute = location.pathname.includes('/categories') && 
-                                 !location.pathname.includes('/productions/categories') &&
-                                 !location.pathname.includes('/expenses/categories') &&
-                                 !location.pathname.includes('/magasin/categories');
+    const isOnCategoriesRoute = location.pathname.includes('/categories') &&
+      !location.pathname.includes('/productions/categories') &&
+      !location.pathname.includes('/expenses/categories') &&
+      !location.pathname.includes('/magasin/categories');
     setProductsMenuExpanded(isOnProductsRoute || isOnCategoriesRoute);
   }, [location.pathname]);
 
@@ -108,13 +111,13 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
     }
     // Sinon, la navigation normale se fait via le Link
   };
-  
+
   // Vérifier si on est dans une route d'entreprise
   const isCompanyRoute = location.pathname.startsWith('/company/');
-  
+
   // Vérifier si on est en mode sélection
   const isCompanySelectionRoute = location.pathname.startsWith('/companies/me/');
-  
+
   // Navigation items pour le mode sélection - TOUS ACTIVÉS
   const selectionModeItems = [
     { name: 'Companies (op)', path: location.pathname, icon: <Building2 size={20} />, alwaysEnabled: true, disabled: false },
@@ -123,10 +126,10 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
     { name: t('navigation.orders'), path: '/orders', icon: <ShoppingBag size={20} />, disabled: false },
     { name: t('navigation.expenses'), path: '/expenses', icon: <Receipt size={20} />, disabled: false },
     { name: t('navigation.finance'), path: '/finance', icon: <DollarSign size={20} />, disabled: false },
-    { 
-      name: t('navigation.products'), 
-      path: '/products', 
-      icon: <Package2 size={20} />, 
+    {
+      name: t('navigation.products'),
+      path: '/products',
+      icon: <Package2 size={20} />,
       disabled: false,
       subItems: [
         { name: t('navigation.submenus.list'), path: '/products' },
@@ -178,6 +181,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
       path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions` : '/productions',
       icon: <Factory size={20} />,
       resource: RESOURCES.PRODUCTS,
+      requiredModule: 'PRODUCTION' as ModuleName, // Enterprise only
       subItems: [
         { name: t('navigation.submenus.list'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions` : '/productions', resource: RESOURCES.PRODUCTS },
         { name: t('navigation.submenus.categories'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/categories` : '/productions/categories', resource: RESOURCES.PRODUCTS },
@@ -191,6 +195,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
       path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin` : '/magasin',
       icon: <Warehouse size={20} />,
       resource: RESOURCES.MAGASIN,
+      requiredModule: 'MAGASIN' as ModuleName, // Enterprise only
       subItems: [
         { name: t('navigation.warehouseMenu.matieres'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/matieres` : '/magasin/matieres', resource: RESOURCES.MAGASIN },
         { name: t('navigation.warehouseMenu.categories'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/categories` : '/magasin/categories', resource: RESOURCES.MAGASIN },
@@ -201,19 +206,22 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
       name: t('navigation.warehouseProducts', 'Entrepôt Produits'),
       path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/warehouse` : '/warehouse',
       icon: <Package size={20} />,
-      resource: RESOURCES.WAREHOUSE
+      resource: RESOURCES.WAREHOUSE,
+      requiredModule: 'WAREHOUSE' as ModuleName // Enterprise only
     },
     {
       name: t('navigation.shops', 'Boutiques'),
       path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/shops` : '/shops',
       icon: <Store size={20} />,
-      resource: RESOURCES.SHOPS
+      resource: RESOURCES.SHOPS,
+      requiredModule: 'MULTI_LOCATION' as ModuleName // Enterprise only
     },
     {
       name: t('navigation.stockTransfers', 'Transferts de stock'),
       path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/stock-transfers` : '/stock-transfers',
       icon: <ArrowRight size={20} />,
-      resource: RESOURCES.PRODUCTS
+      resource: RESOURCES.PRODUCTS,
+      requiredModule: 'STOCK_TRANSFERS' as ModuleName // Enterprise only
     },
     { name: t('navigation.suppliers'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/suppliers` : '/suppliers', icon: <Users size={20} />, resource: RESOURCES.SUPPLIERS },
     {
@@ -227,12 +235,21 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
       ]
     },
     { name: t('navigation.permissionsManagement', 'Permissions & Invitations'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/permissions` : '/permissions', icon: <Shield size={20} />, resource: RESOURCES.PERMISSIONS },
-    { name: t('navigation.humanResources', 'Human Resources'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/human-resources` : '/human-resources', icon: <Briefcase size={20} />, resource: RESOURCES.HUMAN_RESOURCES },
+    { name: t('navigation.humanResources', 'Human Resources'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/human-resources` : '/human-resources', icon: <Briefcase size={20} />, resource: RESOURCES.HUMAN_RESOURCES, requiredModule: 'HR' as ModuleName },
     { name: t('navigation.reports'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/reports` : '/reports', icon: <FileBarChart size={20} />, resource: RESOURCES.REPORTS },
     { name: t('navigation.settings'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/settings` : '/settings', icon: <Settings size={20} />, resource: RESOURCES.SETTINGS },
   ];
 
-  const navigationItems = isCompanySelectionRoute ? selectionModeItems : normalNavigationItems;
+  // Filter items based on module availability
+  const filteredNavigationItems = (isCompanySelectionRoute ? selectionModeItems : normalNavigationItems)
+    .filter(item => {
+      // If no requiredModule, always show
+      if (!('requiredModule' in item) || !item.requiredModule) {
+        return true;
+      }
+      // Check if the required module is available
+      return hasModule(item.requiredModule as ModuleName);
+    });
 
   return (
     <div className="h-full bg-white border-r border-gray-200 flex flex-col">
@@ -249,10 +266,10 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
           </button>
         ) : (
           <Link to="/" className="flex items-center">
-            <span className="font-bold text-xl" style={{color: colors.primary}}>Geskap</span>
+            <span className="font-bold text-xl" style={{ color: colors.primary }}>Geskap</span>
           </Link>
         )}
-        <button 
+        <button
           className="md:hidden text-gray-500 hover:text-gray-700"
           onClick={onClose}
           aria-label={t('navigation.close')}
@@ -260,7 +277,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
           <X size={20} />
         </button>
       </div>
-      
+
       {/* Navigation items */}
       <nav className="flex-1 overflow-y-auto py-4">
         {showTemplateLoader ? (
@@ -272,194 +289,193 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
           </div>
         ) : (
           <ul className="space-y-1 px-2" id='select'>
-          {navigationItems.map((item) => {
-            // En mode sélection, tous les liens sont activés mais interceptés
-            if (isCompanySelectionRoute) {
-              return (
-                <li key={item.name}>
-                  <button
-                    onClick={(e) => {
-                      // Toujours intercepter en mode sélection
-                      if (isSelectionMode) {
-                        e.preventDefault();
-                        setShowCreateCompanyModal(true);
-                      }
-                    }}
-                    className={`
-                      w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
-                      ${isActive(item.path)
-                        ? 'bg-emerald-50 text-emerald-600'
-                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                      }
-                    `}
-                  >
-                    <span className="mr-3">{item.icon}</span>
-                    {item.name}
-                  </button>
-                </li>
-              );
-            }
-
-            // Mode normal - vérifier les permissions via centralized permissions
-            // Les propriétaires ont accès à tout (isOwner ou effectiveRole === 'owner')
-            const isActualOwner = isOwner || effectiveRole === 'owner';
-            
-            if (isActualOwner) {
-              // Propriétaire - afficher tous les items sans restriction
-            } else {
-              // Vérifier les permissions selon le type de ressource
-              const resource = (item as any).resource;
-              const isPOSItem = item.name === t('navigation.pos');
-              let hasAccess = true;
-              
-              if (resource) {
-                // POS requires create permission, other resources use view permission
-                if (isPOSItem) {
-                  hasAccess = canCreate(resource);
-                } else {
-                  // Toutes les autres ressources utilisent canAccess (unifié avec canView array)
-                  hasAccess = canAccess(resource);
-                }
-              } else {
-                // If no resource specified, deny access by default for non-owners
-                hasAccess = false;
-              }
-              
-              if (!hasAccess) return null;
-            }
-            
-            // Check if this is the "Mes Entreprises" link that needs confirmation
-            const isCompaniesManagementLink = item.path === '/companies' && isCompanyRoute;
-            
-            // Check if this item has subItems (expansible menu) - must have items in the array
-            const hasSubItems = (item as any).subItems && Array.isArray((item as any).subItems) && (item as any).subItems.length > 0;
-            const isExpensesItem = item.name === t('navigation.expenses');
-            const isContactsItem = item.name === t('navigation.contacts');
-            const isProductsItem = item.name === t('navigation.products');
-            const isMagasinItem = item.name === t('navigation.magasinMatiere', 'Entrepôt de Matière');
-            const isProductionsItem = item.name === t('navigation.productions');
-            const isExpanded = (isExpensesItem && expensesMenuExpanded) || (isContactsItem && contactsMenuExpanded) || (isProductsItem && productsMenuExpanded) || (isMagasinItem && magasinMenuExpanded) || (isProductionsItem && productionsMenuExpanded);
-            
-            return (
-              <li key={item.path}>
-                {hasSubItems ? (
-                  // Expansible menu item
-                  <>
+            {filteredNavigationItems.map((item) => {
+              // En mode sélection, tous les liens sont activés mais interceptés
+              if (isCompanySelectionRoute) {
+                return (
+                  <li key={item.name}>
                     <button
-                      onClick={() => {
-                        if (isExpensesItem) {
-                          setExpensesMenuExpanded(!expensesMenuExpanded);
-                        } else if (isContactsItem) {
-                          setContactsMenuExpanded(!contactsMenuExpanded);
-                        } else if (isProductsItem) {
-                          setProductsMenuExpanded(!productsMenuExpanded);
-                        } else if (isMagasinItem) {
-                          setMagasinMenuExpanded(!magasinMenuExpanded);
-                        } else if (isProductionsItem) {
-                          setProductionsMenuExpanded(!productionsMenuExpanded);
+                      onClick={(e) => {
+                        // Toujours intercepter en mode sélection
+                        if (isSelectionMode) {
+                          e.preventDefault();
+                          setShowCreateCompanyModal(true);
                         }
                       }}
+                      className={`
+                      w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
+                      ${isActive(item.path)
+                          ? 'bg-emerald-50 text-emerald-600'
+                          : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                        }
+                    `}
+                    >
+                      <span className="mr-3">{item.icon}</span>
+                      {item.name}
+                    </button>
+                  </li>
+                );
+              }
+
+              // Mode normal - vérifier les permissions via centralized permissions
+              // Les propriétaires ont accès à tout (isOwner ou effectiveRole === 'owner')
+              const isActualOwner = isOwner || effectiveRole === 'owner';
+
+              if (isActualOwner) {
+                // Propriétaire - afficher tous les items sans restriction
+              } else {
+                // Vérifier les permissions selon le type de ressource
+                const resource = (item as any).resource;
+                const isPOSItem = item.name === t('navigation.pos');
+                let hasAccess = true;
+
+                if (resource) {
+                  // POS requires create permission, other resources use view permission
+                  if (isPOSItem) {
+                    hasAccess = canCreate(resource);
+                  } else {
+                    // Toutes les autres ressources utilisent canAccess (unifié avec canView array)
+                    hasAccess = canAccess(resource);
+                  }
+                } else {
+                  // If no resource specified, deny access by default for non-owners
+                  hasAccess = false;
+                }
+
+                if (!hasAccess) return null;
+              }
+
+              // Check if this is the "Mes Entreprises" link that needs confirmation
+              const isCompaniesManagementLink = item.path === '/companies' && isCompanyRoute;
+
+              // Check if this item has subItems (expansible menu) - must have items in the array
+              const hasSubItems = (item as any).subItems && Array.isArray((item as any).subItems) && (item as any).subItems.length > 0;
+              const isExpensesItem = item.name === t('navigation.expenses');
+              const isContactsItem = item.name === t('navigation.contacts');
+              const isProductsItem = item.name === t('navigation.products');
+              const isMagasinItem = item.name === t('navigation.magasinMatiere', 'Entrepôt de Matière');
+              const isProductionsItem = item.name === t('navigation.productions');
+              const isExpanded = (isExpensesItem && expensesMenuExpanded) || (isContactsItem && contactsMenuExpanded) || (isProductsItem && productsMenuExpanded) || (isMagasinItem && magasinMenuExpanded) || (isProductionsItem && productionsMenuExpanded);
+
+              return (
+                <li key={item.path}>
+                  {hasSubItems ? (
+                    // Expansible menu item
+                    <>
+                      <button
+                        onClick={() => {
+                          if (isExpensesItem) {
+                            setExpensesMenuExpanded(!expensesMenuExpanded);
+                          } else if (isContactsItem) {
+                            setContactsMenuExpanded(!contactsMenuExpanded);
+                          } else if (isProductsItem) {
+                            setProductsMenuExpanded(!productsMenuExpanded);
+                          } else if (isMagasinItem) {
+                            setMagasinMenuExpanded(!magasinMenuExpanded);
+                          } else if (isProductionsItem) {
+                            setProductionsMenuExpanded(!productionsMenuExpanded);
+                          }
+                        }}
                         className={`
                         w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors
                         ${isActive(item.path) || (isExpensesItem && location.pathname.includes('/expenses')) || (isContactsItem && location.pathname.includes('/contacts')) || (isProductsItem && (location.pathname.includes('/products') || (location.pathname.includes('/categories') && !location.pathname.includes('/productions/categories') && !location.pathname.includes('/expenses/categories') && !location.pathname.includes('/magasin/categories')))) || (isMagasinItem && location.pathname.includes('/magasin')) || (isProductionsItem && location.pathname.includes('/productions'))
-                          ? 'bg-emerald-50 text-emerald-600'
-                          : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
+                            ? 'bg-emerald-50 text-emerald-600'
+                            : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
                       `}
-                    >
-                      <div className="flex items-center">
-                        <span className="mr-3">{item.icon}</span>
-                        {item.name}
-                      </div>
-                      {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                    </button>
-                    {isExpanded && (
-                      <ul className="ml-4 mt-1 space-y-1">
-                        {(item as any).subItems
-                          .filter((subItem: any) => {
-                            // Owners have access to all submenu items
-                            if (isActualOwner) return true;
-                            // Check permission for submenu item resource
-                            if (subItem.resource) {
-                              return canAccess(subItem.resource);
-                            }
-                            // If no resource specified, use parent resource
-                            return canAccess((item as any).resource);
-                          })
-                          .map((subItem: any) => (
-                          <li key={subItem.path}>
-                            <Link
-                              to={subItem.path}
-                              onClick={() => onClose()}
-                              className={`
+                      >
+                        <div className="flex items-center">
+                          <span className="mr-3">{item.icon}</span>
+                          {item.name}
+                        </div>
+                        {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      </button>
+                      {isExpanded && (
+                        <ul className="ml-4 mt-1 space-y-1">
+                          {(item as any).subItems
+                            .filter((subItem: any) => {
+                              // Owners have access to all submenu items
+                              if (isActualOwner) return true;
+                              // Check permission for submenu item resource
+                              if (subItem.resource) {
+                                return canAccess(subItem.resource);
+                              }
+                              // If no resource specified, use parent resource
+                              return canAccess((item as any).resource);
+                            })
+                            .map((subItem: any) => (
+                              <li key={subItem.path}>
+                                <Link
+                                  to={subItem.path}
+                                  onClick={() => onClose()}
+                                  className={`
                                 flex items-center px-3 py-2 text-sm rounded-md transition-colors
                                 ${isActive(subItem.path)
-                                  ? 'bg-emerald-100 text-emerald-700 font-medium'
-                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
+                                      ? 'bg-emerald-100 text-emerald-700 font-medium'
+                                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
                               `}
-                            >
-                              {subItem.name}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </>
-                ) : isCompaniesManagementLink ? (
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setShowCompanyNavigationConfirm(true);
-                    }}
-                    className={`
+                                >
+                                  {subItem.name}
+                                </Link>
+                              </li>
+                            ))}
+                        </ul>
+                      )}
+                    </>
+                  ) : isCompaniesManagementLink ? (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setShowCompanyNavigationConfirm(true);
+                      }}
+                      className={`
                       w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
                       ${isActive(item.path)
-                        ? 'bg-emerald-50 text-emerald-600'
-                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
+                          ? 'bg-emerald-50 text-emerald-600'
+                          : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
                     `}
-                  >
-                    <span className="mr-3">{item.icon}</span>
-                    {item.name}
-                  </button>
-                ) : (
-                  <Link
-                    to={item.path}
-                    onClick={(e) => {
-                      if (isSelectionMode) {
-                        e.preventDefault();
-                        handleNavigationClick(e);
-                      } else {
-                        onClose();
-                      }
-                    }}
-                    className={`
+                    >
+                      <span className="mr-3">{item.icon}</span>
+                      {item.name}
+                    </button>
+                  ) : (
+                    <Link
+                      to={item.path}
+                      onClick={(e) => {
+                        if (isSelectionMode) {
+                          e.preventDefault();
+                          handleNavigationClick(e);
+                        } else {
+                          onClose();
+                        }
+                      }}
+                      className={`
                       flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
                       ${isActive(item.path)
-                        ? 'bg-emerald-50 text-emerald-600'
-                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
+                          ? 'bg-emerald-50 text-emerald-600'
+                          : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
                     `}
-                  >
-                    <span className="mr-3">{item.icon}</span>
-                    {item.name}
-                  </Link>
-                )}
-              </li>
-            );
-          })}
-          
-          
-          {/* Download App Button */}
-          <li className="px-2">
-            <DownloadAppButton variant="sidebar" />
-          </li>
-        </ul>
+                    >
+                      <span className="mr-3">{item.icon}</span>
+                      {item.name}
+                    </Link>
+                  )}
+                </li>
+              );
+            })}
+
+
+            {/* Download App Button */}
+            <li className="px-2">
+              <DownloadAppButton variant="sidebar" />
+            </li>
+          </ul>
         )}
       </nav>
-      
+
       {/* User section - Add bottom padding on mobile PWA to prevent overlap with bottom nav */}
-      <div 
-        className={`border-t border-gray-200 p-4 flex-shrink-0 ${
-          isMobile && isInstalled ? 'pb-[calc(1rem+64px+env(safe-area-inset-bottom,0px))]' : ''
-        }`}
+      <div
+        className={`border-t border-gray-200 p-4 flex-shrink-0 ${isMobile && isInstalled ? 'pb-[calc(1rem+64px+env(safe-area-inset-bottom,0px))]' : ''
+          }`}
       >
         <div className="flex items-center">
           <UserAvatar company={company} size="sm" />
@@ -471,14 +487,14 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
                   Bonjour {currentEmployee.username}
                 </p>
                 <p className="text-xs text-gray-500 truncate">
-                  {currentEmployee.role === 'staff' ? 'Vendeur' : 
-                   currentEmployee.role === 'manager' ? 'Gestionnaire' : 
-                   currentEmployee.role === 'admin' ? 'Boutiquier' : currentEmployee.role}
+                  {currentEmployee.role === 'staff' ? 'Vendeur' :
+                    currentEmployee.role === 'manager' ? 'Gestionnaire' :
+                      currentEmployee.role === 'admin' ? 'Boutiquier' : currentEmployee.role}
                 </p>
               </div>
             ) : (
               // Affichage pour les propriétaires (rien ne s'affiche)
-              
+
               <div>
                 {
                   !isSelectionMode ? (
@@ -494,14 +510,14 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
           </div>
         </div>
       </div>
-      
+
       {/* Modal pour créer une entreprise */}
       <CreateCompanyModal
         isOpen={showCreateCompanyModal}
         onClose={() => setShowCreateCompanyModal(false)}
         onCreateCompany={handleCreateCompany}
       />
-      
+
       {/* Confirmation modal for navigating to companies management */}
       <Modal
         isOpen={showCompanyNavigationConfirm}
@@ -522,7 +538,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
       >
         <div className="text-center py-4">
           <p className="text-gray-600 mb-4">
-            {t('navigation.confirmCompanyExitMessage') || 
+            {t('navigation.confirmCompanyExitMessage') ||
               'You are about to leave the current company context to manage your companies.'}
           </p>
           {company && (

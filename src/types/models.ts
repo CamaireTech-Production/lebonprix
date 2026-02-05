@@ -24,6 +24,45 @@ export interface Company extends BaseModel {
   report_time?: string | number; // Format: "HH:mm" (e.g., "19:30") or number (0-23) for backward compatibility
   emailReportsEnabled?: boolean; // Active/désactive l'envoi automatique des rapports par email (par défaut: true)
 
+  // ============================================================================
+  // MODULE SEPARATION FIELDS (NEW)
+  // ============================================================================
+  /**
+   * Plan type determines available features
+   * - 'starter': Limited to core features (POS, Sales, Catalogue, Orders, basic stock)
+   * - 'enterprise': Full access to all features (Production, HR, Multi-location, etc.)
+   */
+  planType?: 'starter' | 'enterprise'; // undefined = enterprise for backward compatibility
+
+  /**
+   * Active modules for this company (overrides plan defaults if set)
+   * Used by admin to toggle specific modules on/off
+   */
+  modules?: ModuleName[];
+
+  /**
+   * Default shop ID - auto-created for starter plans, first shop for enterprise
+   * Used when no shop selection is needed (starter) or as fallback (enterprise)
+   */
+  defaultShopId?: string;
+
+  /**
+   * Default warehouse ID - auto-created for enterprise plans
+   * Starter plans don't have warehouses
+   */
+  defaultWarehouseId?: string;
+
+  /**
+   * Subscription status (for future payment integration)
+   */
+  subscriptionStatus?: 'active' | 'trial' | 'expired' | 'cancelled';
+  subscriptionExpiresAt?: Timestamp;
+  subscriptionStartedAt?: Timestamp;
+
+  // ============================================================================
+  // END MODULE SEPARATION FIELDS
+  // ============================================================================
+
   // Color customization for catalogue
   catalogueColors?: {
     primary?: string; // Primary brand color (default: #183524)
@@ -61,6 +100,19 @@ export interface Company extends BaseModel {
   employeeCount?: number; // Nombre total d'employés
   // Nouvelle architecture: employeeRefs via sous-collection companies/{id}/employeeRefs/{firebaseUid}
 }
+
+/**
+ * Module names for feature gating
+ * Used in Company.modules array and for permission checking
+ */
+export type ModuleName =
+  | 'PRODUCTION'       // Production flows, manufacturing
+  | 'MULTI_LOCATION'   // Multiple shops management
+  | 'MAGASIN'          // Raw materials warehouse
+  | 'STOCK_TRANSFERS'  // Transfer between locations
+  | 'HR'               // Human resources module
+  | 'WAREHOUSE'        // Product warehouse management
+  | 'ADVANCED_PERMISSIONS'; // Granular role permissions
 
 export interface Category extends BaseModel {
   name: string;
