@@ -55,7 +55,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
   const { settings: checkoutSettings } = useCheckoutSettings();
 
   const { user, company, currentEmployee, isOwner } = useAuth();
-  
+
   // Build stock map from batches
   const stockMap = useMemo(
     () => buildProductStockMap(allBatches || []),
@@ -91,7 +91,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
     customerBirthdate: '',
     customerHowKnown: '',
     customerSourceId: '',
-    status: 'commande',
+    status: 'paid',
     deliveryFee: '',
     saleDate: new Date().toISOString().slice(0, 10),
     inventoryMethod: getDefaultInventoryMethod(),
@@ -118,7 +118,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
         // Check if the click is on the dropdown itself
         const target = event.target as Element;
         const isDropdownClick = target.closest('[data-dropdown="customer"]');
-        
+
         if (!isDropdownClick) {
           setShowCustomerDropdown(false);
         }
@@ -140,30 +140,30 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    
+
     // Improved unified search: search by both name AND phone simultaneously
     if (name === 'customerName') {
       // Mark that we're searching in the name field
       setActiveSearchField('name');
-      
+
       const searchTerm = value.toLowerCase().trim();
       const normalizedSearch = normalizePhone(value);
-      
+
       // Search by both name and phone simultaneously
       const matchingCustomers = customers.filter(c => {
         // Search by name (case-insensitive, partial match)
         const nameMatch = c.name?.toLowerCase().includes(searchTerm) || false;
-        
+
         // Search by phone (normalized comparison for partial match)
         const phoneMatch = c.phone && normalizedSearch.length >= 1
-          ? normalizePhone(c.phone).includes(normalizedSearch) || 
-            normalizedSearch.includes(normalizePhone(c.phone))
+          ? normalizePhone(c.phone).includes(normalizedSearch) ||
+          normalizedSearch.includes(normalizePhone(c.phone))
           : false;
-        
+
         // Return true if EITHER name OR phone matches
         return nameMatch || phoneMatch;
       });
-      
+
       // Show dropdown if there are results AND user has typed at least 1 character
       setCustomerSearch(value);
       setShowCustomerDropdown(searchTerm.length >= 1 && matchingCustomers.length > 0);
@@ -175,17 +175,17 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    
+
     // Mark that we're searching in the phone field
     setActiveSearchField('phone');
-    
+
     // Ne pas normaliser la valeur dans le champ (garder les caractères pour l'affichage)
     setFormData(prev => ({ ...prev, customerPhone: value }));
-    
+
     // Normaliser pour la recherche
     const normalizedSearch = normalizePhone(value);
     setCustomerSearch(normalizedSearch);
-    
+
     // Filter customers by phone number match
     if (normalizedSearch.length >= 2) {
       const matchingCustomers = customers.filter(c => {
@@ -195,12 +195,12 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
         const customerPhone = normalizePhone(c.phone);
         return customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
       });
-      
+
       setShowCustomerDropdown(matchingCustomers.length > 0);
     } else {
       setShowCustomerDropdown(false);
     }
-    
+
     // Clear found customer when phone changes manually
     if (foundCustomer && normalizePhone(foundCustomer.phone) !== normalizedSearch) {
       setFoundCustomer(null);
@@ -265,7 +265,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
       customerBirthdate: '',
       customerHowKnown: '',
       customerSourceId: '',
-      status: 'commande',
+      status: 'paid',
       deliveryFee: '',
       saleDate: new Date().toISOString().slice(0, 10),
       inventoryMethod: getDefaultInventoryMethod(),
@@ -286,7 +286,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
     const total = qty * price;
     return total;
   };
-  
+
   const calculateTotal = () => {
     const total = formData.products.reduce((acc, p) => acc + calculateProductTotal(p), 0);
     return total;
@@ -296,19 +296,19 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
   const validateForm = () => {
     const errors: Record<string, string> = {};
     const hasProduct = formData.products.some(p => p.product);
-    
+
     if (!hasProduct) {
       errors.products = t('sales.messages.warnings.atLeastOneProduct');
       return errors;
     }
-    
+
     // Validate credit sales: require customer name only (phone and quarter are optional)
     if (formData.status === 'credit') {
       if (!formData.customerName || formData.customerName.trim() === '') {
         errors.customerName = t('sales.messages.errors.customerNameRequiredForCredit') || 'Customer name is required for credit sales. Please enter customer name.';
       }
     }
-    
+
     // Validate location selection
     if (!formData.sourceType) {
       errors.sourceType = t('sales.messages.warnings.sourceTypeRequired') || 'Veuillez sélectionner un type de source (boutique ou entrepôt)';
@@ -321,11 +321,11 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
         errors.warehouseId = t('sales.messages.warnings.warehouseRequired') || 'Veuillez sélectionner un entrepôt';
       }
     }
-    
+
     formData.products.forEach((prod, idx) => {
       if (!prod.product) return;
       const qty = parseInt(prod.quantity, 10);
-      
+
       if (Number.isNaN(qty) || qty <= 0) {
         errors[`quantity_${idx}`] = t('sales.messages.warnings.quantityInvalid');
       } else {
@@ -335,24 +335,24 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
         }
       }
     });
-    
+
     const fee = parseFloat(formData.deliveryFee);
     if (!Number.isNaN(fee) && fee < 0) {
       errors.deliveryFee = t('sales.messages.warnings.deliveryFeeInvalid');
     }
-    
+
     return errors;
   };
 
   /* ----------------------------- Submit ----------------------------- */
   const handleAddSale = async () => {
-    
+
     const errs = validateForm();
     if (Object.keys(errs).length) {
       Object.values(errs).forEach(showWarningToast);
       return undefined;
     }
-    
+
     if (!user?.uid) {
       showErrorToast(t('sales.messages.errors.notLoggedIn'));
       return undefined;
@@ -362,12 +362,12 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
       showErrorToast(t('sales.validation.companyIdRequired'));
       return undefined;
     }
-    
+
     try {
       setIsSubmitting(true);
-      
+
       const totalAmount = calculateTotal();
-      
+
       // Note: costPrice, profit, and profitMargin will be added by createSale
       const saleProducts = formData.products
         .filter(p => p.product && p.quantity)
@@ -381,7 +381,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
           profit: 0, // Placeholder - will be calculated by createSale
           profitMargin: 0, // Placeholder - will be calculated by createSale
         } as SaleProduct));
-      
+
       // Récupérer les données client AVANT de créer la vente
       const customerName = formData.customerName.trim() || '';
       const customerPhone = formData.customerPhone.trim() || '';
@@ -391,15 +391,15 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
       // Normalize phone number to ensure consistent format (+237XXXXXXXXX)
       const normalizedPhone = customerPhone ? normalizePhoneNumber(customerPhone) : '';
       const customerInfo = { name: finalCustomerName, phone: normalizedPhone, ...(customerQuarter && { quarter: customerQuarter }) };
-      
+
       // Determine payment status based on sale status
       const saleStatus = formData.status;
       const isCreditSale = saleStatus === 'credit';
-      const paymentStatus: 'pending' | 'paid' | 'cancelled' = 
+      const paymentStatus: 'pending' | 'paid' | 'cancelled' =
         isCreditSale ? 'pending' :
-        saleStatus === 'paid' ? 'paid' :
-        'pending';
-      
+          saleStatus === 'paid' ? 'paid' :
+            'pending';
+
       // Prepare raw sale data for validation
       const rawSaleData = {
         products: saleProducts,
@@ -426,7 +426,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
 
       // Normalize sale data with defaults
       const normalizedData = normalizeSaleData(rawSaleData, user.uid, company.id);
-      
+
       // Get createdBy employee reference
       let createdBy: ReturnType<typeof getCurrentEmployeeRef> = null;
       if (user && company) {
@@ -441,12 +441,12 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
         }
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
       }
-      
+
       const newSale = await addSale(normalizedData, createdBy);
-      
+
       // Show success toast notification for sale completion
       showSuccessToast(t('sales.messages.saleAdded') + ` - ${totalAmount.toLocaleString()} XAF`);
-      
+
       // Sauvegarder le client AVANT de réinitialiser le formulaire
       // Save customer if name OR phone is provided (not both empty)
       const hasCustomerInfo = customerName || customerPhone;
@@ -467,7 +467,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
             company.id,
             user.uid
           );
-          
+
           // Réinitialiser les champs client après l'ajout réussi
           setFormData(prev => ({
             ...prev,
@@ -490,15 +490,15 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
           /* ignore duplicate errors - sale was successful */
         }
       }
-      
+
       return newSale;
     } catch (error: any) {
       // Provide more specific error messages
       let errorMessage = t('sales.messages.errors.addSale');
-      
+
       if (error?.message) {
         const errorMsg = error.message.toLowerCase();
-        
+
         // Check for specific error types
         if (errorMsg.includes('product') && errorMsg.includes('not found')) {
           errorMessage = t('sales.messages.errors.productNotFound') || 'Product not found';
@@ -516,7 +516,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
           errorMessage = error.message || errorMessage;
         }
       }
-      
+
       console.error('Error creating sale:', error);
       showErrorToast(errorMessage);
       return undefined;
@@ -527,19 +527,19 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
 
   /* ----------- Customer save / select ----------- */
   const handleSaveCustomer = async () => {
-    
+
     if (!user?.uid || !formData.customerPhone || !company?.id) return;
-    
+
     try {
       setIsSavingCustomer(true);
       const customerName = formData.customerName.trim() || t('sales.modals.add.customerInfo.divers');
       const customerQuarter = formData.customerQuarter || '';
       const existing = customers.find(c => normalizePhone(c.phone) === normalizePhone(formData.customerPhone));
-      
+
       if (!existing) {
-        const data: Omit<Customer, 'id'> = { 
-          phone: formData.customerPhone, 
-          name: customerName, 
+        const data: Omit<Customer, 'id'> = {
+          phone: formData.customerPhone,
+          name: customerName,
           quarter: customerQuarter,
           customerSourceId: formData.customerSourceId || undefined,
           firstName: formData.customerFirstName || undefined,
@@ -551,9 +551,9 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
           userId: user.uid,
           companyId: company.id,
           createdAt: {
-                seconds: Math.floor(new Date().getTime() / 1000),
-                nanoseconds: (new Date().getTime() % 1000) * 1000000
-              } // Will be replaced by serverTimestamp() in addCustomer
+            seconds: Math.floor(new Date().getTime() / 1000),
+            nanoseconds: (new Date().getTime() % 1000) * 1000000
+          } // Will be replaced by serverTimestamp() in addCustomer
         };
         await addCustomer(data);
         setFoundCustomer(data);
@@ -573,7 +573,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
   const handleSelectCustomer = (customer: Customer) => {
     // Update form data with customer information
     setFormData(prev => ({
-      ...prev, 
+      ...prev,
       customerPhone: customer.phone,
       customerName: customer.name || '',
       customerQuarter: customer.quarter || '',
@@ -584,7 +584,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
       customerBirthdate: customer.birthdate || '',
       customerHowKnown: customer.howKnown || ''
     }));
-    
+
     // Update search state and hide dropdown
     setCustomerSearch(customer.phone);
     setShowCustomerDropdown(false);
