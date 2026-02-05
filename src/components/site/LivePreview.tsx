@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@contexts/AuthContext';
 import { Card } from '@components/common';
 import { RefreshCw, Smartphone, Monitor, ExternalLink } from 'lucide-react';
+import { useModules } from '@hooks/business/useModules';
+import { useShops } from '@hooks/data/useFirestore';
 
 interface LivePreviewProps {
   className?: string;
@@ -14,7 +16,12 @@ const LivePreview = ({ className = '' }: LivePreviewProps) => {
   const [viewMode, setViewMode] = useState<'mobile' | 'desktop'>('desktop');
   const [isLoading, setIsLoading] = useState(true);
   const [iframeKey, setIframeKey] = useState(0);
-  
+
+  const { isStarter } = useModules();
+  const { shops } = useShops();
+  const [previewShopId, setPreviewShopId] = useState('');
+  const activeShops = useMemo(() => shops.filter(s => s.isActive !== false), [shops]);
+
   // Solution 1: Stabilize company object reference
   // Memoize company based only on id and name to prevent unnecessary recalculations
   const memoizedCompany = useMemo(() => {
@@ -29,21 +36,28 @@ const LivePreview = ({ className = '' }: LivePreviewProps) => {
   // Memoize to prevent unnecessary recalculations and iframe reloads
   const catalogueUrl = useMemo(() => {
     if (!memoizedCompany?.id) return '';
-    return `${window.location.origin}/catalogue/${encodeURIComponent(memoizedCompany.name?.toLowerCase().replace(/\s+/g, '-') || 'catalogue')}/${memoizedCompany.id}`;
-  }, [memoizedCompany?.id, memoizedCompany?.name]);
-  
+    let url = `${window.location.origin}/catalogue/${encodeURIComponent(memoizedCompany.name?.toLowerCase().replace(/\s+/g, '-') || 'catalogue')}/${memoizedCompany.id}`;
+
+    // Add shop ID to URL if selected
+    if (previewShopId) {
+      url += `/shop/${previewShopId}`;
+    }
+
+    return url;
+  }, [memoizedCompany?.id, memoizedCompany?.name, previewShopId]);
+
   // Solution 3: Prevent iframe reload if URL hasn't changed
   // Use sessionStorage to persist iframeSrc across unmounts
   const storageKeyRef = useRef<string>('');
   const prevUrlRef = useRef<string>('');
-  
+
   // Update storage key when company changes
   useEffect(() => {
     if (memoizedCompany?.id) {
       storageKeyRef.current = `livePreview_iframeSrc_${memoizedCompany.id}`;
     }
   }, [memoizedCompany?.id]);
-  
+
   // Initialize iframeSrc from sessionStorage or catalogueUrl
   const [iframeSrc, setIframeSrc] = useState<string>(() => {
     if (typeof window !== 'undefined' && memoizedCompany?.id) {
@@ -55,7 +69,7 @@ const LivePreview = ({ className = '' }: LivePreviewProps) => {
     }
     return '';
   });
-  
+
   useEffect(() => {
     if (catalogueUrl && catalogueUrl !== prevUrlRef.current) {
       prevUrlRef.current = catalogueUrl;
@@ -112,26 +126,40 @@ const LivePreview = ({ className = '' }: LivePreviewProps) => {
           <div className="flex items-center space-x-2 flex-wrap">
             <button
               onClick={() => setViewMode('desktop')}
-              className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-                viewMode === 'desktop'
+              className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${viewMode === 'desktop'
                   ? 'bg-emerald-100 text-emerald-700'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+                }`}
             >
               <Monitor className="h-3.5 w-3.5 sm:h-4 sm:w-4 inline mr-1.5 sm:mr-2" />
               {t('site.preview.desktop', 'Desktop')}
             </button>
             <button
               onClick={() => setViewMode('mobile')}
-              className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-                viewMode === 'mobile'
+              className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${viewMode === 'mobile'
                   ? 'bg-emerald-100 text-emerald-700'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+                }`}
             >
               <Smartphone className="h-3.5 w-3.5 sm:h-4 sm:w-4 inline mr-1.5 sm:mr-2" />
               {t('site.preview.mobile', 'Mobile')}
             </button>
+
+            {/* Shop Selector (Enterprise Only) */}
+            {!isStarter && activeShops.length > 0 && (
+              <select
+                value={previewShopId}
+                onChange={(e) => setPreviewShopId(e.target.value)}
+                className="ml-2 pl-3 pr-8 py-1.5 sm:py-2 text-xs sm:text-sm border-gray-300 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 rounded-md cursor-pointer bg-white"
+              >
+                <option value="">Toutes les boutiques</option>
+                {activeShops.map((shop) => (
+                  <option key={shop.id} value={shop.id}>
+                    {shop.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           <div className="flex items-center space-x-2 flex-wrap">
             <button
@@ -156,9 +184,8 @@ const LivePreview = ({ className = '' }: LivePreviewProps) => {
 
         {/* Preview Container */}
         <div
-          className={`relative border-2 border-gray-200 rounded-lg overflow-hidden bg-gray-100 ${
-            viewMode === 'mobile' ? 'max-w-sm mx-auto' : 'w-full'
-          }`}
+          className={`relative border-2 border-gray-200 rounded-lg overflow-hidden bg-gray-100 ${viewMode === 'mobile' ? 'max-w-sm mx-auto' : 'w-full'
+            }`}
           style={{
             height: viewMode === 'mobile' ? '600px' : '700px'
           }}

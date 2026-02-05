@@ -14,7 +14,7 @@ import { Button, FloatingCartButton, ProductDetailModal, ImageWithSkeleton, Lang
 const placeholderImg = '/placeholder.png';
 
 const Catalogue = () => {
-  const { companyId } = useParams<{ companyName: string; companyId: string }>();
+  const { companyId, shopId } = useParams<{ companyName: string; companyId: string; shopId?: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const categoryParam = searchParams.get('category'); // For backward compatibility
@@ -24,19 +24,40 @@ const Catalogue = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
-  const [selectedShopId, setSelectedShopId] = useState<string>('');
+  // Initialize selectedShopId from URL param if present
+  const [selectedShopId, setSelectedShopId] = useState<string>(shopId || '');
   const [productStockMap, setProductStockMap] = useState<Map<string, number>>(new Map());
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [productsLoading, setProductsLoading] = useState(true);
   const [hasReceivedProducts, setHasReceivedProducts] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Cache for products to prevent re-fetching - use ref to avoid infinite loops
   const productsCacheRef = useRef<Map<string, Product[]>>(new Map());
-  
-  // Cart modal state (removed - using FloatingCartButton instead)
-  
+
+  // Ref to track if we're updating from URL to prevent infinite loops
+  const isUpdatingFromUrl = useRef(false);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Category filter state
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
+  // Product detail modal state
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+
+  // Update selectedShopId when URL parameter changes
+  useEffect(() => {
+    if (shopId) {
+      setSelectedShopId(shopId);
+    } else {
+      setSelectedShopId('');
+    }
+  }, [shopId]);
+
   // Cart management functions (now using global context)
   const handleAddToCart = (product: Product) => {
     if (companyId) {
@@ -62,19 +83,6 @@ const Catalogue = () => {
     setSelectedProduct(null);
   };
 
-  // Search state
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  // Category filter state
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  
-  // Product detail modal state
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
-  
-  // Ref to track if we're updating from URL to prevent infinite loops
-  const isUpdatingFromUrl = useRef(false);
-
   // Get company colors with fallbacks - prioritize catalogue colors
   const getCompanyColors = () => {
     const colors = {
@@ -82,7 +90,7 @@ const Catalogue = () => {
       secondary: company?.catalogueColors?.secondary || company?.secondaryColor || '#e2b069',
       tertiary: company?.catalogueColors?.tertiary || company?.tertiaryColor || '#2a4a3a'
     };
-    
+
     return colors;
   };
 
@@ -90,11 +98,11 @@ const Catalogue = () => {
   useEffect(() => {
     if (products.length > 0) {
       let categoriesToSet: string[] = [];
-      
+
       // Check for multiple categories first (new format)
       if (categoriesParam) {
         const categories = categoriesParam.split(',').map(c => c.trim());
-        categoriesToSet = categories.filter(category => 
+        categoriesToSet = categories.filter(category =>
           products.some(p => p.category === category)
         );
       }
@@ -105,7 +113,7 @@ const Catalogue = () => {
           categoriesToSet = [categoryParam];
         }
       }
-      
+
       if (categoriesToSet.length > 0) {
         isUpdatingFromUrl.current = true;
         setSelectedCategories(categoriesToSet);
@@ -169,7 +177,7 @@ const Catalogue = () => {
           const isAvailable = p.isAvailable !== false;
           const isNotDeleted = p.isDeleted !== true;
           const isVisible = p.isVisible !== false;
-          
+
           return isAvailable && isNotDeleted && isVisible;
         }
       );
@@ -197,11 +205,11 @@ const Catalogue = () => {
           const isAvailable = p.isAvailable !== false;
           const isNotDeleted = p.isDeleted !== true;
           const isVisible = p.isVisible !== false;
-          
+
           return isAvailable && isNotDeleted && isVisible;
         }
       );
-      
+
       // Cache the products for future use using company.id (using ref to avoid re-renders)
       productsCacheRef.current.set(company.id, productsData);
       setProducts(companyProducts);
@@ -234,17 +242,12 @@ const Catalogue = () => {
     // OPTIMIZATION: Added limit to reduce Firebase reads
     const unsubscribe = subscribeToShops(company.id, (shopsData) => {
       setShops(shopsData);
-      // Auto-select first active shop if none selected
-      if (!selectedShopId && shopsData.length > 0) {
-        const firstActiveShop = shopsData.find(shop => shop.isActive !== false);
-        if (firstActiveShop) {
-          setSelectedShopId(firstActiveShop.id);
-        }
-      }
+      // Auto-selection REMOVED to support "All Shops" (Global Stock) as default
+      // if (!selectedShopId && shopsData.length > 0) { ... }
     }, 50); // Limit to 50 shops
 
     return () => unsubscribe();
-  }, [company?.id, selectedShopId]);
+  }, [company?.id]); // Removed selectedShopId dependency as we don't auto-select anymore
 
   // Load product stock for selected shop (or global if no shopId)
   useEffect(() => {
@@ -255,24 +258,24 @@ const Catalogue = () => {
 
     const loadProductStock = async () => {
       const stockMap = new Map<string, number>();
-      
+
       for (const product of products) {
         try {
           // If shopId is selected, load shop-specific stock; otherwise load global stock
           const batches = selectedShopId
             ? await getAvailableStockBatches(
-                product.id,
-                company.id,
-                'product',
-                selectedShopId,
-                undefined,
-                'shop'
-              )
+              product.id,
+              company.id,
+              'product',
+              selectedShopId,
+              undefined,
+              'shop'
+            )
             : await getAvailableStockBatches(
-                product.id,
-                company.id,
-                'product'
-              );
+              product.id,
+              company.id,
+              'product'
+            );
           const totalStock = batches.reduce((sum, batch) => sum + (batch.remainingQuantity || 0), 0);
           stockMap.set(product.id, totalStock);
         } catch (error) {
@@ -280,7 +283,7 @@ const Catalogue = () => {
           stockMap.set(product.id, 0);
         }
       }
-      
+
       setProductStockMap(stockMap);
     };
 
@@ -319,7 +322,7 @@ const Catalogue = () => {
         productCount: category.productCount || 0
       };
     }
-    
+
     // Fallback for categories without rich data
     const productCount = products.filter(p => p.category === categoryName).length;
     return {
@@ -339,17 +342,18 @@ const Catalogue = () => {
       } else {
         newCategories = [...prev, category];
       }
-      
+
       // Update URL parameters using navigate to ensure proper state update
       const newSearchParams = new URLSearchParams();
       if (newCategories.length > 0) {
         // Support multiple categories in URL as comma-separated values
         newSearchParams.set('categories', newCategories.join(','));
       }
-      
+
       const newUrl = `${window.location.pathname}${newSearchParams.toString() ? '?' + newSearchParams.toString() : ''}`;
+      // Use replace: true so we don't spam history stack with filter changes
       navigate(newUrl, { replace: true });
-      
+
       return newCategories;
     });
   };
@@ -357,7 +361,7 @@ const Catalogue = () => {
   // Clear all category filters
   const clearCategoryFilters = () => {
     setSelectedCategories([]);
-    
+
     // Clear URL parameters using navigate
     const newUrl = window.location.pathname;
     navigate(newUrl, { replace: true });
@@ -405,7 +409,7 @@ const Catalogue = () => {
         <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
         <h2 className="text-xl font-semibold text-gray-900 mb-2">Catalogue non trouvé</h2>
         <p className="text-gray-600 mb-4 text-center max-w-md">
-          {error.includes('Company not found') 
+          {error.includes('Company not found')
             ? 'L\'entreprise associée à ce catalogue n\'existe pas ou n\'est plus accessible. Vérifiez que le lien est correct.'
             : error
           }
@@ -429,20 +433,20 @@ const Catalogue = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Enhanced Top Section - Shop Information */}
-      <div className="text-white" style={{background: `linear-gradient(to right, ${getCompanyColors().primary}, ${getCompanyColors().tertiary})`}}>
+      <div className="text-white" style={{ background: `linear-gradient(to right, ${getCompanyColors().primary}, ${getCompanyColors().tertiary})` }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Language Switcher - Top Right */}
           <div className="flex justify-end mb-4">
             <LanguageSwitcher variant="dark" />
           </div>
-          
+
           {/* Shop Header with Logo, Name, and Contact */}
           <div className="flex items-center space-x-6 mb-6">
             {/* Shop Logo */}
             <div className="flex-shrink-0">
               {company?.logo ? (
-              <img
-                src={company.logo}
+                <img
+                  src={company.logo}
                   alt={company.name || 'Shop Logo'}
                   className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-3 border-white shadow-lg"
                 />
@@ -451,14 +455,14 @@ const Catalogue = () => {
                   <Package className="h-10 w-10 sm:h-12 sm:w-12 text-white" />
                 </div>
               )}
-                </div>
-            
+            </div>
+
             {/* Shop Info */}
             <div className="flex-1 min-w-0">
               <h1 className="text-2xl font-allura sm:text-3xl lg:text-4xl font-bold text-white mb-2">
                 {company?.name || 'Best Products in your home'}
               </h1>
-              <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-6 text-sm sm:text-base" style={{color: 'rgba(255, 255, 255, 0.8)'}}>
+              <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-6 text-sm sm:text-base" style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
                 {company?.location && (
                   <div className="flex items-center">
                     <MapPin className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
@@ -474,7 +478,7 @@ const Catalogue = () => {
               </div>
             </div>
           </div>
-          
+
           {/* Search Bar and Shop Selection */}
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
             {/* Search Bar */}
@@ -488,25 +492,8 @@ const Catalogue = () => {
                 className="w-full pl-12 pr-4 py-4 bg-white rounded-xl border-0 focus:outline-none text-gray-900 placeholder-gray-500 text-lg shadow-lg"
               />
             </div>
-            
-            {/* Shop Selection Dropdown */}
-            {shops.length > 0 && (
-              <div className="w-full sm:w-auto">
-                <select
-                  value={selectedShopId}
-                  onChange={(e) => handleShopChange(e.target.value)}
-                  className="w-full sm:w-auto px-4 py-4 bg-white rounded-xl border-0 focus:outline-none text-gray-900 text-lg shadow-lg cursor-pointer"
-                  style={{ minWidth: '200px' }}
-                >
-                  <option value="">Toutes les boutiques (Stock global)</option>
-                  {shops.filter(shop => shop.isActive !== false).map((shop) => (
-                    <option key={shop.id} value={shop.id}>
-                      {shop.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+
+            {/* Shop Selection Dropdown REMOVED */}
           </div>
         </div>
       </div>
@@ -519,34 +506,32 @@ const Catalogue = () => {
               {/* All Categories Chip */}
               <button
                 onClick={clearCategoryFilters}
-                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                  selectedCategories.length === 0
-                    ? 'text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                style={selectedCategories.length === 0 ? {backgroundColor: getCompanyColors().primary} : {}}
+                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${selectedCategories.length === 0
+                  ? 'text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                style={selectedCategories.length === 0 ? { backgroundColor: getCompanyColors().primary } : {}}
               >
-                {selectedCategories.length === 0 
-                  ? `Tous (${products.length})` 
+                {selectedCategories.length === 0
+                  ? `Tous (${products.length})`
                   : `Effacer (${selectedCategories.length} sélectionné${selectedCategories.length > 1 ? 's' : ''})`
                 }
               </button>
-              
+
               {/* Category Chips */}
               {getUniqueCategories().filter((cat): cat is string => cat !== undefined).map((categoryName) => {
                 const isSelected = selectedCategories.includes(categoryName);
                 const categoryInfo = getCategoryInfo(categoryName);
-                
+
                 return (
                   <button
                     key={categoryName}
                     onClick={() => handleCategoryToggle(categoryName)}
-                    className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 flex items-center space-x-2 ${
-                      isSelected
-                        ? 'text-white shadow-md'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                    style={isSelected ? {backgroundColor: getCompanyColors().primary} : {}}
+                    className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 flex items-center space-x-2 ${isSelected
+                      ? 'text-white shadow-md'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    style={isSelected ? { backgroundColor: getCompanyColors().primary } : {}}
                   >
                     {categoryInfo.image && (
                       <div className="w-5 h-5 rounded-full overflow-hidden bg-white bg-opacity-20 flex-shrink-0">
@@ -574,13 +559,13 @@ const Catalogue = () => {
         {/* New Arrival Section */}
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Produits</h2>
-          <button className="text-sm sm:text-base font-medium transition-colors" style={{color: getCompanyColors().primary}} onMouseEnter={(e) => (e.target as HTMLButtonElement).style.color = getCompanyColors().tertiary} onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = getCompanyColors().primary}>
+          <button className="text-sm sm:text-base font-medium transition-colors" style={{ color: getCompanyColors().primary }} onMouseEnter={(e) => (e.target as HTMLButtonElement).style.color = getCompanyColors().tertiary} onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = getCompanyColors().primary}>
             Voir tout →
-                </button>
+          </button>
         </div>
 
         {/* Products Grid */}
-      {productsLoading || !hasReceivedProducts ? (
+        {productsLoading || !hasReceivedProducts ? (
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
             {[...Array(20)].map((_, i) => (
               <div key={i} className="bg-white rounded-lg sm:rounded-xl shadow-sm overflow-hidden">
@@ -588,7 +573,7 @@ const Catalogue = () => {
                 <div className="relative aspect-square">
                   <SkeletonLoader width="w-full" height="h-full" className="rounded-none" />
                 </div>
-                
+
                 {/* Product Info Skeleton */}
                 <div className="p-3 sm:p-4">
                   <SkeletonLoader width="w-3/4" height="h-4" className="mb-1 sm:mb-2 sm:h-5" />
@@ -607,43 +592,43 @@ const Catalogue = () => {
             <h3 className="mt-4 text-lg font-medium text-gray-900">Aucun produit trouvé</h3>
             <p className="mt-2 text-gray-500">
               Essayez d'ajuster votre recherche ou vos filtres
-          </p>
-        </div>
+            </p>
+          </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
             {filteredProducts.map((product) => {
-                    const images = product.images! ;
+              const images = product.images!;
               const mainImg = images.length > 0 ? images[0] : placeholderImg;
-              
-                    return (
+
+              return (
                 <div key={product.id} className="bg-white rounded-lg sm:rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-200 overflow-hidden group">
                   {/* Product Image - Clickable */}
-                  <div 
+                  <div
                     className="relative aspect-square cursor-pointer overflow-hidden"
                     onClick={() => handleProductClick(product)}
                   >
-                      <ImageWithSkeleton
-                        src={mainImg}
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                        placeholder={placeholderImg}
-                      />
+                    <ImageWithSkeleton
+                      src={mainImg}
+                      alt={product.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                      placeholder={placeholderImg}
+                    />
                     <button className="absolute top-2 right-2 sm:top-3 sm:right-3 p-1.5 sm:p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow">
                       <Heart className="h-3 w-3 sm:h-4 sm:w-4 border-theme-brown text-gray-400 hover:text-red-500 transition-colors" />
                     </button>
-                </div>
-                  
+                  </div>
+
                   {/* Product Info */}
                   <div className="p-3 sm:p-4">
-                    <h3 
-                      className="font-semibold text-gray-900 text-xs sm:text-sm md:text-base mb-1 sm:mb-2 line-clamp-2 cursor-pointer transition-colors" style={{color: getCompanyColors().primary}} onMouseEnter={(e) => (e.target as HTMLElement).style.color = getCompanyColors().secondary} onMouseLeave={(e) => (e.target as HTMLElement).style.color = getCompanyColors().primary}
+                    <h3
+                      className="font-semibold text-gray-900 text-xs sm:text-sm md:text-base mb-1 sm:mb-2 line-clamp-2 cursor-pointer transition-colors" style={{ color: getCompanyColors().primary }} onMouseEnter={(e) => (e.target as HTMLElement).style.color = getCompanyColors().secondary} onMouseLeave={(e) => (e.target as HTMLElement).style.color = getCompanyColors().primary}
                       onClick={() => handleProductClick(product)}
                     >
                       {product.name}
                     </h3>
                     <p className="text-xs text-gray-500 mb-2 sm:mb-3">{product.category}</p>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs sm:text-sm md:text-base font-bold" style={{color: getCompanyColors().secondary}}>
+                      <span className="text-xs sm:text-sm md:text-base font-bold" style={{ color: getCompanyColors().secondary }}>
                         {((product.cataloguePrice && product.cataloguePrice > 0) ? product.cataloguePrice : (product.sellingPrice ?? 0)).toLocaleString('fr-FR', {
                           style: 'currency',
                           currency: 'XAF'
@@ -654,7 +639,7 @@ const Catalogue = () => {
                           e.stopPropagation();
                           handleAddToCart(product);
                         }}
-                        className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-white transition-colors shadow-md hover:shadow-lg" style={{backgroundColor: getCompanyColors().secondary}} onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().tertiary} onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().secondary}
+                        className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-white transition-colors shadow-md hover:shadow-lg" style={{ backgroundColor: getCompanyColors().secondary }} onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().tertiary} onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().secondary}
                       >
                         <Plus className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
                       </button>
@@ -663,9 +648,9 @@ const Catalogue = () => {
                 </div>
               );
             })}
-              </div>
+          </div>
         )}
-        </div>
+      </div>
 
 
       {/* Bottom Navigation - Hidden */}
@@ -703,4 +688,4 @@ const Catalogue = () => {
   );
 };
 
-export default Catalogue; 
+export default Catalogue;

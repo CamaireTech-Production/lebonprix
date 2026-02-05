@@ -50,7 +50,7 @@ export const useInfiniteSales = (): UseInfiniteSalesReturn => {
       setLoading(false); // No loading spinner - data is available
       setSyncing(true); // Show background sync indicator
       console.log('🚀 Sales loaded instantly from localStorage');
-      
+
       // Start background sync
       BackgroundSyncService.syncSales(company.id, (freshSales: Sale[]) => {
         setSales(freshSales);
@@ -81,7 +81,7 @@ export const useInfiniteSales = (): UseInfiniteSalesReturn => {
       setSales(salesData);
       setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
       setHasMore(snapshot.docs.length === SALES_PER_PAGE);
-      
+
       // Save to localStorage for future instant loads
       SalesManager.save(company.id, salesData);
       console.log(`✅ Initial sales loaded and cached: ${salesData.length} items`);
@@ -147,7 +147,7 @@ export const useInfiniteSales = (): UseInfiniteSalesReturn => {
   // Update a specific sale in the list
   const updateSaleInList = useCallback((saleId: string, updatedSale: Sale) => {
     setSales(prev => {
-      const updated = prev.map(sale => 
+      const updated = prev.map(sale =>
         sale.id === saleId ? { ...updatedSale, id: saleId } : sale
       );
       // Update localStorage with updated sales
@@ -177,7 +177,7 @@ export const useInfiniteSales = (): UseInfiniteSalesReturn => {
       const exists = prev.some(sale => sale.id === newSale.id);
       if (exists) {
         // Update existing sale instead
-        const updated = prev.map(sale => 
+        const updated = prev.map(sale =>
           sale.id === newSale.id ? { ...newSale, id: newSale.id } : sale
         );
         if (company?.id) {
@@ -185,7 +185,7 @@ export const useInfiniteSales = (): UseInfiniteSalesReturn => {
         }
         return updated;
       }
-      
+
       // Add new sale at the beginning (most recent first)
       const updated = [newSale, ...prev];
       // Update localStorage with new sales
@@ -221,36 +221,40 @@ export const useInfiniteSales = (): UseInfiniteSalesReturn => {
       }
 
       setSales(prev => {
-        // Only merge if we have existing data (avoid replacing during initial load)
-        if (prev.length === 0) {
-          return prev;
-        }
+        // Only merge if we have existing data OR if it's the first data coming in after initial load
+        // But we must be careful not to overwrite if we are properly paginating
+        // Actually, if prev is empty, it means we have no sales.
+        // If freshSales has items, we should show them!
+
+        // Removed the check `if (prev.length === 0) return prev;` because it prevented
+        // showing new sales when the list was initially empty.
+
 
         // Merge fresh sales (first page) with existing paginated data
         // Create a map of existing sales by ID to preserve paginated data
         const existingMap = new Map(prev.map(sale => [sale.id, sale]));
-        
+
         // Update or add fresh sales (these are the most recent)
         freshSales.forEach((sale: Sale) => {
           existingMap.set(sale.id, sale);
         });
-        
+
         // Remove sales that are no longer in the first page but keep paginated ones
         // Only remove if they're not in our existing list (to preserve pagination)
         const merged = Array.from(existingMap.values());
-        
+
         // Sort by createdAt desc to maintain order
         merged.sort((a, b) => {
           const aTime = a.createdAt?.seconds || 0;
           const bTime = b.createdAt?.seconds || 0;
           return bTime - aTime;
         });
-        
+
         // Update localStorage
         SalesManager.save(company.id, merged);
         return merged;
       });
-      
+
       setSyncing(false);
     }, SALES_PER_PAGE); // Subscribe to first page for real-time updates
 

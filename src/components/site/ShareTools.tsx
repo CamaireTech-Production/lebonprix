@@ -5,6 +5,8 @@ import { Button, Card } from '@components/common';
 import { Copy, Check, ExternalLink, Share2, Facebook, Twitter, MessageCircle } from 'lucide-react';
 import { showSuccessToast } from '@utils/core/toast';
 import { QRCodeSVG } from 'qrcode.react';
+import { useModules } from '@hooks/business/useModules';
+import { useShops } from '@hooks/data/useFirestore';
 
 interface ShareToolsProps {
   className?: string;
@@ -14,6 +16,9 @@ const ShareTools = ({ className = '' }: ShareToolsProps) => {
   const { t } = useTranslation();
   const { company } = useAuth();
   const [copied, setCopied] = useState(false);
+  const { isStarter } = useModules();
+  const { shops } = useShops();
+  const activeShops = useMemo(() => shops.filter(s => s.isActive !== false), [shops]);
 
   // Generate catalogue URL - use company.id instead of user.uid to support both owners and employees
   // Memoize to prevent unnecessary recalculations
@@ -21,6 +26,12 @@ const ShareTools = ({ className = '' }: ShareToolsProps) => {
     if (!company?.id) return '';
     return `${window.location.origin}/catalogue/${encodeURIComponent(company.name?.toLowerCase().replace(/\s+/g, '-') || 'catalogue')}/${company.id}`;
   }, [company?.id, company?.name]);
+
+  // Helper to generate shop URL
+  const getShopUrl = (shopId: string) => {
+    if (!catalogueUrl) return '';
+    return `${catalogueUrl}/shop/${shopId}`;
+  };
 
   const handleCopyLink = async () => {
     if (!catalogueUrl) return;
@@ -36,11 +47,23 @@ const ShareTools = ({ className = '' }: ShareToolsProps) => {
     }
   };
 
+  const handleCopyShopLink = async (shopId: string) => {
+    const url = getShopUrl(shopId);
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      showSuccessToast(t('site.share.linkCopied', 'Link copied to clipboard!'));
+    } catch (error) {
+      console.error('Failed to copy link:', error);
+      showSuccessToast(t('site.share.linkCopyFailed', 'Failed to copy link'));
+    }
+  };
+
   const handleShare = async (platform: 'whatsapp' | 'facebook' | 'twitter') => {
     if (!catalogueUrl) return;
 
     const encodedUrl = encodeURIComponent(catalogueUrl);
-    const shareText = t('site.share.shareText', 'Check out {{companyName}} catalogue!', { 
+    const shareText = t('site.share.shareText', 'Check out {{companyName}} catalogue!', {
       companyName: company?.name || 'my'
     });
     const encodedText = encodeURIComponent(shareText);
@@ -104,6 +127,53 @@ const ShareTools = ({ className = '' }: ShareToolsProps) => {
             </Button>
           </div>
         </div>
+
+        {/* SHOP SPECIFIC LINKS (Enterprise Only) */}
+        {!isStarter && activeShops.length > 0 && (
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <label className="block text-sm font-medium text-gray-700 mb-4">
+              {t('site.share.shopLinks', 'Liens par Boutique / Point de Vente')}
+            </label>
+            <div className="space-y-3">
+              {activeShops.map((shop) => (
+                <div key={shop.id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-3 rounded border border-gray-200 gap-3">
+                  <div className="flex items-center">
+                    <div className={`w-2 h-8 rounded-l mr-3 ${shop.isWarehouse ? 'bg-orange-500' : 'bg-emerald-500'}`}></div>
+                    <div>
+                      <span className="font-medium text-gray-900">{shop.name}</span>
+                      <span className="text-xs text-gray-500 block">
+                        {shop.isWarehouse ? 'Entrepôt' : 'Boutique'} • {shop.location || 'No location'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex space-x-2 w-full sm:w-auto">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCopyShopLink(shop.id)}
+                      icon={<Copy className="h-4 w-4" />}
+                      className="flex-1 sm:flex-none"
+                    >
+                      {t('site.share.copy', 'Copier')}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(getShopUrl(shop.id), '_blank')}
+                      icon={<ExternalLink className="h-4 w-4" />}
+                      className="flex-1 sm:flex-none"
+                    >
+                      {t('site.share.open', 'Ouvrir')}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-3">
+              {t('site.share.shopLinksDesc', 'Ces liens affichent uniquement les produits disponibles dans la boutique spécifique.')}
+            </p>
+          </div>
+        )}
 
         {/* QR Code */}
         <div className="bg-gray-50 p-4 rounded-lg">
@@ -169,4 +239,3 @@ const ShareTools = ({ className = '' }: ShareToolsProps) => {
 };
 
 export default ShareTools;
-

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Card from '../common/Card';
 import Button from '../common/Button';
@@ -6,6 +6,7 @@ import { X, Check, LayoutDashboard } from 'lucide-react';
 import { PermissionTemplate, RolePermissions } from '../../types/permissions';
 import { ALL_RESOURCES, getResourceLabel, CREATABLE_RESOURCES, EDITABLE_RESOURCES, DELETABLE_RESOURCES } from '../../constants/resources';
 import type { DashboardSectionPermissions } from '@hooks/business/useDashboardPermissions';
+import { useModules } from '@hooks/business/useModules';
 
 interface PermissionTemplateFormProps {
   template?: PermissionTemplate | null;
@@ -65,12 +66,46 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
   }, [template]);
 
   // Use RESOURCES constants for all resources
-  const allResources = ALL_RESOURCES;
+  const { isStarter } = useModules();
+
+  // Define resources that should be hidden for Starter plan (Enterprise only features)
+  const ENTERPRISE_RESOURCES = [
+    ALL_RESOURCES.find(r => r === 'magasin') || 'magasin',
+    ALL_RESOURCES.find(r => r === 'productions') || 'productions',
+    ALL_RESOURCES.find(r => r === 'warehouse') || 'warehouse',
+    ALL_RESOURCES.find(r => r === 'shops') || 'shops',
+    ALL_RESOURCES.find(r => r === 'human_resources') || 'human_resources',
+    ALL_RESOURCES.find(r => r === 'hr') || 'hr', // Legacy HR
+    // Add sub-resources
+    'magasin_categories',
+    'magasin_stocks',
+    'productions_flows',
+    'productions_steps',
+    'productions_categories',
+    'productions_charges',
+  ];
+
+  // Filter resources based on plan
+  const { visibleResources, creatableResources, editableResources, deletableResources } = useMemo(() => {
+    let visible = ALL_RESOURCES;
+    if (isStarter) {
+      visible = ALL_RESOURCES.filter(resource => !ENTERPRISE_RESOURCES.includes(resource));
+    }
+    return {
+      visibleResources: visible,
+      creatableResources: CREATABLE_RESOURCES.filter(r => visible.includes(r)),
+      editableResources: EDITABLE_RESOURCES.filter(r => visible.includes(r)),
+      deletableResources: DELETABLE_RESOURCES.filter(r => visible.includes(r)),
+    };
+  }, [isStarter]);
+
+  // Use visibleResources instead of ALL_RESOURCES for rendering
+  const allResources = visibleResources;
 
   const handlePermissionChange = (type: keyof RolePermissions, resource: string, checked: boolean) => {
     setPermissions(prev => ({
       ...prev,
-      [type]: checked 
+      [type]: checked
         ? [...(prev[type] as string[]), resource]
         : (prev[type] as string[]).filter(r => r !== resource)
     }));
@@ -148,7 +183,7 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
                 required
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Description
@@ -185,7 +220,7 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
           {/* Permissions */}
           <div className="space-y-6">
             <h3 className="text-lg font-medium text-gray-900">Permissions</h3>
-            
+
             {/* View Access */}
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -222,12 +257,12 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
                 <label className="flex items-center text-sm">
                   <input
                     type="checkbox"
-                    checked={CREATABLE_RESOURCES.every(r => permissions.canCreate.includes(r))}
+                    checked={creatableResources.every(r => permissions.canCreate.includes(r))}
                     onChange={(e) => {
                       if (e.target.checked) {
                         setPermissions(prev => ({
                           ...prev,
-                          canCreate: CREATABLE_RESOURCES
+                          canCreate: creatableResources
                         }));
                       } else {
                         setPermissions(prev => ({
@@ -245,7 +280,7 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
                 Only resources with creation flows are shown here
               </p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {CREATABLE_RESOURCES.map((resource) => (
+                {creatableResources.map((resource) => (
                   <label key={resource} className="flex items-center text-sm">
                     <input
                       type="checkbox"
@@ -266,12 +301,12 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
                 <label className="flex items-center text-sm">
                   <input
                     type="checkbox"
-                    checked={EDITABLE_RESOURCES.every(r => permissions.canEdit.includes(r))}
+                    checked={editableResources.every(r => permissions.canEdit.includes(r))}
                     onChange={(e) => {
                       if (e.target.checked) {
                         setPermissions(prev => ({
                           ...prev,
-                          canEdit: EDITABLE_RESOURCES
+                          canEdit: editableResources
                         }));
                       } else {
                         setPermissions(prev => ({
@@ -289,7 +324,7 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
                 Only resources with edit capabilities are shown here
               </p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {EDITABLE_RESOURCES.map((resource) => (
+                {editableResources.map((resource) => (
                   <label key={resource} className="flex items-center text-sm">
                     <input
                       type="checkbox"
@@ -310,12 +345,12 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
                 <label className="flex items-center text-sm">
                   <input
                     type="checkbox"
-                    checked={DELETABLE_RESOURCES.every(r => permissions.canDelete.includes(r))}
+                    checked={deletableResources.every(r => permissions.canDelete.includes(r))}
                     onChange={(e) => {
                       if (e.target.checked) {
                         setPermissions(prev => ({
                           ...prev,
-                          canDelete: DELETABLE_RESOURCES
+                          canDelete: deletableResources
                         }));
                       } else {
                         setPermissions(prev => ({
@@ -333,7 +368,7 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
                 Note: Delete is owner-only in practice, but you can configure which resources support it
               </p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {DELETABLE_RESOURCES.map((resource) => (
+                {deletableResources.map((resource) => (
                   <label key={resource} className="flex items-center text-sm">
                     <input
                       type="checkbox"

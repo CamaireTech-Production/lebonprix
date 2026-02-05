@@ -32,6 +32,17 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
   const [templateToDelete, setTemplateToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Get default templates and filter for Starter plan
+  // Enterprise-only templates: Production Supervisor, Warehouse Clerk, HR Manager
+  const allDefaultTemplates = getDefaultPermissionTemplates();
+  const enterpriseOnlyTemplates = ['Production Supervisor', 'Warehouse Clerk', 'HR Manager'];
+  const defaultTemplates = useMemo(() => {
+    if (isStarter) {
+      return allDefaultTemplates.filter(t => !enterpriseOnlyTemplates.includes(t.name));
+    }
+    return allDefaultTemplates;
+  }, [isStarter, allDefaultTemplates]);
+
   const loadTemplates = useCallback(async () => {
     if (!company?.id) return;
 
@@ -198,16 +209,7 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
     );
   }
 
-  // Get default templates and filter for Starter plan
-  // Enterprise-only templates: Production Supervisor, Warehouse Clerk, HR Manager
-  const allDefaultTemplates = getDefaultPermissionTemplates();
-  const enterpriseOnlyTemplates = ['Production Supervisor', 'Warehouse Clerk', 'HR Manager'];
-  const defaultTemplates = useMemo(() => {
-    if (isStarter) {
-      return allDefaultTemplates.filter(t => !enterpriseOnlyTemplates.includes(t.name));
-    }
-    return allDefaultTemplates;
-  }, [isStarter, allDefaultTemplates]);
+
 
   return (
     <div className="space-y-6">

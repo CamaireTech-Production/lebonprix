@@ -74,7 +74,8 @@ const Sales: React.FC = () => {
     loadMore: loadMoreSales,
     refresh: refreshSales,
     updateSaleInList,
-    removeSaleFromList
+    removeSaleFromList,
+    addSaleToList
   } = useInfiniteSales();
   const { products, loading: productsLoading } = useProducts();
   const { customers } = useCustomers();
@@ -1270,9 +1271,12 @@ const Sales: React.FC = () => {
       <AddSaleModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onSaleAdded={() => {
-          // Rafraîchir la liste des ventes après l'ajout
-          refreshSales();
+        onSaleAdded={(newSale) => {
+          if (newSale) {
+            addSaleToList(newSale);
+          } else {
+            refreshSales();
+          }
         }}
       /><SaleDetailsModal
         isOpen={isViewModalOpen}
