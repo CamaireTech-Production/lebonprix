@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { Menu, Search, User, Settings, LogOut, Users, ScanLine } from 'lucide-react';
+import { Menu, Search, User, Settings, LogOut, ScanLine } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import UserAvatar from '../common/UserAvatar';
 import LanguageSwitcher from '../common/LanguageSwitcher';
@@ -23,10 +23,10 @@ const Navbar = ({ onMenuClick, isSelectionMode }: NavbarProps) => {
   const location = useLocation();
   const { companyId } = useParams<{ companyId: string }>();
   const { canAccess } = useRolePermissions(company?.id);
-  
+
   // Check if user has access to POS (sales resource)
   const hasPOSAccess = isOwner || effectiveRole === 'owner' || canAccess('sales');
-  
+
   // Check if we're on a company route
   const isCompanyRoute = location.pathname.startsWith('/company/') && companyId;
 
@@ -39,7 +39,7 @@ const Navbar = ({ onMenuClick, isSelectionMode }: NavbarProps) => {
     };
     return colors;
   };
-  
+
   const colors = getDashboardColors();
 
   useEffect(() => {
@@ -77,7 +77,7 @@ const Navbar = ({ onMenuClick, isSelectionMode }: NavbarProps) => {
 
         {/* Logo (mobile only) */}
         <div className="md:hidden flex-1 flex justify-center">
-          <span className="font-bold text-lg" style={{color: colors.primary}}>Geskap</span>
+          <span className="font-bold text-lg" style={{ color: colors.primary }}>Geskap</span>
         </div>
 
         {/* Search bar (hidden on mobile) */}
@@ -107,15 +107,15 @@ const Navbar = ({ onMenuClick, isSelectionMode }: NavbarProps) => {
               <span className="hidden sm:inline text-sm">{t('navigation.pos')}</span>
             </Link>
           )}
-          
+
           <LanguageSwitcher />
-          
+
           {/* PWA Status Indicator */}
           <PWAStatusIndicator variant="header" />
-          
+
           {/* Download App Button */}
           <DownloadAppButton variant="header" showText={false} />
-          
+
           {/* Notifications Bell */}
           {isCompanyRoute && !isSelectionMode && <NotificationBell />}
 
@@ -150,15 +150,7 @@ const Navbar = ({ onMenuClick, isSelectionMode }: NavbarProps) => {
                     <Settings size={16} className="mr-3" />
                     {t('navigation.settings')}
                   </Link>
-                  <Link
-                    to={`/company/${location.pathname.split('/')[2]}/settings?tab=employees`}
-                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    role="menuitem"
-                    onClick={() => setIsDropdownOpen(false)}
-                  >
-                    <Users size={16} className="mr-3" />
-                    Employees
-                  </Link>
+
                   <button
                     onClick={handleSignOut}
                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
