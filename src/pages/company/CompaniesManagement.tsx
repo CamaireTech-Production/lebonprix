@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
-import { createCompany, deleteCompany } from '@services/firestore/companies/companyService';
+import { deleteCompany } from '@services/firestore/companies/companyService';
 import { getUserById } from '@services/utilities/userService';
 import { getCompanyById } from '@services/firestore/companies/companyPublic';
 import { Plus, Building2, Trash2, User, LogOut } from 'lucide-react';
-import { Button, Modal, Input, Textarea } from '@components/common';
-import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
-import { useTranslation } from 'react-i18next';
+import { Button, Modal } from '@components/common';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
+
+import { CompanyForm } from '@components/company/CompanyForm';
 
 /**
  * Dashboard de gestion des entreprises type Netflix
@@ -19,25 +20,12 @@ import { useTranslation } from 'react-i18next';
  * - Naviguer vers le dashboard d'une entreprise
  */
 export const CompaniesManagement: React.FC = () => {
-  const { t } = useTranslation();
+
   const { user, userCompanies, selectCompany, signOut } = useAuth();
   const navigate = useNavigate();
-  
+
   // États pour la création d'entreprise
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [companyForm, setCompanyForm] = useState({
-    name: '',
-    description: '',
-    phone: '',
-    email: '',
-    report_mail: '',
-    report_time: '08:00',
-    location: '',
-    logo: ''
-  });
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
   // États pour la suppression d'entreprise
   const [companyToDelete, setCompanyToDelete] = useState<string | null>(null);
@@ -45,7 +33,7 @@ export const CompaniesManagement: React.FC = () => {
 
   // État pour la sélection d'entreprise
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
-  
+
   // État pour stocker les informations des propriétaires
   const [ownersInfo, setOwnersInfo] = useState<Record<string, { name: string; email: string }>>({});
 
@@ -67,125 +55,13 @@ export const CompaniesManagement: React.FC = () => {
   /**
    * Gérer le changement de fichier logo
    */
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setLogoFile(file);
-      
-      // Créer un aperçu de l'image
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setLogoPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   /**
-   * Convertir le fichier en base64
+   * Gérer la création d'une nouvelle entreprise (Succès)
    */
-  const convertFileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        // Extraire seulement la partie base64 (après la virgule)
-        const base64 = result.split(',')[1];
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
-  /**
-   * Gérer la création d'une nouvelle entreprise
-   */
-  const handleCreateCompany = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!user?.uid) {
-      showErrorToast('Utilisateur non connecté');
-      return;
-    }
-
-    // Validation
-    if (!companyForm.name.trim()) {
-      showErrorToast('Le nom de l\'entreprise est requis');
-      return;
-    }
-    if (!companyForm.phone.trim()) {
-      showErrorToast('Le téléphone est requis');
-      return;
-    }
-    if (!companyForm.email.trim()) {
-      showErrorToast('L\'email est requis');
-      return;
-    }
-    if (!companyForm.report_mail.trim()) {
-      showErrorToast('L\'email de rapport est requis');
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(companyForm.report_mail)) {
-      showErrorToast('Format d\'email de rapport invalide');
-      return;
-    }
-
-    try {
-      setIsCreating(true);
-      
-      // Handle report_time: validate "HH:mm" format or default to "08:00"
-      let reportTime = companyForm.report_time || '08:00';
-      const timePattern = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
-      if (!timePattern.test(reportTime)) {
-        reportTime = '08:00';
-        showWarningToast(t('settingsPage.messages.reportTimeDefault'));
-      }
-      
-      // Convertir le logo en base64 si un fichier est sélectionné
-      let logoBase64: string | undefined;
-      if (logoFile) {
-        logoBase64 = await convertFileToBase64(logoFile);
-      }
-      
-      await createCompany(user.uid, {
-        name: companyForm.name.trim(),
-        description: companyForm.description.trim() || undefined,
-        phone: companyForm.phone.trim(),
-        email: companyForm.email.trim(),
-        report_mail: companyForm.report_mail.trim(),
-        report_time: reportTime,
-        location: companyForm.location.trim() || undefined,
-        logo: logoBase64 || companyForm.logo.trim() || undefined
-      });
-
-      showSuccessToast('Entreprise créée avec succès');
-      setShowCreateModal(false);
-      setCompanyForm({
-        name: '',
-        description: '',
-        phone: '',
-        email: '',
-        report_mail: '',
-        report_time: '08:00',
-        location: '',
-        logo: ''
-      });
-      setLogoFile(null);
-      setLogoPreview(null);
-      
-    } catch (error: any) {
-      console.error('❌ Erreur lors de la création de l\'entreprise:', error);
-      
-      // Vérifier si c'est une erreur spécifique à report_mail
-      if (error.message && error.message.includes('report_mail')) {
-        showWarningToast('Email de rapport non sauvegardé (les autres modifications sont OK)');
-      } else {
-        showErrorToast(error.message || 'Erreur lors de la création de l\'entreprise');
-      }
-    } finally {
-      setIsCreating(false);
-    }
+  const handleCreateSuccess = () => {
+    showSuccessToast('Entreprise créée avec succès');
+    setShowCreateModal(false);
+    // La liste des entreprises se mettra à jour automatiquement via le context
   };
 
   /**
@@ -196,12 +72,12 @@ export const CompaniesManagement: React.FC = () => {
 
     try {
       setIsDeleting(true);
-      
+
       await deleteCompany(user.uid, companyToDelete);
-      
+
       showSuccessToast('Entreprise supprimée avec succès');
       setCompanyToDelete(null);
-      
+
     } catch (error: any) {
       console.error('❌ Erreur lors de la suppression de l\'entreprise:', error);
       showErrorToast(error.message || 'Erreur lors de la suppression de l\'entreprise');
@@ -230,11 +106,11 @@ export const CompaniesManagement: React.FC = () => {
   useEffect(() => {
     const loadOwnersInfo = async () => {
       const owners: Record<string, { name: string; email: string }> = {};
-      
+
       for (const company of userCompanies) {
         try {
           let ownerId: string | null = null;
-          
+
           // Si l'utilisateur actuel est le propriétaire, utiliser ses infos
           if (company.role === 'owner' && user) {
             const fullName = user.displayName || user.email || 'Propriétaire';
@@ -244,7 +120,7 @@ export const CompaniesManagement: React.FC = () => {
             };
             continue;
           }
-          
+
           // Sinon, récupérer le document company pour obtenir le userId (owner)
           const companyDoc = await getCompanyById(company.companyId);
           if (companyDoc && companyDoc.userId) {
@@ -253,7 +129,7 @@ export const CompaniesManagement: React.FC = () => {
             // Fallback pour les anciennes companies où companyId est le userId
             ownerId = companyDoc.companyId;
           }
-          
+
           // Récupérer les infos du propriétaire
           if (ownerId) {
             const ownerUser = await getUserById(ownerId);
@@ -269,10 +145,10 @@ export const CompaniesManagement: React.FC = () => {
           console.error(`Erreur lors de la récupération du propriétaire pour ${company.companyId}:`, error);
         }
       }
-      
+
       setOwnersInfo(owners);
     };
-    
+
     if (userCompanies.length > 0) {
       loadOwnersInfo();
     }
@@ -283,7 +159,7 @@ export const CompaniesManagement: React.FC = () => {
    */
   const getCompanyInitials = (name: string): string => {
     if (!name) return '';
-    
+
     // Prendre les premières lettres de chaque mot (maximum 2 lettres)
     const words = name.trim().split(/\s+/);
     if (words.length === 1) {
@@ -303,7 +179,7 @@ export const CompaniesManagement: React.FC = () => {
    */
   const CompanyCard: React.FC<{ company: any }> = ({ company }) => {
     const hasLogo = company.logo && company.logo.trim() !== '';
-    
+
     // Déterminer l'URL du logo : peut être une URL Firebase Storage (https://) ou base64
     let logoUrl: string | null = null;
     if (hasLogo) {
@@ -318,10 +194,10 @@ export const CompaniesManagement: React.FC = () => {
         logoUrl = `data:image/jpeg;base64,${company.logo}`;
       }
     }
-    
+
     const initials = getCompanyInitials(company.name || '');
     const ownerInfo = ownersInfo[company.companyId];
-    const ownerEmail = ownerInfo 
+    const ownerEmail = ownerInfo
       ? (ownerInfo.email || 'Propriétaire')
       : 'Propriétaire';
 
@@ -333,8 +209,8 @@ export const CompaniesManagement: React.FC = () => {
             <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0 relative">
               {logoUrl ? (
                 <>
-                  <img 
-                    src={logoUrl} 
+                  <img
+                    src={logoUrl}
                     alt={company.name}
                     className="w-full h-full object-cover rounded-lg"
                     onError={(e) => {
@@ -346,7 +222,7 @@ export const CompaniesManagement: React.FC = () => {
                       }
                     }}
                   />
-                  <span 
+                  <span
                     className="company-initials text-white font-bold text-xl absolute inset-0 flex items-center justify-center"
                     style={{ display: 'none' }}
                   >
@@ -359,14 +235,14 @@ export const CompaniesManagement: React.FC = () => {
                 </span>
               )}
             </div>
-          
+
             {/* Informations de l'entreprise */}
             <div className="flex-1 min-w-0">
               <h3 className="text-lg font-semibold text-gray-900 truncate">{company.name}</h3>
               {company.description && (
                 <p className="text-sm text-gray-600 mt-1 line-clamp-2">{company.description}</p>
               )}
-              
+
               {/* Email du propriétaire */}
               <div className="flex items-center mt-2 min-w-0">
                 <User className="w-4 h-4 text-gray-400 mr-1 flex-shrink-0" />
@@ -374,14 +250,14 @@ export const CompaniesManagement: React.FC = () => {
                   {ownerEmail}
                 </span>
               </div>
-              
+
               {/* Rôle de l'utilisateur connecté dans cette entreprise */}
               <div className="flex items-center mt-1 min-w-0">
                 <span className="text-xs text-gray-400 mr-1 flex-shrink-0">Rôle:</span>
                 <span className="text-xs font-medium text-gray-600 truncate">
-                  {company.role === 'owner' ? 'Propriétaire' : 
-                   company.role === 'admin' ? 'Administrateur' :
-                   company.role === 'manager' ? 'Gestionnaire' : 'Employé'}
+                  {company.role === 'owner' ? 'Propriétaire' :
+                    company.role === 'admin' ? 'Administrateur' :
+                      company.role === 'manager' ? 'Gestionnaire' : 'Employé'}
                 </span>
               </div>
             </div>
@@ -409,13 +285,13 @@ export const CompaniesManagement: React.FC = () => {
    * Rendu du bouton "Créer entreprise"
    */
   const CreateCompanyCard: React.FC = () => (
-      <div 
-        className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors cursor-pointer p-6 flex flex-col items-center justify-center min-h-[120px]"
-        onClick={() => setShowCreateModal(true)}
-      >
-        <Plus className="w-8 h-8 text-gray-400 mb-2" />
-        <span className="text-gray-600 font-medium">Créer une entreprise</span>
-      </div>
+    <div
+      className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors cursor-pointer p-6 flex flex-col items-center justify-center min-h-[120px]"
+      onClick={() => setShowCreateModal(true)}
+    >
+      <Plus className="w-8 h-8 text-gray-400 mb-2" />
+      <span className="text-gray-600 font-medium">Créer une entreprise</span>
+    </div>
   );
 
   return (
@@ -429,7 +305,7 @@ export const CompaniesManagement: React.FC = () => {
               Gérez vos entreprises et accédez à leurs tableaux de bord
             </p>
           </div>
-          
+
           {/* Bouton de déconnexion */}
           <button
             onClick={handleSignOut}
@@ -444,15 +320,14 @@ export const CompaniesManagement: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {/* Cartes des entreprises existantes */}
           {userCompanies.map((company) => (
-            <div 
+            <div
               key={company.companyId}
               onClick={() => handleCompanySelect(company.companyId)}
-              className={`relative cursor-pointer transition-all duration-200 hover:scale-105 ${
-                selectedCompanyId === company.companyId ? 'opacity-50 pointer-events-none' : ''
-              }`}
+              className={`relative cursor-pointer transition-all duration-200 hover:scale-105 ${selectedCompanyId === company.companyId ? 'opacity-50 pointer-events-none' : ''
+                }`}
             >
               <CompanyCard company={company} />
-              
+
               {/* Loading overlay */}
               {selectedCompanyId === company.companyId && (
                 <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
@@ -464,7 +339,7 @@ export const CompaniesManagement: React.FC = () => {
               )}
             </div>
           ))}
-          
+
           {/* Bouton créer entreprise */}
           <CreateCompanyCard />
         </div>
@@ -496,147 +371,11 @@ export const CompaniesManagement: React.FC = () => {
         title="Créer une entreprise"
         size="lg"
       >
-        <form onSubmit={handleCreateCompany}>
-          <div className="space-y-4">
-            <Input
-              label="Nom de l'entreprise *"
-              value={companyForm.name}
-              onChange={(e) => setCompanyForm({...companyForm, name: e.target.value})}
-              required
-              placeholder="Mon Entreprise"
-            />
-
-            <Textarea
-              label="Description"
-              value={companyForm.description}
-              onChange={(e) => setCompanyForm({...companyForm, description: e.target.value})}
-              rows={3}
-              placeholder="Description de l'entreprise..."
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Téléphone *
-                </label>
-                <div className="flex rounded-md shadow-sm">
-                  <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
-                    +237
-                  </span>
-                  <Input
-                    type="tel"
-                    value={companyForm.phone}
-                    onChange={(e) => setCompanyForm({...companyForm, phone: e.target.value})}
-                    placeholder="678904568"
-                    className="flex-1 rounded-l-none"
-                    required
-                  />
-                </div>
-              </div>
-
-              <Input
-                label="Email *"
-                type="email"
-                value={companyForm.email}
-                onChange={(e) => setCompanyForm({...companyForm, email: e.target.value})}
-                placeholder="contact@entreprise.com"
-                required
-              />
-            </div>
-
-            <Input
-              label="Email pour les rapports de vente *"
-              type="email"
-              value={companyForm.report_mail}
-              onChange={(e) => setCompanyForm({...companyForm, report_mail: e.target.value})}
-              onBlur={() => {
-                if (companyForm.report_mail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(companyForm.report_mail)) {
-                  showErrorToast('Format d\'email de rapport invalide');
-                }
-              }}
-              placeholder="rapports@entreprise.com"
-              required
-            />
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {t('settingsPage.account.reportTime')}
-              </label>
-              <input
-                type="time"
-                name="report_time"
-                value={companyForm.report_time}
-                onChange={(e) => setCompanyForm({...companyForm, report_time: e.target.value})}
-                className="block w-full px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
-                required
-              />
-              <p className="mt-1 text-sm text-gray-500">
-                {t('settingsPage.account.reportTimeHelp')}
-              </p>
-            </div>
-
-            <Input
-              label="Localisation"
-              value={companyForm.location}
-              onChange={(e) => setCompanyForm({...companyForm, location: e.target.value})}
-              placeholder="Paris, France"
-            />
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Logo de l'entreprise
-              </label>
-              <div className="mt-1 flex items-center space-x-4">
-                <div className="flex-shrink-0">
-                  {logoPreview ? (
-                    <img
-                      src={logoPreview}
-                      alt="Logo preview"
-                      className="h-16 w-16 object-cover rounded-lg border border-gray-300"
-                    />
-                  ) : (
-                    <div className="h-16 w-16 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
-                      <Building2 className="h-6 w-6 text-gray-400" />
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleLogoChange}
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
-                  />
-                  <p className="mt-1 text-sm text-gray-500">
-                    Ou entrez une URL d'image
-                  </p>
-                  <Input
-                    value={companyForm.logo}
-                    onChange={(e) => setCompanyForm({...companyForm, logo: e.target.value})}
-                    placeholder="https://example.com/logo.png"
-                    className="mt-2"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-3 mt-6">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowCreateModal(false)}
-            >
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              isLoading={isCreating}
-            >
-              {isCreating ? 'Création...' : 'Créer l\'entreprise'}
-            </Button>
-          </div>
-        </form>
+        <CompanyForm
+          onSuccess={handleCreateSuccess}
+          onCancel={() => setShowCreateModal(false)}
+          isModal={true}
+        />
       </Modal>
 
       {/* Modal de confirmation de suppression */}
@@ -650,7 +389,7 @@ export const CompaniesManagement: React.FC = () => {
           <p className="text-gray-600">
             Êtes-vous sûr de vouloir supprimer cette entreprise ? Cette action est irréversible.
           </p>
-          
+
           <div className="flex justify-end space-x-3">
             <Button
               variant="outline"
