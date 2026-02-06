@@ -16,7 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import { logError, logWarning } from '@utils/core/logger';
-import type { Matiere, FinanceEntry } from '../../../types/models';
+import type { Matiere, FinanceEntry, StockBatch, EmployeeRef } from '../../../types/models';
 import { createAuditLog } from '../shared';
 import { createStockChange } from '../stock/stockService';
 
@@ -27,7 +27,7 @@ import { createStockChange } from '../stock/stockService';
 export const subscribeToMatieres = (companyId: string, callback: (matieres: Matiere[]) => void, limitCount?: number): (() => void) => {
   if (!companyId) {
     callback([]);
-    return () => {}; // Return empty cleanup function
+    return () => { }; // Return empty cleanup function
   }
 
   try {
@@ -38,7 +38,7 @@ export const subscribeToMatieres = (companyId: string, callback: (matieres: Mati
       orderBy('createdAt', 'desc'),
       limit(limitCount || defaultLimit)
     );
-    
+
     let isActive = true;
 
     const unsubscribe = onSnapshot(
@@ -75,7 +75,7 @@ export const subscribeToMatieres = (companyId: string, callback: (matieres: Mati
   } catch (error) {
     logError('Error setting up matieres subscription', error);
     callback([]);
-    return () => {}; // Return empty cleanup function
+    return () => { }; // Return empty cleanup function
   }
 };
 
@@ -93,7 +93,7 @@ export const createMatiere = async (
     isOwnPurchase?: boolean;
     isCredit?: boolean;
   },
-  createdBy?: import('../../../types/models').EmployeeRef | null
+  createdBy?: EmployeeRef | null
 ): Promise<Matiere> => {
   try {
     if (!data.name) {
@@ -110,29 +110,30 @@ export const createMatiere = async (
         where('isActive', '==', true)
       );
       const categorySnapshot = await getDocs(categoryQuery);
-      
+
       if (categorySnapshot.empty) {
         throw new Error(`Category "${data.refCategorie}" not found`);
       }
     }
 
     const batch = writeBatch(db);
-    
+
     const userId = data.userId || companyId;
-    
+
     const matiereRef = doc(collection(db, 'matieres'));
-    
+
     // Build matiereData object, excluding undefined values (Firestore doesn't support undefined)
-    const matiereData: any = {
+    const matiereData: Partial<Matiere> = {
       name: data.name,
       refStock: data.refStock || '',
       companyId,
+      userId,
       isDeleted: false,
       costPrice: costPrice || 0,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+      createdAt: serverTimestamp() as any, // Cast for Firestore Timestamp vs Model Timestamp
+      updatedAt: serverTimestamp() as any
     };
-    
+
     // Only include optional fields if they have values
     if (data.refCategorie) {
       matiereData.refCategorie = data.refCategorie;
@@ -152,13 +153,13 @@ export const createMatiere = async (
     if (createdBy) {
       matiereData.createdBy = createdBy;
     }
-    
+
     batch.set(matiereRef, matiereData);
-    
+
     // Create stock batch if initial stock provided (batches are the single source of truth)
     if (initialStock > 0 && costPrice && costPrice > 0) {
       const stockBatchRef = doc(collection(db, 'stockBatches'));
-      const stockBatchData: any = {
+      const stockBatchData: Partial<StockBatch> = {
         id: stockBatchRef.id,
         type: 'matiere' as const, // Always matiere for matiere batches
         matiereId: matiereRef.id,
@@ -168,15 +169,15 @@ export const createMatiere = async (
         status: 'active',
         userId,
         companyId,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp() as any
       };
-      
+
       if (supplierInfo?.supplierId) stockBatchData.supplierId = supplierInfo.supplierId;
       if (supplierInfo?.isOwnPurchase !== undefined) stockBatchData.isOwnPurchase = supplierInfo.isOwnPurchase;
       if (supplierInfo?.isCredit !== undefined) stockBatchData.isCredit = supplierInfo.isCredit;
-      
+
       batch.set(stockBatchRef, stockBatchData);
-      
+
       createStockChange(
         batch,
         matiereRef.id,
@@ -193,7 +194,7 @@ export const createMatiere = async (
         undefined,
         undefined
       );
-      
+
       const financeRef = doc(collection(db, 'finances'));
       const financeData = {
         id: financeRef.id,
@@ -210,7 +211,7 @@ export const createMatiere = async (
         updatedAt: serverTimestamp()
       };
       batch.set(financeRef, financeData);
-      
+
       if (supplierInfo?.supplierId && supplierInfo.isCredit === true && supplierInfo.isOwnPurchase === false) {
         const debtAmount = initialStock * costPrice;
         const debtRef = doc(collection(db, 'finances'));
@@ -249,11 +250,11 @@ export const createMatiere = async (
         undefined
       );
     }
-    
+
     createAuditLog(batch, 'create', 'matiere', matiereRef.id, matiereData, userId);
-    
+
     await batch.commit();
-    
+
     // Update category count only if category is provided
     if (data.refCategorie) {
       try {
@@ -262,13 +263,13 @@ export const createMatiere = async (
         logError('Error updating category matiere count', error);
       }
     }
-    
+
     return {
       id: matiereRef.id,
       ...matiereData,
       createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
       updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
-    };
+    } as Matiere;
   } catch (error) {
     logError('Error creating matiere', error);
     throw error;
@@ -283,26 +284,28 @@ export const updateMatiere = async (
   try {
     const batch = writeBatch(db);
     const matiereRef = doc(db, 'matieres', id);
-    
+
     const matiereSnap = await getDoc(matiereRef);
     if (!matiereSnap.exists()) {
       throw new Error('Matiere not found');
     }
-    
+
     const currentMatiere = matiereSnap.data() as Matiere;
     if (currentMatiere.companyId !== companyId) {
       throw new Error('Unauthorized: Matiere belongs to different company');
     }
-    
+
     const userId = currentMatiere.userId || companyId;
-    
+
     if (data.refCategorie && data.refCategorie !== currentMatiere.refCategorie) {
-      try {
-        await updateCategoryMatiereCount(currentMatiere.refCategorie, companyId, false);
-      } catch (error) {
-        logError('Error updating old category matiere count', error);
+      if (currentMatiere.refCategorie) {
+        try {
+          await updateCategoryMatiereCount(currentMatiere.refCategorie, companyId, false);
+        } catch (error) {
+          logError('Error updating old category matiere count', error);
+        }
       }
-      
+
       const categoryQuery = query(
         collection(db, 'categories'),
         where('name', '==', data.refCategorie),
@@ -311,17 +314,17 @@ export const updateMatiere = async (
         where('isActive', '==', true)
       );
       const categorySnapshot = await getDocs(categoryQuery);
-      
+
       if (categorySnapshot.empty) {
         throw new Error(`Category "${data.refCategorie}" not found`);
       }
     }
-    
+
     // Build updateData object, excluding undefined values (Firestore doesn't support undefined)
-    const updateData: any = {
-      updatedAt: serverTimestamp()
+    const updateData: Partial<Matiere> = {
+      updatedAt: serverTimestamp() as any
     };
-    
+
     // Only include fields that are actually provided (not undefined)
     if (data.name !== undefined) updateData.name = data.name;
     if (data.description !== undefined) updateData.description = data.description;
@@ -332,13 +335,13 @@ export const updateMatiere = async (
     if (data.images !== undefined) updateData.images = data.images;
     if (data.imagePaths !== undefined) updateData.imagePaths = data.imagePaths;
     if (data.isDeleted !== undefined) updateData.isDeleted = data.isDeleted;
-    
+
     batch.update(matiereRef, updateData);
-    
+
     createAuditLog(batch, 'update', 'matiere', id, updateData, userId);
-    
+
     await batch.commit();
-    
+
     if (data.refCategorie && data.refCategorie !== currentMatiere.refCategorie) {
       try {
         await updateCategoryMatiereCount(data.refCategorie, companyId, true);
@@ -356,19 +359,19 @@ export const deleteMatiere = async (id: string, companyId: string): Promise<void
   try {
     const batch = writeBatch(db);
     const matiereRef = doc(db, 'matieres', id);
-    
+
     const matiereSnap = await getDoc(matiereRef);
     if (!matiereSnap.exists()) {
       throw new Error('Matiere not found');
     }
-    
+
     const currentMatiere = matiereSnap.data() as Matiere;
     if (currentMatiere.companyId !== companyId) {
       throw new Error('Unauthorized: Matiere belongs to different company');
     }
-    
+
     const userId = currentMatiere.userId || companyId;
-    
+
     // Delete all related stock batches (batches are the single source of truth)
     const batchesQuery = query(
       collection(db, 'stockBatches'),
@@ -377,7 +380,7 @@ export const deleteMatiere = async (id: string, companyId: string): Promise<void
     );
     const batchesSnapshot = await getDocs(batchesQuery);
     batchesSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-    
+
     const stockChangesQuery = query(
       collection(db, 'stockChanges'),
       where('type', '==', 'matiere'),
@@ -385,13 +388,13 @@ export const deleteMatiere = async (id: string, companyId: string): Promise<void
     );
     const stockChangesSnapshot = await getDocs(stockChangesQuery);
     stockChangesSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-    
+
     batch.delete(matiereRef);
-    
+
     createAuditLog(batch, 'delete', 'matiere', id, currentMatiere, userId);
-    
+
     await batch.commit();
-    
+
     if (currentMatiere.refCategorie) {
       try {
         await updateCategoryMatiereCount(currentMatiere.refCategorie, companyId, false);
@@ -422,7 +425,7 @@ export const updateCategoryMatiereCount = async (categoryName: string, companyId
     );
 
     const snapshot = await getDocs(q);
-    
+
     if (snapshot.empty) {
       logWarning('Category not found for company');
       return;
@@ -451,7 +454,7 @@ export const createMatiereFinanceEntry = async (
   description: string
 ): Promise<FinanceEntry> => {
   const { createFinanceEntry } = await import('../finance/financeService');
-  
+
   const entry: Omit<FinanceEntry, 'id' | 'createdAt' | 'updatedAt'> = {
     userId,
     companyId,
@@ -463,7 +466,7 @@ export const createMatiereFinanceEntry = async (
     date: Timestamp.now(),
     isDeleted: false,
   };
-  
+
   return createFinanceEntry(entry);
 };
 

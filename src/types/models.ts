@@ -232,7 +232,13 @@ export interface Sale extends BaseModel {
   paymentMethod?: 'cash' | 'mobile_money' | 'card'; // Méthode de paiement
   amountReceived?: number; // Montant reçu (pour calculer la monnaie)
   change?: number; // Monnaie à rendre
-  statusHistory?: Array<{ status: string; timestamp: string; userId?: string }>; // Enhanced with userId for audit trail
+  statusHistory?: Array<{
+    status: string;
+    timestamp: string;
+    userId?: string;
+    paymentMethod?: string;
+    amountPaid?: number;
+  }>; // Enhanced with userId for audit trail
   isAvailable?: boolean;
   inventoryMethod?: 'FIFO' | 'LIFO' | 'CMUP';
   totalCost?: number;
@@ -284,7 +290,13 @@ export type OrderStatus = 'commande' | 'under_delivery' | 'paid' | 'draft' | 'cr
 export type PaymentStatus = 'pending' | 'paid' | 'cancelled';
 
 export interface SaleDetails extends Sale {
-  statusHistory: Array<{ status: string; timestamp: string }>;
+  statusHistory: Array<{
+    status: string;
+    timestamp: string;
+    userId?: string;
+    paymentMethod?: string;
+    amountPaid?: number;
+  }>;
 }
 
 export interface Customer {
