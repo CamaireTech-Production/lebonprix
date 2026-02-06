@@ -1,6 +1,6 @@
 import { useState, ChangeEvent, useEffect } from 'react';
 import { useAuth } from '@contexts/AuthContext';
-import { Card, Button, Input, PriceInput } from '@components/common';
+import { Card, Button, Input, PriceInput, PhoneInput } from '@components/common';
 import ActivityList from '../../components/dashboard/ActivityList';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import { useTranslation } from 'react-i18next';
@@ -31,30 +31,30 @@ function normalizeWebsite(raw: string): string | undefined {
 const Settings = () => {
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState<'colors' | 'account' | 'activity' | 'ordering' | 'checkout' | 'payment' | 'catalogue' | 'sales-pos'>('colors');
-  const { 
-    company, 
-    updateCompany, 
-    updateUserPassword, 
-    updateUserEmail, 
-    user, 
-    isOwner, 
-    effectiveRole, 
-    getUserAuthProvider, 
-    canChangePassword, 
-    canChangeEmail, 
-    refreshUser 
+  const {
+    company,
+    updateCompany,
+    updateUserPassword,
+    updateUserEmail,
+    user,
+    isOwner,
+    effectiveRole,
+    getUserAuthProvider,
+    canChangePassword,
+    canChangeEmail,
+    refreshUser
   } = useAuth();
-  
+
   // Safe function wrappers to prevent "is not a function" errors
   const safeCanChangeEmail = () => typeof canChangeEmail === 'function' ? canChangeEmail() : false;
   const safeCanChangePassword = () => typeof canChangePassword === 'function' ? canChangePassword() : false;
   const safeGetUserAuthProvider = () => typeof getUserAuthProvider === 'function' ? getUserAuthProvider() : null;
-  
+
   // Checkout settings state
   const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutSaving, setCheckoutSaving] = useState(false);
-  
+
   // CinetPay settings state
   const [cinetpayConfig, setCinetpayConfig] = useState<CinetPayConfig | null>(null);
   const [cinetpayLoading, setCinetpayLoading] = useState(true);
@@ -66,7 +66,7 @@ const Settings = () => {
   const [campayLoading, setCampayLoading] = useState(true);
   const [campaySaving, setCampaySaving] = useState(false);
   const [campayTesting, setCampayTesting] = useState(false);
-  
+
   // Accordion state for payment providers
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
 
@@ -75,13 +75,13 @@ const Settings = () => {
   const [addPasswordForm, setAddPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
   const [addPasswordLoading, setAddPasswordLoading] = useState(false);
   const [addPasswordError, setAddPasswordError] = useState<string | null>(null);
-  
+
   // Only fetch data if user is authenticated
   const { sales } = useSales();
   const { expenses } = useExpenses();
   const { auditLogs } = useAuditLogs();
   const { products } = useProducts();
-  
+
   // Combine and sort recent activities using the new activity system
   const activities = user ? combineActivities(sales, expenses, auditLogs, t) : [];
 
@@ -126,7 +126,7 @@ const Settings = () => {
         ...prev,
         name: company.name || '',
         description: company.description || '',
-        phone: company.phone?.replace('+237', '') || '',
+        phone: company.phone || '',
         location: company.location || '',
         email: company.email || '',
         report_mail: company.report_mail || '',
@@ -237,7 +237,7 @@ const Settings = () => {
 
     return () => unsubscribe();
   }, [company?.id, user?.uid]);
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -248,7 +248,7 @@ const Settings = () => {
   const [orderingSaving, setOrderingSaving] = useState(false);
   const [isPaymentMethodModalOpen, setIsPaymentMethodModalOpen] = useState(false);
   const [editingPaymentMethodId, setEditingPaymentMethodId] = useState<string | null>(null);
-  
+
   // Catalogue links state
   const [copiedLinks, setCopiedLinks] = useState<Set<string>>(new Set());
 
@@ -258,7 +258,7 @@ const Settings = () => {
       await navigator.clipboard.writeText(text);
       setCopiedLinks(prev => new Set(prev).add(linkId));
       showSuccessToast('Link copied to clipboard!');
-      
+
       // Reset the copied state after 2 seconds
       setTimeout(() => {
         setCopiedLinks(prev => {
@@ -279,7 +279,7 @@ const Settings = () => {
       try {
         const settings = await getSellerSettings(company.id);
         setOrderingSettings(settings || {
-          whatsappNumber: company.phone || '+237',
+          whatsappNumber: company.phone || '',
           businessName: company.name || '',
           paymentMethods: {
             mobileMoney: true,
@@ -302,7 +302,7 @@ const Settings = () => {
   // Payment method management functions
   const handleAddPaymentMethod = async (paymentMethod: PaymentMethod) => {
     if (!orderingSettings || !company?.id) return;
-    
+
     const updatedSettings = {
       ...orderingSettings,
       paymentMethods: {
@@ -311,7 +311,7 @@ const Settings = () => {
       }
     };
     setOrderingSettings(updatedSettings);
-    
+
     // Auto-save to database
     try {
       await updateSellerSettings(company.id, updatedSettings);
@@ -324,12 +324,12 @@ const Settings = () => {
 
   const handleUpdatePaymentMethod = async (id: string, updatedMethod: Partial<PaymentMethod>) => {
     if (!orderingSettings || !company?.id) return;
-    
+
     // Create a completely new object to ensure React detects the change
     const updatedCustomMethods = (orderingSettings.paymentMethods.customMethods || []).map(method =>
       method.id === id ? { ...method, ...updatedMethod } : { ...method }
     );
-    
+
     const updatedSettings = {
       ...orderingSettings,
       paymentMethods: {
@@ -337,10 +337,10 @@ const Settings = () => {
         customMethods: updatedCustomMethods
       }
     };
-    
+
     // Update state immediately for instant UI feedback
     setOrderingSettings(updatedSettings);
-    
+
     // Auto-save to database
     try {
       await updateSellerSettings(company.id, updatedSettings);
@@ -360,7 +360,7 @@ const Settings = () => {
 
   const handleDeletePaymentMethod = async (id: string) => {
     if (!orderingSettings || !company?.id) return;
-    
+
     const updatedSettings = {
       ...orderingSettings,
       paymentMethods: {
@@ -369,7 +369,7 @@ const Settings = () => {
       }
     };
     setOrderingSettings(updatedSettings);
-    
+
     // Auto-save to database
     try {
       await updateSellerSettings(company.id, updatedSettings);
@@ -379,7 +379,7 @@ const Settings = () => {
       showErrorToast(t('settingsPage.paymentMethodsAndGateways.paymentMethods.updateFailed'));
     }
   };
-  
+
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     // Handle number inputs
@@ -398,16 +398,13 @@ const Settings = () => {
       setEmailError('');
     }
   };
-  
-  const handlePhoneChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-    if (value.length <= 9) { // Only allow 9 digits after +237
-      setFormData(prev => ({ ...prev, phone: value }));
-    }
+
+  const handlePhoneChange = (value: string) => {
+    setFormData(prev => ({ ...prev, phone: value }));
   };
-  
-  
-  
+
+
+
   const handleLogoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -418,7 +415,7 @@ const Settings = () => {
       reader.readAsDataURL(file);
     }
   };
-  
+
   const handleWebsiteChange = (e: ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value || '';
     const domain = raw.replace(/^\s+/, '').replace(/^https?:\/\//i, '').replace(/^\/+/, '');
@@ -427,7 +424,7 @@ const Settings = () => {
       website: domain ? `https://${domain}` : ''
     }));
   };
-  
+
   const validatePasswordChange = () => {
     if (!formData.currentPassword && (formData.newPassword || formData.confirmPassword)) {
       setPasswordError(t('settingsPage.messages.currentPasswordRequired'));
@@ -489,10 +486,10 @@ const Settings = () => {
 
     return true;
   };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validatePasswordChange()) {
       return;
     }
@@ -500,9 +497,9 @@ const Settings = () => {
     if (!validateEmailChange()) {
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
       const normalizedWebsite = normalizeWebsite(formData.website);
       if (normalizedWebsite) {
@@ -514,7 +511,7 @@ const Settings = () => {
           return;
         }
       }
-      
+
       // Handle report_time: validate "HH:mm" format or default to "08:00"
       let reportTime = formData.report_time || '08:00';
       const timePattern = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
@@ -522,17 +519,17 @@ const Settings = () => {
         reportTime = '08:00';
         showWarningToast(t('settingsPage.messages.reportTimeDefault'));
       }
-      
+
       // Update company information
       // Use new email if email change is in progress, otherwise use current email
-      const emailToUse = formData.newEmail && formData.confirmEmail && formData.emailChangePassword 
-        ? formData.newEmail 
+      const emailToUse = formData.newEmail && formData.confirmEmail && formData.emailChangePassword
+        ? formData.newEmail
         : formData.email;
-      
+
       const companyData = {
         name: formData.name,
         description: formData.description || undefined,
-        phone: `+237${formData.phone}`,
+        phone: formData.phone,
         location: formData.location || undefined,
         logo: formData.logo || undefined,
         email: emailToUse,
@@ -579,7 +576,7 @@ const Settings = () => {
         try {
           await updateUserEmail(formData.newEmail, formData.emailChangePassword);
           showSuccessToast(t('settingsPage.messages.emailUpdated', 'Email updated successfully. Please check your new email for verification.'));
-          
+
           // Reset email fields after successful update
           setFormData(prev => ({
             ...prev,
@@ -602,7 +599,7 @@ const Settings = () => {
       }
 
       showSuccessToast(t('settingsPage.messages.settingsUpdated'));
-      
+
       // Reset password fields after successful update
       setFormData(prev => ({
         ...prev,
@@ -665,7 +662,7 @@ const Settings = () => {
 
   const handleSaveCheckoutSettings = async () => {
     if (!company?.id || !checkoutSettings) return;
-    
+
     try {
       setCheckoutSaving(true);
       await saveCheckoutSettings(company.id, checkoutSettings, user?.uid);
@@ -680,7 +677,7 @@ const Settings = () => {
 
   const handleResetCheckoutSettings = async () => {
     if (!company?.id) return;
-    
+
     if (window.confirm('Are you sure you want to reset all checkout settings to default?')) {
       try {
         setCheckoutSaving(true);
@@ -717,11 +714,11 @@ const Settings = () => {
 
   const handleSaveCinetpayConfig = async () => {
     if (!company?.id || !cinetpayConfig) return;
-    
+
     try {
       setCinetpaySaving(true);
       await saveCinetPayConfig(company.id, cinetpayConfig, user?.uid);
-      
+
       // Auto-sync: Enable payment methods based on CinetPay channels
       if (cinetpayConfig.isActive && checkoutSettings) {
         const updatedPaymentMethods = { ...checkoutSettings.enabledPaymentMethods };
@@ -754,7 +751,7 @@ const Settings = () => {
           }, user?.uid);
         }
       }
-      
+
       // Log configuration change
       await AuditLogger.logConfigChange(user?.uid || company.id, 'cinetpay_config_saved', {
         configType: 'cinetpay',
@@ -764,7 +761,7 @@ const Settings = () => {
           enabledChannels: cinetpayConfig.enabledChannels
         }
       });
-      
+
       showSuccessToast('Payment integration settings saved');
     } catch (error) {
       console.error('Error saving CinetPay config:', error);
@@ -779,11 +776,11 @@ const Settings = () => {
       showErrorToast('Please enter Site ID and API Key first');
       return;
     }
-    
+
     try {
       setCinetpayTesting(true);
       const result = await validateCinetPayCredentials(cinetpayConfig.siteId, cinetpayConfig.apiKey);
-      
+
       if (result.isValid) {
         showSuccessToast('Connection successful! Credentials are valid.');
       } else {
@@ -809,11 +806,11 @@ const Settings = () => {
 
   const handleSaveCampayConfig = async () => {
     if (!company?.id || !campayConfig) return;
-    
+
     try {
       setCampaySaving(true);
       await saveCampayConfig(company.id, campayConfig, user?.uid);
-      
+
       // Auto-sync: Enable payment methods based on Campay (MTN & Orange Money)
       if (campayConfig.isActive && checkoutSettings) {
         const updatedPaymentMethods = { ...checkoutSettings.enabledPaymentMethods };
@@ -836,7 +833,7 @@ const Settings = () => {
           }, user?.uid);
         }
       }
-      
+
       // Log configuration change
       await AuditLogger.logConfigChange(user?.uid || company.id, 'campay_config_saved', {
         configType: 'campay',
@@ -847,7 +844,7 @@ const Settings = () => {
           maxAmount: campayConfig.maxAmount
         }
       });
-      
+
       showSuccessToast('Campay payment settings saved');
     } catch (error) {
       console.error('Error saving Campay config:', error);
@@ -862,14 +859,14 @@ const Settings = () => {
       showErrorToast('Please enter App ID first');
       return;
     }
-    
+
     try {
       setCampayTesting(true);
       const result = await validateCampayCredentials(
-        campayConfig.appId, 
+        campayConfig.appId,
         campayConfig.environment || 'demo'
       );
-      
+
       if (result.isValid) {
         showSuccessToast('Connection successful! Credentials are valid.');
       } else {
@@ -899,7 +896,7 @@ const Settings = () => {
       setCampaySaving(true);
       await saveCampayConfig(company.id, { appId: '', isActive: false }, user?.uid);
       showSuccessToast('Campay credentials cleared');
-      
+
       // Reload config
       const updatedConfig = await initializeCampayConfig(company.id, user?.uid);
       setCampayConfig(updatedConfig);
@@ -925,7 +922,7 @@ const Settings = () => {
 
     try {
       setCinetpaySaving(true);
-      
+
       // Clear credentials by setting them to empty strings
       await saveCinetPayConfig(company.id, {
         siteId: '',
@@ -1008,7 +1005,7 @@ const Settings = () => {
         <h1 className="text-2xl font-semibold text-gray-900">{t('settingsPage.title')}</h1>
         <p className="text-gray-600">{t('settingsPage.subtitle')}</p>
       </div>
-      
+
       {/* Tabs */}
       <div className="mb-6 border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
@@ -1021,7 +1018,7 @@ const Settings = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
             `}
           >
-{t('settingsPage.tabs.colors')}
+            {t('settingsPage.tabs.colors')}
           </button>
           <button
             onClick={() => setActiveTab('account')}
@@ -1102,7 +1099,7 @@ const Settings = () => {
           </button>
         </nav>
       </div>
-      
+
       {/* Colors Tab */}
       {activeTab === 'colors' && (
         <form onSubmit={handleSubmit}>
@@ -1115,7 +1112,7 @@ const Settings = () => {
                     Customize colors for different parts of your platform. You can have different color schemes for your catalogue and dashboard.
                   </p>
                 </div>
-                
+
                 {/* Catalogue Colors */}
                 <div className="bg-blue-50 p-6 rounded-lg">
                   <div className="flex items-center mb-4">
@@ -1150,7 +1147,7 @@ const Settings = () => {
                       </div>
                       <p className="text-xs text-gray-500 mt-2">Headers, buttons, highlights</p>
                     </div>
-                    
+
                     {/* Catalogue Secondary Color */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1175,7 +1172,7 @@ const Settings = () => {
                       </div>
                       <p className="text-xs text-gray-500 mt-2">Prices, accents, add to cart</p>
                     </div>
-                    
+
                     {/* Catalogue Tertiary Color */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1237,7 +1234,7 @@ const Settings = () => {
                       </div>
                       <p className="text-xs text-gray-500 mt-2">Headers, values, primary buttons</p>
                     </div>
-                    
+
                     {/* Dashboard Secondary Color */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1262,7 +1259,7 @@ const Settings = () => {
                       </div>
                       <p className="text-xs text-gray-500 mt-2">Trends, secondary buttons</p>
                     </div>
-                    
+
                     {/* Dashboard Tertiary Color */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1287,7 +1284,7 @@ const Settings = () => {
                       </div>
                       <p className="text-xs text-gray-500 mt-2">Gradients, expenses, delivery</p>
                     </div>
-                    
+
                     {/* Dashboard Header Text Color */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1314,7 +1311,7 @@ const Settings = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Firebase Integration Info */}
                 <div className="bg-blue-50 p-6 rounded-lg">
                   <h3 className="text-lg font-semibold text-blue-800 mb-4">{t('settingsPage.firebaseIntegration.title')}</h3>
@@ -1329,7 +1326,7 @@ const Settings = () => {
                           {user?.uid || 'Loading...'}
                         </code>
                       </div>
-                      <button 
+                      <button
                         onClick={() => {
                           if (user?.uid) {
                             navigator.clipboard.writeText(user.uid);
@@ -1339,7 +1336,7 @@ const Settings = () => {
                         className="ml-4 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
                         disabled={!user?.uid}
                       >
-{t('settingsPage.firebaseIntegration.copyId')}
+                        {t('settingsPage.firebaseIntegration.copyId')}
                       </button>
                     </div>
                     <p className="text-xs text-gray-500 mt-2">
@@ -1351,24 +1348,24 @@ const Settings = () => {
                 {/* Color Preview */}
                 <div className="bg-gray-50 p-6 rounded-lg">
                   <h3 className="text-lg font-semibold text-gray-800 mb-4">Live Preview</h3>
-                  
+
                   {/* Catalogue Preview */}
                   <div className="mb-6">
                     <h4 className="text-sm font-medium text-gray-600 mb-3">Catalogue Preview</h4>
                     <div className="flex items-center space-x-4">
-                      <div 
+                      <div
                         className="px-4 py-3 rounded-lg text-white text-sm font-medium shadow-sm"
                         style={{ backgroundColor: formData.cataloguePrimaryColor }}
                       >
                         Header
                       </div>
-                      <div 
+                      <div
                         className="px-4 py-3 rounded-lg text-white text-sm font-medium shadow-sm"
                         style={{ backgroundColor: formData.catalogueSecondaryColor }}
                       >
                         Price
                       </div>
-                      <div 
+                      <div
                         className="px-4 py-3 rounded-lg text-white text-sm font-medium shadow-sm"
                         style={{ backgroundColor: formData.catalogueTertiaryColor }}
                       >
@@ -1381,19 +1378,19 @@ const Settings = () => {
                   <div>
                     <h4 className="text-sm font-medium text-gray-600 mb-3">Dashboard Preview</h4>
                     <div className="flex items-center space-x-4">
-                      <div 
+                      <div
                         className="px-4 py-3 rounded-lg text-white text-sm font-medium shadow-sm"
                         style={{ backgroundColor: formData.dashboardPrimaryColor }}
                       >
                         Value
                       </div>
-                      <div 
+                      <div
                         className="px-4 py-3 rounded-lg text-white text-sm font-medium shadow-sm"
                         style={{ backgroundColor: formData.dashboardSecondaryColor }}
                       >
                         Trend
                       </div>
-                      <div 
+                      <div
                         className="px-4 py-3 rounded-lg text-white text-sm font-medium shadow-sm"
                         style={{ backgroundColor: formData.dashboardTertiaryColor }}
                       >
@@ -1405,16 +1402,16 @@ const Settings = () => {
 
                 {/* Form Actions */}
                 <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
-                  <Button 
-                    type="button" 
+                  <Button
+                    type="button"
                     variant="outline"
                     onClick={() => setActiveTab('account')}
                     disabled={isLoading}
                   >
                     Cancel
                   </Button>
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     isLoading={isLoading}
                     disabled={isLoading}
                   >
@@ -1426,11 +1423,11 @@ const Settings = () => {
           </Card>
         </form>
       )}
-      
+
       {/* Account Settings Tab */}
       {activeTab === 'account' && (
         <form onSubmit={handleSubmit}>
-              <div className="space-y-6">
+          <div className="space-y-6">
             {/* Company Information Section */}
             <Card>
               <div className="px-6 py-4 border-b border-gray-200">
@@ -1470,71 +1467,58 @@ const Settings = () => {
                 </div>
 
                 {/* Company Details */}
-                  <div className="space-y-4">
-                    <Input
-                      label={t('settingsPage.account.companyName')}
-                      name="name"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      required
-                    />
-                    <Input
-                      label={t('settingsPage.account.description')}
-                      name="description"
-                      value={formData.description}
-                      onChange={handleInputChange}
-                      helpText={t('settingsPage.account.descriptionHelp')}
-                    />
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('settingsPage.account.phoneNumber')}
-                      </label>
-                      <div className="flex rounded-md shadow-sm">
-                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
-                          +237
-                        </span>
-                        <Input
-                          type="tel"
-                          name="phone"
-                          value={formData.phone}
-                          onChange={handlePhoneChange}
-                          placeholder="678904568"
-                          className="flex-1 rounded-l-none"
-                          required
-                          helpText={t('settingsPage.account.phoneHelp')}
-                        />
-                      </div>
+                <div className="space-y-4">
+                  <Input
+                    label={t('settingsPage.account.companyName')}
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    required
+                  />
+                  <Input
+                    label={t('settingsPage.account.description')}
+                    name="description"
+                    value={formData.description}
+                    onChange={handleInputChange}
+                    helpText={t('settingsPage.account.descriptionHelp')}
+                  />
+                  <PhoneInput
+                    label={t('settingsPage.account.phoneNumber')}
+                    value={formData.phone}
+                    onChange={handlePhoneChange}
+                    helpText={t('settingsPage.account.phoneHelp')}
+                    required
+                  />
+                  <Input
+                    label={t('settingsPage.account.location')}
+                    name="location"
+                    value={formData.location}
+                    onChange={handleInputChange}
+                    helpText={t('settingsPage.account.locationHelp')}
+                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Site web</label>
+                    <div className="flex rounded-md shadow-sm">
+                      <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                        https://
+                      </span>
+                      <input
+                        type="text"
+                        name="website"
+                        value={(formData.website || '').replace(/^https?:\/\//i, '')}
+                        onChange={handleWebsiteChange}
+                        placeholder="mon-entreprise.com"
+                        className="flex-1 rounded-l-none border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
                     </div>
-                    <Input
-                      label={t('settingsPage.account.location')}
-                      name="location"
-                      value={formData.location}
-                      onChange={handleInputChange}
-                      helpText={t('settingsPage.account.locationHelp')}
-                    />
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Site web</label>
-                      <div className="flex rounded-md shadow-sm">
-                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
-                          https://
-                        </span>
-                        <input
-                          type="text"
-                          name="website"
-                          value={(formData.website || '').replace(/^https?:\/\//i, '')}
-                          onChange={handleWebsiteChange}
-                          placeholder="mon-entreprise.com"
-                          className="flex-1 rounded-l-none border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                    </div>
-                      <p className="mt-1 text-sm text-gray-500">URL publique de votre entreprise (facultatif)</p>
-                    </div>
+                    <p className="mt-1 text-sm text-gray-500">URL publique de votre entreprise (facultatif)</p>
                   </div>
+                </div>
               </div>
             </Card>
 
             {/* Report Settings Section */}
-                    {(isOwner || effectiveRole !== 'vendeur') && (
+            {(isOwner || effectiveRole !== 'vendeur') && (
               <Card>
                 <div className="px-6 py-4 border-b border-gray-200">
                   <div className="flex items-center gap-2">
@@ -1543,20 +1527,20 @@ const Settings = () => {
                   </div>
                 </div>
                 <div className="p-6 space-y-4">
-                      <Input
-                        label={t('settingsPage.account.reportMail')}
-                        name="report_mail"
-                        type="email"
-                        value={formData.report_mail}
-                        onChange={handleInputChange}
-                        onBlur={() => {
-                          if (formData.report_mail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.report_mail)) {
-                            // Validation silencieuse
-                          }
-                        }}
-                        placeholder="rapports@entreprise.com"
-                        helpText={t('settingsPage.account.reportMailHelp')}
-                      />
+                  <Input
+                    label={t('settingsPage.account.reportMail')}
+                    name="report_mail"
+                    type="email"
+                    value={formData.report_mail}
+                    onChange={handleInputChange}
+                    onBlur={() => {
+                      if (formData.report_mail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.report_mail)) {
+                        // Validation silencieuse
+                      }
+                    }}
+                    placeholder="rapports@entreprise.com"
+                    helpText={t('settingsPage.account.reportMailHelp')}
+                  />
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       {t('settingsPage.account.reportTime')}
@@ -1573,26 +1557,26 @@ const Settings = () => {
                       {t('settingsPage.account.reportTimeHelp')}
                     </p>
                   </div>
-                      <div>
-                        <div className="flex items-center space-x-3">
-                          <input
-                            type="checkbox"
-                            id="emailReportsEnabled"
-                            name="emailReportsEnabled"
-                            checked={formData.emailReportsEnabled}
-                            onChange={(e) => setFormData(prev => ({ ...prev, emailReportsEnabled: e.target.checked }))}
-                            className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
-                          />
-                          <div className="flex-1">
-                            <label htmlFor="emailReportsEnabled" className="block text-sm font-medium text-gray-700 cursor-pointer">
-                              {t('settingsPage.account.emailReportsEnabled')}
-                            </label>
-                            <p className="mt-1 text-sm text-gray-500">
-                              {t('settingsPage.account.emailReportsEnabledHelp')}
-                            </p>
-                          </div>
-                        </div>
+                  <div>
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="emailReportsEnabled"
+                        name="emailReportsEnabled"
+                        checked={formData.emailReportsEnabled}
+                        onChange={(e) => setFormData(prev => ({ ...prev, emailReportsEnabled: e.target.checked }))}
+                        className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                      />
+                      <div className="flex-1">
+                        <label htmlFor="emailReportsEnabled" className="block text-sm font-medium text-gray-700 cursor-pointer">
+                          {t('settingsPage.account.emailReportsEnabled')}
+                        </label>
+                        <p className="mt-1 text-sm text-gray-500">
+                          {t('settingsPage.account.emailReportsEnabledHelp')}
+                        </p>
                       </div>
+                    </div>
+                  </div>
                 </div>
               </Card>
             )}
@@ -1606,15 +1590,15 @@ const Settings = () => {
                 </div>
               </div>
               <div className="p-6 space-y-4">
-                      <div>
+                <div>
                   {safeCanChangeEmail() ? (
                     <Input
                       label={t('settingsPage.account.emailAddress')}
                       name="email"
                       type="email"
                       value={formData.email}
-                          onChange={handleInputChange}
-                          required
+                      onChange={handleInputChange}
+                      required
                       disabled
                       helpText={t('settingsPage.account.currentEmailHelp', 'This is your current email address. Use the form below to change it.')}
                     />
@@ -1630,27 +1614,27 @@ const Settings = () => {
                         disabled
                       />
                       <div className="mt-1">
-                    <p className="text-xs text-gray-500">
-                      {safeGetUserAuthProvider() === 'google.com' 
-                        ? t('settingsPage.account.googleEmailHelp', 'Email is managed by your Google account. To change it, please update your email in your Google account settings.')
-                        : t('settingsPage.account.emailDisabledHelp', 'Email cannot be changed as it is used for critical operations and reports.')}
-                    </p>
-                    {safeGetUserAuthProvider() === 'google.com' && (
-                      <a
-                        href="https://myaccount.google.com/personal-info"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-2 inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 underline"
-                      >
-                        {t('settingsPage.account.updateEmailInGoogleAccount', 'Update email in my Google account')}
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
+                        <p className="text-xs text-gray-500">
+                          {safeGetUserAuthProvider() === 'google.com'
+                            ? t('settingsPage.account.googleEmailHelp', 'Email is managed by your Google account. To change it, please update your email in your Google account settings.')
+                            : t('settingsPage.account.emailDisabledHelp', 'Email cannot be changed as it is used for critical operations and reports.')}
+                        </p>
+                        {safeGetUserAuthProvider() === 'google.com' && (
+                          <a
+                            href="https://myaccount.google.com/personal-info"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2 inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 underline"
+                          >
+                            {t('settingsPage.account.updateEmailInGoogleAccount', 'Update email in my Google account')}
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
                       </div>
                     </>
                   )}
-                      </div>
-                    </div>
+                </div>
+              </div>
             </Card>
 
             {/* Security Section */}
@@ -1659,8 +1643,8 @@ const Settings = () => {
                 <div className="flex items-center gap-2">
                   <Shield className="w-5 h-5 text-gray-600" />
                   <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.sections.security', 'Security')}</h3>
-                  </div>
                 </div>
+              </div>
               <div className="p-6">
                 {/* Email Change - Only show for email/password users */}
                 {safeCanChangeEmail() ? (
@@ -1707,7 +1691,7 @@ const Settings = () => {
                 {safeCanChangeEmail() && safeCanChangePassword() && (
                   <div className="my-6 border-t border-gray-200"></div>
                 )}
-                
+
                 {/* Password Change - Only show for email/password users */}
                 {safeCanChangePassword() ? (
                   <div>
@@ -1752,10 +1736,10 @@ const Settings = () => {
                       <div className="flex items-center gap-2 mb-2">
                         {safeGetUserAuthProvider() === 'google.com' && (
                           <svg className="w-5 h-5" viewBox="0 0 24 24">
-                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                           </svg>
                         )}
                         <span className="font-medium text-amber-800">
@@ -1798,7 +1782,7 @@ const Settings = () => {
                 )}
               </div>
             </Card>
-                
+
             {/* Preferences Section */}
             <Card>
               <div className="px-6 py-4 border-b border-gray-200">
@@ -1808,66 +1792,66 @@ const Settings = () => {
                 </div>
               </div>
               <div className="p-6">
-                  <div className="space-y-4">
-                    <div className="flex items-start">
-                      <div className="flex items-center h-5">
-                        <input
-                          id="email-notifications"
-                          name="email-notifications"
-                          type="checkbox"
-                          className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
-                          defaultChecked
-                        />
-                      </div>
-                      <div className="ml-3">
-                        <label htmlFor="email-notifications" className="text-sm font-medium text-gray-700">
-                          {t('settingsPage.account.emailNotifications')}
-                        </label>
-                        <p className="text-sm text-gray-500">
-                          {t('settingsPage.account.emailNotificationsHelp')}
-                        </p>
-                      </div>
+                <div className="space-y-4">
+                  <div className="flex items-start">
+                    <div className="flex items-center h-5">
+                      <input
+                        id="email-notifications"
+                        name="email-notifications"
+                        type="checkbox"
+                        className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                        defaultChecked
+                      />
                     </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('settingsPage.account.language')}
+                    <div className="ml-3">
+                      <label htmlFor="email-notifications" className="text-sm font-medium text-gray-700">
+                        {t('settingsPage.account.emailNotifications')}
                       </label>
-                      <select
-                        className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                        value={i18n.language}
-                        onChange={handleLanguageChange}
-                      >
-                        <option value="en">{t('languages.en')}</option>
-                        <option value="fr">{t('languages.fr')}</option>
-                      </select>
+                      <p className="text-sm text-gray-500">
+                        {t('settingsPage.account.emailNotificationsHelp')}
+                      </p>
                     </div>
                   </div>
-                </div>
-            </Card>
-                
-                {/* Form Actions */}
-                <div className="flex justify-end space-x-3">
-                  <Button 
-                    type="button" 
-                    variant="outline"
-                    onClick={handleCancel}
-                    disabled={isLoading}
-                  >
-                    {t('settingsPage.account.cancel')}
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    isLoading={isLoading}
-                    disabled={isLoading}
-                  >
-                    {t('settingsPage.account.saveChanges')}
-                  </Button>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {t('settingsPage.account.language')}
+                    </label>
+                    <select
+                      className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      value={i18n.language}
+                      onChange={handleLanguageChange}
+                    >
+                      <option value="en">{t('languages.en')}</option>
+                      <option value="fr">{t('languages.fr')}</option>
+                    </select>
+                  </div>
                 </div>
               </div>
+            </Card>
+
+            {/* Form Actions */}
+            <div className="flex justify-end space-x-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isLoading}
+              >
+                {t('settingsPage.account.cancel')}
+              </Button>
+              <Button
+                type="submit"
+                isLoading={isLoading}
+                disabled={isLoading}
+              >
+                {t('settingsPage.account.saveChanges')}
+              </Button>
+            </div>
+          </div>
         </form>
       )}
-      
+
       {/* Order & Delivery Settings Tab */}
       {activeTab === 'ordering' && (
         <Card>
@@ -1885,11 +1869,10 @@ const Settings = () => {
                   value={orderingSettings?.businessName || ''}
                   onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, businessName: e.target.value } : prev)}
                 />
-                <Input
+                <PhoneInput
                   label={t('settingsPage.ordering.whatsappNumber')}
-                  name="whatsappNumber"
                   value={orderingSettings?.whatsappNumber || ''}
-                  onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, whatsappNumber: e.target.value } : prev)}
+                  onChange={(value) => setOrderingSettings(prev => prev ? { ...prev, whatsappNumber: value } : prev)}
                   helpText={t('settingsPage.ordering.whatsappNumberHelp')}
                 />
               </div>
@@ -1927,7 +1910,7 @@ const Settings = () => {
                     // Reset from server/company defaults
                     if (!company) return;
                     setOrderingSettings({
-                      whatsappNumber: company.phone || '+237',
+                      whatsappNumber: company.phone || '',
                       businessName: company.name || '',
                       paymentMethods: {
                         customMethods: []
@@ -1986,7 +1969,7 @@ const Settings = () => {
                 <h4 className="font-medium text-gray-900 mb-2">Your Catalogue URL</h4>
                 <div className="flex items-center space-x-2">
                   <code className="flex-1 bg-white p-2 rounded border text-sm font-mono">
-                    {typeof window !== 'undefined' 
+                    {typeof window !== 'undefined'
                       ? `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${user?.uid}`
                       : 'Loading...'
                     }
@@ -2012,7 +1995,7 @@ const Settings = () => {
                 <h4 className="font-medium text-gray-900 mb-4">Category-Specific Links</h4>
                 {(() => {
                   const categories = Array.from(new Set(products.map(p => p.category))).sort();
-                  
+
                   if (categories.length === 0) {
                     return (
                       <div className="text-center py-8 text-gray-500">
@@ -2027,7 +2010,7 @@ const Settings = () => {
                         const categoryProducts = products.filter(p => p.category === category);
                         const categoryUrl = `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${user?.uid}?categories=${encodeURIComponent(category)}`;
                         const linkId = `category-${category}`;
-                        
+
                         return (
                           <div key={category} className="bg-white border rounded-lg p-4">
                             <div className="flex items-center justify-between">
@@ -2073,20 +2056,20 @@ const Settings = () => {
                 const categories = Array.from(new Set(products.map(p => p.category))).sort();
                 return categories.length > 1;
               })() && (
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-4">Multi-Category Links</h4>
-                  <div className="bg-yellow-50 p-4 rounded-lg mb-4">
-                    <p className="text-sm text-yellow-800">
-                      You can combine multiple categories in one link by separating them with commas.
-                    </p>
-                    <div className="mt-2">
-                      <code className="text-xs bg-white p-2 rounded border font-mono">
-                        {window.location.origin}/catalogue/{company?.name?.toLowerCase().replace(/\s+/g, '-')}/{user?.uid}?categories=Category1,Category2
-                      </code>
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-4">Multi-Category Links</h4>
+                    <div className="bg-yellow-50 p-4 rounded-lg mb-4">
+                      <p className="text-sm text-yellow-800">
+                        You can combine multiple categories in one link by separating them with commas.
+                      </p>
+                      <div className="mt-2">
+                        <code className="text-xs bg-white p-2 rounded border font-mono">
+                          {window.location.origin}/catalogue/{company?.name?.toLowerCase().replace(/\s+/g, '-')}/{user?.uid}?categories=Category1,Category2
+                        </code>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Usage Instructions */}
               <div className="bg-blue-50 p-4 rounded-lg">
@@ -2462,11 +2445,10 @@ const Settings = () => {
                                 </div>
                                 <span className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.mtnMoney')}</span>
                               </div>
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                checkoutSettings.enabledPaymentMethods.mtnMoney
-                                  ? 'bg-emerald-100 text-emerald-700' 
-                                  : 'bg-gray-100 text-gray-500'
-                              }`}>
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${checkoutSettings.enabledPaymentMethods.mtnMoney
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-gray-100 text-gray-500'
+                                }`}>
                                 {checkoutSettings.enabledPaymentMethods.mtnMoney ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
                               </span>
                             </div>
@@ -2478,11 +2460,10 @@ const Settings = () => {
                                 </div>
                                 <span className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.orangeMoney')}</span>
                               </div>
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                checkoutSettings.enabledPaymentMethods.orangeMoney
-                                  ? 'bg-emerald-100 text-emerald-700' 
-                                  : 'bg-gray-100 text-gray-500'
-                              }`}>
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${checkoutSettings.enabledPaymentMethods.orangeMoney
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-gray-100 text-gray-500'
+                                }`}>
                                 {checkoutSettings.enabledPaymentMethods.orangeMoney ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
                               </span>
                             </div>
@@ -2492,11 +2473,10 @@ const Settings = () => {
                                 <CreditCard className="h-5 w-5 text-gray-600" />
                                 <span className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.visaCard')}</span>
                               </div>
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                checkoutSettings.enabledPaymentMethods.visaCard
-                                  ? 'bg-emerald-100 text-emerald-700' 
-                                  : 'bg-gray-100 text-gray-500'
-                              }`}>
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${checkoutSettings.enabledPaymentMethods.visaCard
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-gray-100 text-gray-500'
+                                }`}>
                                 {checkoutSettings.enabledPaymentMethods.visaCard ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
                               </span>
                             </div>
@@ -2506,11 +2486,10 @@ const Settings = () => {
                                 <Truck className="h-5 w-5 text-emerald-600" />
                                 <span className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.payOnsite')}</span>
                               </div>
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                checkoutSettings.enabledPaymentMethods.payOnsite
-                                  ? 'bg-emerald-100 text-emerald-700' 
-                                  : 'bg-gray-100 text-gray-500'
-                              }`}>
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${checkoutSettings.enabledPaymentMethods.payOnsite
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-gray-100 text-gray-500'
+                                }`}>
                                 {checkoutSettings.enabledPaymentMethods.payOnsite ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
                               </span>
                             </div>
@@ -2558,11 +2537,10 @@ const Settings = () => {
                                     </div>
                                     <span className="text-sm font-medium text-gray-700">{t('settingsPage.paymentGateways.cinetpay.name')}</span>
                                   </div>
-                                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                    cinetpayConfig?.isActive
-                                      ? 'bg-emerald-100 text-emerald-700' 
-                                      : 'bg-gray-100 text-gray-500'
-                                  }`}>
+                                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${cinetpayConfig?.isActive
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-gray-100 text-gray-500'
+                                    }`}>
                                     {cinetpayConfig?.isActive ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
                                   </span>
                                 </div>
@@ -2575,11 +2553,10 @@ const Settings = () => {
                                     </div>
                                     <span className="text-sm font-medium text-gray-700">{t('settingsPage.paymentGateways.campay.name')}</span>
                                   </div>
-                                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                    campayConfig?.isActive
-                                      ? 'bg-emerald-100 text-emerald-700' 
-                                      : 'bg-gray-100 text-gray-500'
-                                  }`}>
+                                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${campayConfig?.isActive
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-gray-100 text-gray-500'
+                                    }`}>
                                     {campayConfig?.isActive ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
                                   </span>
                                 </div>
@@ -2594,7 +2571,7 @@ const Settings = () => {
                             <ShoppingBag className="h-5 w-5 text-emerald-600" />
                             <h2 className="text-xl font-semibold text-gray-900">{t('settingsPage.checkout.catalogueDisplay')}</h2>
                           </div>
-                          
+
                           <div className="space-y-4">
                             <div className="flex items-center justify-between">
                               <div>
@@ -2697,40 +2674,36 @@ const Settings = () => {
                           <Eye className="h-5 w-5 text-emerald-600" />
                           <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.checkout.livePreview')}</h3>
                         </div>
-                        
+
                         <div className="space-y-3 text-sm">
                           <div className="flex items-center justify-between">
                             <span className="text-gray-600">{t('settingsPage.checkout.contactSection')}</span>
-                            <span className={`px-2 py-1 rounded text-xs ${
-                              checkoutSettings.showContactSection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
-                            }`}>
+                            <span className={`px-2 py-1 rounded text-xs ${checkoutSettings.showContactSection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                              }`}>
                               {checkoutSettings.showContactSection ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
                             </span>
                           </div>
-                          
+
                           <div className="flex items-center justify-between">
                             <span className="text-gray-600">{t('settingsPage.checkout.deliverySection')}</span>
-                            <span className={`px-2 py-1 rounded text-xs ${
-                              checkoutSettings.showDeliverySection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
-                            }`}>
+                            <span className={`px-2 py-1 rounded text-xs ${checkoutSettings.showDeliverySection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                              }`}>
                               {checkoutSettings.showDeliverySection ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
                             </span>
                           </div>
-                          
+
                           <div className="flex items-center justify-between">
                             <span className="text-gray-600">{t('settingsPage.checkout.paymentSection')}</span>
-                            <span className={`px-2 py-1 rounded text-xs ${
-                              checkoutSettings.showPaymentSection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
-                            }`}>
+                            <span className={`px-2 py-1 rounded text-xs ${checkoutSettings.showPaymentSection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                              }`}>
                               {checkoutSettings.showPaymentSection ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
                             </span>
                           </div>
-                          
+
                           <div className="flex items-center justify-between">
                             <span className="text-gray-600">{t('settingsPage.checkout.orderSummarySection')}</span>
-                            <span className={`px-2 py-1 rounded text-xs ${
-                              checkoutSettings.showOrderSummary ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
-                            }`}>
+                            <span className={`px-2 py-1 rounded text-xs ${checkoutSettings.showOrderSummary ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                              }`}>
                               {checkoutSettings.showOrderSummary ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
                             </span>
                           </div>
@@ -2742,33 +2715,28 @@ const Settings = () => {
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-gray-500">Nom complet</span>
-                                  <span className={`w-2 h-2 rounded-full ${
-                                    (checkoutSettings.showName ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
-                                  }`}></span>
+                                  <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showName ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
+                                    }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-gray-500">{t('settingsPage.checkout.phoneField')}</span>
-                                  <span className={`w-2 h-2 rounded-full ${
-                                    checkoutSettings.showPhone ? 'bg-emerald-500' : 'bg-gray-300'
-                                  }`}></span>
+                                  <span className={`w-2 h-2 rounded-full ${checkoutSettings.showPhone ? 'bg-emerald-500' : 'bg-gray-300'
+                                    }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-gray-500">Quartier/Résidence</span>
-                                  <span className={`w-2 h-2 rounded-full ${
-                                    (checkoutSettings.showQuarter ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
-                                  }`}></span>
+                                  <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showQuarter ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
+                                    }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-gray-500">{t('settingsPage.checkout.emailField')}</span>
-                                  <span className={`w-2 h-2 rounded-full ${
-                                    checkoutSettings.showEmail ? 'bg-emerald-500' : 'bg-gray-300'
-                                  }`}></span>
+                                  <span className={`w-2 h-2 rounded-full ${checkoutSettings.showEmail ? 'bg-emerald-500' : 'bg-gray-300'
+                                    }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-gray-500">{t('settingsPage.checkout.newsletterOptIn')}</span>
-                                  <span className={`w-2 h-2 rounded-full ${
-                                    checkoutSettings.showNewsletter ? 'bg-emerald-500' : 'bg-gray-300'
-                                  }`}></span>
+                                  <span className={`w-2 h-2 rounded-full ${checkoutSettings.showNewsletter ? 'bg-emerald-500' : 'bg-gray-300'
+                                    }`}></span>
                                 </div>
                               </div>
                             </div>
@@ -2780,56 +2748,48 @@ const Settings = () => {
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-gray-500">Nom pour livraison</span>
-                                  <span className={`w-2 h-2 rounded-full ${
-                                    (checkoutSettings.showDeliveryName ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
-                                  }`}></span>
+                                  <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showDeliveryName ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
+                                    }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-gray-500">Téléphone pour livraison</span>
-                                  <span className={`w-2 h-2 rounded-full ${
-                                    (checkoutSettings.showDeliveryPhone ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
-                                  }`}></span>
+                                  <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showDeliveryPhone ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
+                                    }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-gray-500">Adresse ligne 1</span>
-                                  <span className={`w-2 h-2 rounded-full ${
-                                    (checkoutSettings.showDeliveryAddressLine1 ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
-                                  }`}></span>
+                                  <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showDeliveryAddressLine1 ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
+                                    }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-gray-500">Adresse ligne 2</span>
-                                  <span className={`w-2 h-2 rounded-full ${
-                                    (checkoutSettings.showDeliveryAddressLine2 ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
-                                  }`}></span>
+                                  <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showDeliveryAddressLine2 ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
+                                    }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-gray-500">Quartier/Zone de livraison</span>
-                                  <span className={`w-2 h-2 rounded-full ${
-                                    (checkoutSettings.showDeliveryQuarter ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
-                                  }`}></span>
+                                  <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showDeliveryQuarter ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
+                                    }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-gray-500">Ville de livraison</span>
-                                  <span className={`w-2 h-2 rounded-full ${
-                                    (checkoutSettings.showDeliveryCity ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
-                                  }`}></span>
+                                  <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showDeliveryCity ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
+                                    }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-gray-500">{t('settingsPage.checkout.deliveryInstructions')}</span>
-                                  <span className={`w-2 h-2 rounded-full ${
-                                    checkoutSettings.showDeliveryInstructions ? 'bg-emerald-500' : 'bg-gray-300'
-                                  }`}></span>
+                                  <span className={`w-2 h-2 rounded-full ${checkoutSettings.showDeliveryInstructions ? 'bg-emerald-500' : 'bg-gray-300'
+                                    }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-gray-500">{t('settingsPage.checkout.country')}</span>
-                                  <span className={`w-2 h-2 rounded-full ${
-                                    checkoutSettings.showCountry ? 'bg-emerald-500' : 'bg-gray-300'
-                                  }`}></span>
+                                  <span className={`w-2 h-2 rounded-full ${checkoutSettings.showCountry ? 'bg-emerald-500' : 'bg-gray-300'
+                                    }`}></span>
                                 </div>
                               </div>
                             </div>
                           )}
-                          
+
                           <div className="border-t border-gray-200 pt-3">
                             <div className="text-gray-600 mb-2">{t('settingsPage.checkout.paymentMethodsLabel')}</div>
                             <div className="space-y-1">
@@ -2837,14 +2797,13 @@ const Settings = () => {
                                 <div key={method} className="flex items-center justify-between">
                                   <span className="text-xs text-gray-500 capitalize">
                                     {method === 'mtnMoney' ? t('settingsPage.checkout.mtnMoney') :
-                                     method === 'orangeMoney' ? t('settingsPage.checkout.orangeMoney') :
-                                     method === 'visaCard' ? t('settingsPage.checkout.visaCard') :
-                                     method === 'payOnsite' ? t('settingsPage.checkout.payOnsite') :
-                                     method.replace(/([A-Z])/g, ' $1').trim()}
+                                      method === 'orangeMoney' ? t('settingsPage.checkout.orangeMoney') :
+                                        method === 'visaCard' ? t('settingsPage.checkout.visaCard') :
+                                          method === 'payOnsite' ? t('settingsPage.checkout.payOnsite') :
+                                            method.replace(/([A-Z])/g, ' $1').trim()}
                                   </span>
-                                  <span className={`w-2 h-2 rounded-full ${
-                                    enabled ? 'bg-emerald-500' : 'bg-gray-300'
-                                  }`}></span>
+                                  <span className={`w-2 h-2 rounded-full ${enabled ? 'bg-emerald-500' : 'bg-gray-300'
+                                    }`}></span>
                                 </div>
                               ))}
                             </div>
@@ -2853,9 +2812,8 @@ const Settings = () => {
                           <div className="border-t border-gray-200 pt-3">
                             <div className="flex items-center justify-between">
                               <span className="text-gray-600">{t('settingsPage.checkout.catalogueCheckout')}</span>
-                              <span className={`px-2 py-1 rounded text-xs ${
-                                checkoutSettings.showCheckoutInCatalogue ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
-                              }`}>
+                              <span className={`px-2 py-1 rounded text-xs ${checkoutSettings.showCheckoutInCatalogue ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                                }`}>
                                 {checkoutSettings.showCheckoutInCatalogue ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
                               </span>
                             </div>
@@ -2905,7 +2863,7 @@ const Settings = () => {
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.title')}</h3>
                   <p className="text-sm text-gray-600">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.subtitle')}</p>
                 </div>
-                
+
                 <div className="space-y-4">
                   {/* MTN Money */}
                   <div className="bg-gray-50 rounded-lg p-4">
@@ -2926,11 +2884,11 @@ const Settings = () => {
                           type="checkbox"
                           checked={checkoutSettings.enabledPaymentMethods.mtnMoney}
                           onChange={async (e) => {
-                            handleCheckoutSettingsUpdate({ 
-                              enabledPaymentMethods: { 
-                                ...checkoutSettings.enabledPaymentMethods, 
-                                mtnMoney: e.target.checked 
-                              } 
+                            handleCheckoutSettingsUpdate({
+                              enabledPaymentMethods: {
+                                ...checkoutSettings.enabledPaymentMethods,
+                                mtnMoney: e.target.checked
+                              }
                             });
                             if (company?.id) {
                               try {
@@ -2975,11 +2933,11 @@ const Settings = () => {
                           type="checkbox"
                           checked={checkoutSettings.enabledPaymentMethods.orangeMoney}
                           onChange={async (e) => {
-                            handleCheckoutSettingsUpdate({ 
-                              enabledPaymentMethods: { 
-                                ...checkoutSettings.enabledPaymentMethods, 
-                                orangeMoney: e.target.checked 
-                              } 
+                            handleCheckoutSettingsUpdate({
+                              enabledPaymentMethods: {
+                                ...checkoutSettings.enabledPaymentMethods,
+                                orangeMoney: e.target.checked
+                              }
                             });
                             if (company?.id) {
                               try {
@@ -3024,11 +2982,11 @@ const Settings = () => {
                           type="checkbox"
                           checked={checkoutSettings.enabledPaymentMethods.visaCard}
                           onChange={async (e) => {
-                            handleCheckoutSettingsUpdate({ 
-                              enabledPaymentMethods: { 
-                                ...checkoutSettings.enabledPaymentMethods, 
-                                visaCard: e.target.checked 
-                              } 
+                            handleCheckoutSettingsUpdate({
+                              enabledPaymentMethods: {
+                                ...checkoutSettings.enabledPaymentMethods,
+                                visaCard: e.target.checked
+                              }
                             });
                             if (company?.id) {
                               try {
@@ -3073,11 +3031,11 @@ const Settings = () => {
                           type="checkbox"
                           checked={checkoutSettings.enabledPaymentMethods.payOnsite}
                           onChange={async (e) => {
-                            handleCheckoutSettingsUpdate({ 
-                              enabledPaymentMethods: { 
-                                ...checkoutSettings.enabledPaymentMethods, 
-                                payOnsite: e.target.checked 
-                              } 
+                            handleCheckoutSettingsUpdate({
+                              enabledPaymentMethods: {
+                                ...checkoutSettings.enabledPaymentMethods,
+                                payOnsite: e.target.checked
+                              }
                             });
                             if (company?.id) {
                               try {
@@ -3109,40 +3067,40 @@ const Settings = () => {
                       {orderingSettings.paymentMethods.customMethods
                         .filter(m => m.isActive)
                         .map((method) => (
-                        <div key={method.id} className="bg-gray-50 rounded-lg p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                                {method.type === 'phone' && <Phone className="h-5 w-5 text-purple-600" />}
-                                {method.type === 'ussd' && <Hash className="h-5 w-5 text-purple-600" />}
-                                {method.type === 'link' && <Link className="h-5 w-5 text-purple-600" />}
+                          <div key={method.id} className="bg-gray-50 rounded-lg p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                  {method.type === 'phone' && <Phone className="h-5 w-5 text-purple-600" />}
+                                  {method.type === 'ussd' && <Hash className="h-5 w-5 text-purple-600" />}
+                                  {method.type === 'link' && <Link className="h-5 w-5 text-purple-600" />}
+                                </div>
+                                <div>
+                                  <label className="text-sm font-medium text-gray-900 block">
+                                    {method.name}
+                                  </label>
+                                  <p className="text-xs text-gray-600">
+                                    {method.type === 'phone' && '📞'}
+                                    {method.type === 'ussd' && '🔢'}
+                                    {method.type === 'link' && '🔗'}
+                                    {' '}{method.value}
+                                  </p>
+                                </div>
                               </div>
-                              <div>
-                                <label className="text-sm font-medium text-gray-900 block">
-                                  {method.name}
-                                </label>
-                                <p className="text-xs text-gray-600">
-                                  {method.type === 'phone' && '📞'}
-                                  {method.type === 'ussd' && '🔢'}
-                                  {method.type === 'link' && '🔗'}
-                                  {' '}{method.value}
-                                </p>
-                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={method.isActive}
+                                  onChange={async (e) => {
+                                    await handleUpdatePaymentMethod(method.id, { isActive: e.target.checked });
+                                  }}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
                             </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={method.isActive}
-                                onChange={async (e) => {
-                                  await handleUpdatePaymentMethod(method.id, { isActive: e.target.checked });
-                                }}
-                                className="sr-only peer"
-                              />
-                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                            </label>
                           </div>
-                        </div>
-                      ))}
+                        ))}
                     </>
                   )}
 
@@ -3256,358 +3214,353 @@ const Settings = () => {
               </Card>
             ) : (
               <>
-              {/* CinetPay Accordion */}
-              <Card className="overflow-hidden">
-                <button
-                  onClick={() => setExpandedProvider(expandedProvider === 'cinetpay' ? null : 'cinetpay')}
-                  className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors duration-200"
-                  aria-expanded={expandedProvider === 'cinetpay'}
-                  aria-controls="cinetpay-content"
-                  disabled={cinetpayLoading}
-                >
-                  <div className="flex items-center space-x-4 flex-1">
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <CreditCard className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div className="text-left">
-                      <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.paymentGateways.cinetpay.name')}</h3>
-                      <p className="text-sm text-gray-500">{t('settingsPage.paymentGateways.cinetpay.description')}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    {cinetpayLoading ? (
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
-                    ) : (
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        cinetpayConfig?.isActive 
-                          ? 'bg-emerald-100 text-emerald-700' 
-                          : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        {cinetpayConfig?.isActive ? t('settingsPage.paymentGateways.cinetpay.enabled') : t('settingsPage.paymentGateways.cinetpay.disabled')}
-                      </span>
-                    )}
-                    {expandedProvider === 'cinetpay' ? (
-                      <ChevronUp className="h-5 w-5 text-gray-400" />
-                    ) : (
-                      <ChevronDown className="h-5 w-5 text-gray-400" />
-                    )}
-                  </div>
-                </button>
-                
-                {expandedProvider === 'cinetpay' && (
-                  <div 
-                    id="cinetpay-content"
-                    className="border-t border-gray-200 p-6 animate-slide-down"
+                {/* CinetPay Accordion */}
+                <Card className="overflow-hidden">
+                  <button
+                    onClick={() => setExpandedProvider(expandedProvider === 'cinetpay' ? null : 'cinetpay')}
+                    className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors duration-200"
+                    aria-expanded={expandedProvider === 'cinetpay'}
+                    aria-controls="cinetpay-content"
+                    disabled={cinetpayLoading}
                   >
-                    {cinetpayLoading ? (
-                      <div className="flex items-center justify-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-200 border-t-blue-600"></div>
-                        <span className="ml-3 text-gray-600">Loading CinetPay settings...</span>
+                    <div className="flex items-center space-x-4 flex-1">
+                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <CreditCard className="h-6 w-6 text-blue-600" />
                       </div>
-                    ) : !cinetpayConfig ? (
-                      <div className="text-center py-8">
-                        <p className="text-gray-600 mb-4">CinetPay configuration not found. Initializing...</p>
-                        <Button
-                          onClick={async () => {
-                            if (company?.id && user?.uid) {
-                              try {
-                                setCinetpayLoading(true);
-                                const config = await initializeCinetPayConfig(company.id, user.uid);
-                                setCinetpayConfig(config);
-                              } catch (error) {
-                                console.error('Error initializing CinetPay:', error);
-                              } finally {
-                                setCinetpayLoading(false);
-                              }
-                            }
-                          }}
-                        >
-                          Initialize CinetPay Configuration
-                        </Button>
+                      <div className="text-left">
+                        <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.paymentGateways.cinetpay.name')}</h3>
+                        <p className="text-sm text-gray-500">{t('settingsPage.paymentGateways.cinetpay.description')}</p>
                       </div>
-                    ) : (
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Left Column - Configuration */}
-                        <div className="space-y-6">
-                          {/* Enable/Disable Toggle */}
-                          <div className="bg-gray-50 rounded-lg p-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <label className="text-sm font-medium text-gray-900 block mb-1">
-                                  Enable CinetPay Payments
-                                </label>
-                                <p className="text-xs text-gray-600">Activate CinetPay payment processing</p>
-                              </div>
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={cinetpayConfig.isActive}
-                                  onChange={(e) => handleCinetpayConfigUpdate({ isActive: e.target.checked })}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                              </label>
-                            </div>
-                          </div>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      {cinetpayLoading ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+                      ) : (
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${cinetpayConfig?.isActive
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-gray-100 text-gray-600'
+                          }`}>
+                          {cinetpayConfig?.isActive ? t('settingsPage.paymentGateways.cinetpay.enabled') : t('settingsPage.paymentGateways.cinetpay.disabled')}
+                        </span>
+                      )}
+                      {expandedProvider === 'cinetpay' ? (
+                        <ChevronUp className="h-5 w-5 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="h-5 w-5 text-gray-400" />
+                      )}
+                    </div>
+                  </button>
 
-                          {/* Test Mode Toggle */}
-                          <div className="bg-gray-50 rounded-lg p-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <label className="text-sm font-medium text-gray-900 block mb-1">
-                                  Test Mode
-                                </label>
-                                <p className="text-xs text-gray-600">Use sandbox environment for testing</p>
-                              </div>
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={cinetpayConfig.testMode}
-                                  onChange={(e) => handleCinetpayConfigUpdate({ testMode: e.target.checked })}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                              </label>
-                            </div>
-                            {cinetpayConfig.testMode && (
-                              <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
-                                ⚠️ All payments will be processed in sandbox mode
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Credentials */}
-                          <div className="space-y-4">
-                            <h4 className="text-sm font-semibold text-gray-900">Credentials</h4>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Site ID</label>
-                              <Input
-                                type="text"
-                                value={cinetpayConfig.siteId}
-                                onChange={(e) => handleCinetpayConfigUpdate({ siteId: e.target.value })}
-                                placeholder="Enter your CinetPay Site ID"
-                                className="w-full"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">API Key</label>
-                              <Input
-                                type="password"
-                                value={cinetpayConfig.apiKey}
-                                onChange={(e) => handleCinetpayConfigUpdate({ apiKey: e.target.value })}
-                                placeholder="Enter your CinetPay API Key"
-                                className="w-full"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Currency</label>
-                              <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-600">
-                                XAF (Cameroon Franc) - Fixed
-                              </div>
-                            </div>
-                            <div className="flex gap-3">
-                              <Button
-                                onClick={handleTestCinetpayConnection}
-                                disabled={cinetpayTesting || !cinetpayConfig.siteId || !cinetpayConfig.apiKey}
-                                className="flex-1"
-                              >
-                                {cinetpayTesting ? 'Testing...' : 'Test Connection'}
-                              </Button>
-                              <Button
-                                onClick={handleClearCinetpayCredentials}
-                                disabled={cinetpaySaving || !cinetpayConfig.siteId || !cinetpayConfig.apiKey}
-                                variant="outline"
-                                className="flex-1 bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Clear
-                              </Button>
-                            </div>
-                          </div>
-
-                          {/* Payment Methods */}
-                          <div className="space-y-4">
-                            <div>
-                              <h4 className="text-sm font-semibold text-gray-900">{t('settingsPage.paymentGateways.cinetpay.enabledChannels')}</h4>
-                              <p className="text-xs text-gray-500 mt-1">{t('settingsPage.paymentMethodsAndGateways.gateways.autoSyncNote')}</p>
-                            </div>
-                            <div className="space-y-3">
-                              {[
-                                { key: 'mobileMoney', label: t('settingsPage.paymentGateways.cinetpay.mobileMoney'), desc: t('settingsPage.paymentMethodsAndGateways.gateways.mobileMoneyDesc') },
-                                { key: 'creditCard', label: t('settingsPage.paymentGateways.cinetpay.creditCard'), desc: t('settingsPage.paymentMethodsAndGateways.gateways.creditCardDesc') },
-                                { key: 'wallet', label: t('settingsPage.paymentGateways.cinetpay.wallet'), desc: t('settingsPage.paymentMethodsAndGateways.gateways.walletDesc') }
-                              ].map((method) => (
-                                <div key={method.key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                  <div>
-                                    <label className="text-sm font-medium text-gray-700">{method.label}</label>
-                                    <p className="text-xs text-gray-500">{method.desc}</p>
-                                  </div>
-                                  <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      checked={cinetpayConfig.enabledChannels[method.key as keyof typeof cinetpayConfig.enabledChannels]}
-                                      onChange={(e) => handleCinetpayConfigUpdate({ 
-                                        enabledChannels: { 
-                                          ...cinetpayConfig.enabledChannels, 
-                                          [method.key]: e.target.checked 
-                                        } 
-                                      })}
-                                      className="sr-only peer"
-                                    />
-                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                                  </label>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Save Button */}
+                  {expandedProvider === 'cinetpay' && (
+                    <div
+                      id="cinetpay-content"
+                      className="border-t border-gray-200 p-6 animate-slide-down"
+                    >
+                      {cinetpayLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-200 border-t-blue-600"></div>
+                          <span className="ml-3 text-gray-600">Loading CinetPay settings...</span>
+                        </div>
+                      ) : !cinetpayConfig ? (
+                        <div className="text-center py-8">
+                          <p className="text-gray-600 mb-4">CinetPay configuration not found. Initializing...</p>
                           <Button
-                            onClick={handleSaveCinetpayConfig}
-                            disabled={cinetpaySaving}
-                            className="w-full"
+                            onClick={async () => {
+                              if (company?.id && user?.uid) {
+                                try {
+                                  setCinetpayLoading(true);
+                                  const config = await initializeCinetPayConfig(company.id, user.uid);
+                                  setCinetpayConfig(config);
+                                } catch (error) {
+                                  console.error('Error initializing CinetPay:', error);
+                                } finally {
+                                  setCinetpayLoading(false);
+                                }
+                              }
+                            }}
                           >
-                            <Save className="h-4 w-4 mr-2" />
-                            {cinetpaySaving ? 'Saving...' : 'Save CinetPay Settings'}
+                            Initialize CinetPay Configuration
                           </Button>
                         </div>
+                      ) : (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          {/* Left Column - Configuration */}
+                          <div className="space-y-6">
+                            {/* Enable/Disable Toggle */}
+                            <div className="bg-gray-50 rounded-lg p-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-900 block mb-1">
+                                    Enable CinetPay Payments
+                                  </label>
+                                  <p className="text-xs text-gray-600">Activate CinetPay payment processing</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={cinetpayConfig.isActive}
+                                    onChange={(e) => handleCinetpayConfigUpdate({ isActive: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                </label>
+                              </div>
+                            </div>
 
-                        {/* Right Column - Preview */}
-                        <div>
-                          <div className="bg-gray-50 rounded-lg p-6 sticky top-4">
-                            <h4 className="text-sm font-semibold text-gray-900 mb-4">Configuration Preview</h4>
-                            <div className="space-y-3 text-sm">
-                              <div className="flex justify-between">
-                                <span className="text-gray-600">Status</span>
-                                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                  cinetpayConfig.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
-                                }`}>
-                                  {cinetpayConfig.isActive ? 'Enabled' : 'Disabled'}
-                                </span>
+                            {/* Test Mode Toggle */}
+                            <div className="bg-gray-50 rounded-lg p-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-900 block mb-1">
+                                    Test Mode
+                                  </label>
+                                  <p className="text-xs text-gray-600">Use sandbox environment for testing</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={cinetpayConfig.testMode}
+                                    onChange={(e) => handleCinetpayConfigUpdate({ testMode: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600">Environment</span>
-                                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                  cinetpayConfig.testMode ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
-                                }`}>
-                                  {cinetpayConfig.testMode ? 'Test Mode' : 'Live Mode'}
-                                </span>
+                              {cinetpayConfig.testMode && (
+                                <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                                  ⚠️ All payments will be processed in sandbox mode
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Credentials */}
+                            <div className="space-y-4">
+                              <h4 className="text-sm font-semibold text-gray-900">Credentials</h4>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Site ID</label>
+                                <Input
+                                  type="text"
+                                  value={cinetpayConfig.siteId}
+                                  onChange={(e) => handleCinetpayConfigUpdate({ siteId: e.target.value })}
+                                  placeholder="Enter your CinetPay Site ID"
+                                  className="w-full"
+                                />
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600">Site ID</span>
-                                <span className="text-gray-900 font-mono text-xs">
-                                  {cinetpayConfig.siteId ? `${cinetpayConfig.siteId.substring(0, 8)}...` : 'Not set'}
-                                </span>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">API Key</label>
+                                <Input
+                                  type="password"
+                                  value={cinetpayConfig.apiKey}
+                                  onChange={(e) => handleCinetpayConfigUpdate({ apiKey: e.target.value })}
+                                  placeholder="Enter your CinetPay API Key"
+                                  className="w-full"
+                                />
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600">API Key</span>
-                                <span className="text-gray-900 text-xs">
-                                  {cinetpayConfig.apiKey ? '••••••••' : 'Not set'}
-                                </span>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Currency</label>
+                                <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-600">
+                                  XAF (Cameroon Franc) - Fixed
+                                </div>
                               </div>
-                              <div className="border-t border-gray-200 pt-3 mt-3">
-                                <div className="text-gray-600 mb-2 text-xs font-medium">Enabled Methods:</div>
-                                <div className="space-y-1">
-                                  {Object.entries(cinetpayConfig.enabledChannels).map(([channel, enabled]) => (
-                                    <div key={channel} className="flex items-center justify-between text-xs">
-                                      <span className="text-gray-600 capitalize">
-                                        {channel.replace(/([A-Z])/g, ' $1').trim()}
-                                      </span>
-                                      <span className={`w-2 h-2 rounded-full ${
-                                        enabled ? 'bg-emerald-500' : 'bg-gray-300'
-                                      }`}></span>
+                              <div className="flex gap-3">
+                                <Button
+                                  onClick={handleTestCinetpayConnection}
+                                  disabled={cinetpayTesting || !cinetpayConfig.siteId || !cinetpayConfig.apiKey}
+                                  className="flex-1"
+                                >
+                                  {cinetpayTesting ? 'Testing...' : 'Test Connection'}
+                                </Button>
+                                <Button
+                                  onClick={handleClearCinetpayCredentials}
+                                  disabled={cinetpaySaving || !cinetpayConfig.siteId || !cinetpayConfig.apiKey}
+                                  variant="outline"
+                                  className="flex-1 bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Clear
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* Payment Methods */}
+                            <div className="space-y-4">
+                              <div>
+                                <h4 className="text-sm font-semibold text-gray-900">{t('settingsPage.paymentGateways.cinetpay.enabledChannels')}</h4>
+                                <p className="text-xs text-gray-500 mt-1">{t('settingsPage.paymentMethodsAndGateways.gateways.autoSyncNote')}</p>
+                              </div>
+                              <div className="space-y-3">
+                                {[
+                                  { key: 'mobileMoney', label: t('settingsPage.paymentGateways.cinetpay.mobileMoney'), desc: t('settingsPage.paymentMethodsAndGateways.gateways.mobileMoneyDesc') },
+                                  { key: 'creditCard', label: t('settingsPage.paymentGateways.cinetpay.creditCard'), desc: t('settingsPage.paymentMethodsAndGateways.gateways.creditCardDesc') },
+                                  { key: 'wallet', label: t('settingsPage.paymentGateways.cinetpay.wallet'), desc: t('settingsPage.paymentMethodsAndGateways.gateways.walletDesc') }
+                                ].map((method) => (
+                                  <div key={method.key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div>
+                                      <label className="text-sm font-medium text-gray-700">{method.label}</label>
+                                      <p className="text-xs text-gray-500">{method.desc}</p>
                                     </div>
-                                  ))}
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={cinetpayConfig.enabledChannels[method.key as keyof typeof cinetpayConfig.enabledChannels]}
+                                        onChange={(e) => handleCinetpayConfigUpdate({
+                                          enabledChannels: {
+                                            ...cinetpayConfig.enabledChannels,
+                                            [method.key]: e.target.checked
+                                          }
+                                        })}
+                                        className="sr-only peer"
+                                      />
+                                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Save Button */}
+                            <Button
+                              onClick={handleSaveCinetpayConfig}
+                              disabled={cinetpaySaving}
+                              className="w-full"
+                            >
+                              <Save className="h-4 w-4 mr-2" />
+                              {cinetpaySaving ? 'Saving...' : 'Save CinetPay Settings'}
+                            </Button>
+                          </div>
+
+                          {/* Right Column - Preview */}
+                          <div>
+                            <div className="bg-gray-50 rounded-lg p-6 sticky top-4">
+                              <h4 className="text-sm font-semibold text-gray-900 mb-4">Configuration Preview</h4>
+                              <div className="space-y-3 text-sm">
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Status</span>
+                                  <span className={`px-2 py-1 rounded text-xs font-medium ${cinetpayConfig.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                                    }`}>
+                                    {cinetpayConfig.isActive ? 'Enabled' : 'Disabled'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Environment</span>
+                                  <span className={`px-2 py-1 rounded text-xs font-medium ${cinetpayConfig.testMode ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
+                                    }`}>
+                                    {cinetpayConfig.testMode ? 'Test Mode' : 'Live Mode'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Site ID</span>
+                                  <span className="text-gray-900 font-mono text-xs">
+                                    {cinetpayConfig.siteId ? `${cinetpayConfig.siteId.substring(0, 8)}...` : 'Not set'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">API Key</span>
+                                  <span className="text-gray-900 text-xs">
+                                    {cinetpayConfig.apiKey ? '••••••••' : 'Not set'}
+                                  </span>
+                                </div>
+                                <div className="border-t border-gray-200 pt-3 mt-3">
+                                  <div className="text-gray-600 mb-2 text-xs font-medium">Enabled Methods:</div>
+                                  <div className="space-y-1">
+                                    {Object.entries(cinetpayConfig.enabledChannels).map(([channel, enabled]) => (
+                                      <div key={channel} className="flex items-center justify-between text-xs">
+                                        <span className="text-gray-600 capitalize">
+                                          {channel.replace(/([A-Z])/g, ' $1').trim()}
+                                        </span>
+                                        <span className={`w-2 h-2 rounded-full ${enabled ? 'bg-emerald-500' : 'bg-gray-300'
+                                          }`}></span>
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </Card>
+                      )}
+                    </div>
+                  )}
+                </Card>
 
-              {/* Campay Accordion */}
-              <Card className="overflow-hidden">
-                <button
-                  onClick={() => setExpandedProvider(expandedProvider === 'campay' ? null : 'campay')}
-                  className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors duration-200"
-                  aria-expanded={expandedProvider === 'campay'}
-                  aria-controls="campay-content"
-                  disabled={campayLoading}
-                >
-                  <div className="flex items-center space-x-4 flex-1">
-                    <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
-                      <span className="text-emerald-600 font-bold text-lg">CP</span>
-                    </div>
-                    <div className="text-left">
-                      <h3 className="text-lg font-semibold text-gray-900">Campay</h3>
-                      <p className="text-sm text-gray-500">MTN Mobile Money, Orange Money</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    {campayLoading ? (
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-emerald-600 border-t-transparent"></div>
-                    ) : (
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        campayConfig?.isActive 
-                          ? 'bg-emerald-100 text-emerald-700' 
-                          : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        {campayConfig?.isActive ? 'Enabled' : 'Disabled'}
-                      </span>
-                    )}
-                    {expandedProvider === 'campay' ? (
-                      <ChevronUp className="h-5 w-5 text-gray-400" />
-                    ) : (
-                      <ChevronDown className="h-5 w-5 text-gray-400" />
-                    )}
-                  </div>
-                </button>
-                
-                {expandedProvider === 'campay' && (
-                  <div 
-                    id="campay-content"
-                    className="border-t border-gray-200 p-6 animate-slide-down"
+                {/* Campay Accordion */}
+                <Card className="overflow-hidden">
+                  <button
+                    onClick={() => setExpandedProvider(expandedProvider === 'campay' ? null : 'campay')}
+                    className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors duration-200"
+                    aria-expanded={expandedProvider === 'campay'}
+                    aria-controls="campay-content"
+                    disabled={campayLoading}
                   >
-                    {campayLoading ? (
-                      <div className="flex items-center justify-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-4 border-emerald-200 border-t-emerald-600"></div>
-                        <span className="ml-3 text-gray-600">Loading Campay settings...</span>
+                    <div className="flex items-center space-x-4 flex-1">
+                      <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
+                        <span className="text-emerald-600 font-bold text-lg">CP</span>
                       </div>
-                    ) : !campayConfig ? (
-                      <div className="text-center py-8">
-                        <p className="text-gray-600 mb-2">Campay configuration not found.</p>
-                        <p className="text-sm text-gray-500 mb-4">Click the button below to initialize with default settings.</p>
-                        <Button
-                          onClick={async () => {
-                            if (company?.id && user?.uid) {
-                              try {
-                                setCampayLoading(true);
-                                const config = await initializeCampayConfig(company.id, user.uid);
-                                setCampayConfig(config);
-                                showSuccessToast('Campay configuration initialized successfully');
-                              } catch (error: any) {
-                                console.error('Error initializing Campay:', error);
-                                const errorMessage = error?.message || 'Failed to initialize Campay configuration';
-                                if (errorMessage.includes('permission') || errorMessage.includes('Permission')) {
-                                  showErrorToast('Permission denied. Please check Firestore security rules.');
-                                } else {
-                                  showErrorToast(`Error: ${errorMessage}`);
+                      <div className="text-left">
+                        <h3 className="text-lg font-semibold text-gray-900">Campay</h3>
+                        <p className="text-sm text-gray-500">MTN Mobile Money, Orange Money</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      {campayLoading ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-emerald-600 border-t-transparent"></div>
+                      ) : (
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${campayConfig?.isActive
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-gray-100 text-gray-600'
+                          }`}>
+                          {campayConfig?.isActive ? 'Enabled' : 'Disabled'}
+                        </span>
+                      )}
+                      {expandedProvider === 'campay' ? (
+                        <ChevronUp className="h-5 w-5 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="h-5 w-5 text-gray-400" />
+                      )}
+                    </div>
+                  </button>
+
+                  {expandedProvider === 'campay' && (
+                    <div
+                      id="campay-content"
+                      className="border-t border-gray-200 p-6 animate-slide-down"
+                    >
+                      {campayLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-4 border-emerald-200 border-t-emerald-600"></div>
+                          <span className="ml-3 text-gray-600">Loading Campay settings...</span>
+                        </div>
+                      ) : !campayConfig ? (
+                        <div className="text-center py-8">
+                          <p className="text-gray-600 mb-2">Campay configuration not found.</p>
+                          <p className="text-sm text-gray-500 mb-4">Click the button below to initialize with default settings.</p>
+                          <Button
+                            onClick={async () => {
+                              if (company?.id && user?.uid) {
+                                try {
+                                  setCampayLoading(true);
+                                  const config = await initializeCampayConfig(company.id, user.uid);
+                                  setCampayConfig(config);
+                                  showSuccessToast('Campay configuration initialized successfully');
+                                } catch (error: any) {
+                                  console.error('Error initializing Campay:', error);
+                                  const errorMessage = error?.message || 'Failed to initialize Campay configuration';
+                                  if (errorMessage.includes('permission') || errorMessage.includes('Permission')) {
+                                    showErrorToast('Permission denied. Please check Firestore security rules.');
+                                  } else {
+                                    showErrorToast(`Error: ${errorMessage}`);
+                                  }
+                                } finally {
+                                  setCampayLoading(false);
                                 }
-                              } finally {
-                                setCampayLoading(false);
                               }
-                            }
-                          }}
-                          disabled={campayLoading}
-                        >
-                          {campayLoading ? 'Initializing...' : 'Initialize Campay Configuration'}
-                        </Button>
-                      </div>
-                    ) : (
+                            }}
+                            disabled={campayLoading}
+                          >
+                            {campayLoading ? 'Initializing...' : 'Initialize Campay Configuration'}
+                          </Button>
+                        </div>
+                      ) : (
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                           {/* Left Column - Configuration */}
                           <div className="space-y-6">
@@ -3768,17 +3721,15 @@ const Settings = () => {
                               <div className="space-y-3 text-sm">
                                 <div className="flex justify-between">
                                   <span className="text-gray-600">Status</span>
-                                  <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                    campayConfig.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
-                                  }`}>
+                                  <span className={`px-2 py-1 rounded text-xs font-medium ${campayConfig.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                                    }`}>
                                     {campayConfig.isActive ? 'Enabled' : 'Disabled'}
                                   </span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-gray-600">Environment</span>
-                                  <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                    campayConfig.environment === 'demo' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
-                                  }`}>
+                                  <span className={`px-2 py-1 rounded text-xs font-medium ${campayConfig.environment === 'demo' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
+                                    }`}>
                                     {campayConfig.environment === 'demo' ? 'Demo' : 'Production'}
                                   </span>
                                 </div>
@@ -3805,17 +3756,17 @@ const Settings = () => {
                                         <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                                       </div>
                                     )) || (
-                                      <>
-                                        <div className="flex items-center justify-between text-xs">
-                                          <span className="text-gray-600">MTN Mobile Money</span>
-                                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                        </div>
-                                        <div className="flex items-center justify-between text-xs">
-                                          <span className="text-gray-600">Orange Money</span>
-                                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                        </div>
-                                      </>
-                                    )}
+                                        <>
+                                          <div className="flex items-center justify-between text-xs">
+                                            <span className="text-gray-600">MTN Mobile Money</span>
+                                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                          </div>
+                                          <div className="flex items-center justify-between text-xs">
+                                            <span className="text-gray-600">Orange Money</span>
+                                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                          </div>
+                                        </>
+                                      )}
                                   </div>
                                 </div>
                               </div>
@@ -3827,14 +3778,14 @@ const Settings = () => {
                   )}
                 </Card>
 
-              {/* Error State */}
-              {!cinetpayConfig && !campayConfig && !cinetpayLoading && !campayLoading && (
-                <Card>
-                  <div className="text-center py-8 text-gray-500">
-                    <p>Failed to load payment integration settings. Please refresh the page.</p>
-                  </div>
-                </Card>
-              )}
+                {/* Error State */}
+                {!cinetpayConfig && !campayConfig && !cinetpayLoading && !campayLoading && (
+                  <Card>
+                    <div className="text-center py-8 text-gray-500">
+                      <p>Failed to load payment integration settings. Please refresh the page.</p>
+                    </div>
+                  </Card>
+                )}
               </>
 
             )}
