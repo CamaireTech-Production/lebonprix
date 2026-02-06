@@ -24,7 +24,7 @@ const Register = () => {
 
 
 
-  const { currentUser, loading, signOut, signInWithGoogle } = useAuth();
+  const { loading, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const inviteId = searchParams.get('invite');
@@ -362,7 +362,7 @@ const Register = () => {
               showSuccessToast('Inscription avec Google réussie ! Redirection en cours...');
               // Small delay to let onAuthStateChanged handle routing
               await new Promise(resolve => setTimeout(resolve, 100));
-              navigate('/mode-selection');
+              // navigate('/mode-selection'); // Handled by AuthContext now
             } catch (err: any) {
               setIsLoading(false);
               showErrorToast(err.message || 'Erreur lors de l\'inscription avec Google. Veuillez réessayer.');

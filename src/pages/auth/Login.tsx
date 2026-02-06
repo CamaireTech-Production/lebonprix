@@ -15,7 +15,7 @@ const Login = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const inviteId = searchParams.get('invite');
-  
+
   const { loading, signIn, signInWithGoogle, user, companyLoading } = useAuth();
 
   // Pre-fill email from invitation if present
@@ -38,6 +38,12 @@ const Login = () => {
 
   // Check localStorage session on mount and redirect if already logged in
   useEffect(() => {
+    // If there is an invite, DO NOT auto-redirect based on session
+    // Let the user sign in (or confirm sign in) to accept the invite
+    if (inviteId) {
+      return;
+    }
+
     if (!loading && hasActiveSession()) {
       const session = getUserSession();
       if (session) {
@@ -47,23 +53,23 @@ const Login = () => {
           const ownerOrAdminCompany = session.companies.find(
             (c) => c.role === 'owner' || c.role === 'admin'
           );
-          
+
           if (ownerOrAdminCompany) {
             navigate(`/company/${ownerOrAdminCompany.companyId}/dashboard`);
             return;
           } else {
-            // User is only employee - show company selection
-            navigate(`/companies/me/${session.userId}`);
+            // User is only employee - default to employee dashboard
+            navigate('/employee/dashboard');
             return;
           }
         } else {
-          // User has no companies - show mode selection
-          navigate('/mode-selection');
+          // User has no companies - show creation page
+          navigate('/company/create?new_user=true');
           return;
         }
       }
     }
-  }, [loading, navigate]);
+  }, [loading, navigate, inviteId]);
 
   // Watch for user authentication state and company verification completion
   // Also handle invitation acceptance if invite parameter is present
@@ -78,17 +84,17 @@ const Login = () => {
             if (!invitation) {
               throw new Error('Invitation not found');
             }
-            
+
             // Accept invitation after successful login
             await acceptInvitation(inviteId, user.uid);
             showSuccessToast('Invitation acceptée avec succès !');
-            
+
             // Redirect directly to the company dashboard
             navigate(`/company/${invitation.companyId}/dashboard`);
             setIsLoading(false);
             return;
           }
-          
+
           // No invitation, proceed with normal redirect
           setIsLoading(false);
         } catch (error) {
@@ -98,7 +104,7 @@ const Login = () => {
           // Still redirect normally even if invitation fails
         }
       };
-      
+
       handleInvitationAndRedirect();
     }
   }, [user, isLoading, companyLoading, inviteId, navigate]);
@@ -109,35 +115,35 @@ const Login = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    
+
     // Prevent duplicate submissions
     if (isLoading) {
       return;
     }
-    
+
     if (!email || !password) {
       showErrorToast('Veuillez entrer votre email et votre mot de passe');
       return;
     }
-    
+
     try {
       setIsLoading(true);
-      
+
       await signIn(email, password);
-      
+
       // Show success message
       showSuccessToast('Connexion réussie ! Redirection en cours...');
-      
+
       // signIn completed successfully, but user state might not be updated yet
       // Keep loading state true until user is set (handled by useEffect above)
-      
+
       // Don't set isLoading to false here - wait for user state to change
       // The useEffect above will handle stopping the loading state when user is authenticated
       // This prevents the button from stopping loading before auth completes
     } catch (err: any) {
       console.error('Login error:', err);
       setIsLoading(false); // Only stop loading on error
-      
+
       // Show user-friendly error messages
       if (err.message && err.message.includes('déjà en cours')) {
         showErrorToast(err.message);
@@ -174,7 +180,7 @@ const Login = () => {
           </p>
         </div>
       )}
-      
+
       <form onSubmit={handleSubmit}>
         <div className="space-y-4">
           <Input
@@ -187,7 +193,7 @@ const Login = () => {
             onChange={(e) => setEmail(e.target.value)}
             required
           />
-          
+
           <Input
             label="Password"
             id="password"
@@ -198,7 +204,7 @@ const Login = () => {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          
+
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <input
@@ -213,14 +219,14 @@ const Login = () => {
                 Remember me
               </label>
             </div>
-            
+
             <div className="text-sm">
               <a href="#" className="text-indigo-600 hover:text-indigo-500">
                 Forgot your password?
               </a>
             </div>
           </div>
-          
+
           <Button
             type="submit"
             className="w-full"
@@ -290,7 +296,7 @@ const Login = () => {
           Continuer avec Google
         </Button>
       </div>
-      
+
       <div className="mt-6">
         <p className="text-center text-sm text-gray-600">
           Don't have an account?{' '}
