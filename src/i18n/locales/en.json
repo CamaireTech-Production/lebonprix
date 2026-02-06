@@ -1,4 +1,48 @@
 {
+  "company": {
+    "create": {
+      "title": "Create a Company",
+      "subtitle": "Fill in your company information",
+      "name": "Company Name",
+      "namePlaceholder": "Name of your company",
+      "description": "Description",
+      "descriptionPlaceholder": "Describe your company in a few words",
+      "phone": "Phone",
+      "email": "Email",
+      "reportMail": "Email for sales reports",
+      "reportMailPlaceholder": "reports@company.com",
+      "reportTime": "Report reception time",
+      "reportTimeHelp": "Time at which reports will be sent (0-23h)",
+      "location": "Location",
+      "locationPlaceholder": "City, Country",
+      "logo": {
+        "upload": "Add a logo",
+        "change": "Change logo",
+        "remove": "Remove logo",
+        "uploading": "Uploading..."
+      },
+      "buttons": {
+        "cancel": "Cancel",
+        "create": "Create Company",
+        "creating": "Creating...",
+        "success": "Created!"
+      },
+      "newUserMessage": {
+        "title": "Welcome to Geskap!",
+        "content": "To access features, you must first create a company. You will start with the Starter plan (free).",
+        "close": "Close"
+      },
+      "errors": {
+        "nameRequired": "Company name is required",
+        "phoneRequired": "Phone number is required",
+        "emailRequired": "Email is required",
+        "reportEmailRequired": "Report email is required",
+        "invalidEmail": "Please enter a valid email address",
+        "createFailed": "Error during company creation",
+        "logoUploadFailed": "Error uploading logo"
+      }
+    }
+  },
   "common": {
     "appName": "Geskap",
     "loading": "Loading...",
@@ -39,7 +83,8 @@
     "phone": "Phone",
     "email": "Email",
     "mustBeGreaterThanZero": "must be greater than zero",
-    "optional": "Optional"
+    "optional": "Optional",
+    "rememberMe": "Remember me"
   },
   "auth": {
     "login": "Login",
@@ -51,7 +96,55 @@
     "signUp": "Sign Up",
     "dontHaveAccount": "Don't have an account?",
     "alreadyHaveAccount": "Already have an account?",
-    "internalSystem": "Internal Management System"
+    "internalSystem": "Internal Management System",
+    "register": {
+      "title": "Create your account",
+      "username": "Username",
+      "usernameHelp": "3-30 characters",
+      "confirmPassword": "Confirm Password",
+      "agreeTerms": "I agree to the",
+      "terms": "Terms of Service",
+      "submit": "Create my account",
+      "creating": "Creating account...",
+      "success": "Account created successfully! Please wait...",
+      "googleSuccess": "Google registration successful! Redirecting...",
+      "or": "Or",
+      "continueWithGoogle": "Continue with Google",
+      "howItWorks": "How does it work?",
+      "step1": "1. Create your user account",
+      "step2": "2. Create your first company",
+      "step3": "3. Access your company dashboard",
+      "step4": "4. Invite employees if necessary"
+    },
+    "loginPage": {
+      "welcome": "Welcome back",
+      "submit": "Login",
+      "submitting": "Logging in...",
+      "google": "Continue with Google"
+    }
+  },
+  "pwa": {
+    "install": {
+      "title": "Install App",
+      "autoAvailable": "🚀 Auto Install Available!",
+      "fastAccess": "Fast access from your home screen",
+      "installNow": "Install Now",
+      "install": "Install",
+      "mobile": "Mobile",
+      "desktop": "Desktop",
+      "success": {
+        "title": "🎉 Your Geskap app is ready!"
+      },
+      "guide": {
+        "title": "📱 Recommended Method",
+        "content1": "Look in your browser address bar",
+        "content2": "Look for an install icon (📱 or ⬇️) and click it",
+        "tip": "💡 This icon appears automatically when the app is installable",
+        "other": "Other methods:",
+        "benefits": "🎯 Benefits:",
+        "understood": "Understood"
+      }
+    }
   },
   "navigation": {
     "home": "Home",
@@ -1811,8 +1904,8 @@
     "refundExceeds": "Refund amount exceeds remaining debt!",
     "noDebtsToRefund": "No debts available for refund.",
     "noRefunds": "No refunds for this debt.",
-      "refundEntry": "Refund",
-      "descriptionRequiredForSortie": "Description is required for 'sortie' entries. Please explain the debit.",
+    "refundEntry": "Refund",
+    "descriptionRequiredForSortie": "Description is required for 'sortie' entries. Please explain the debit.",
     "additionalStats": "Additional Statistics",
     "removeMoney": "Remove Money",
     "youAreAboutToRemoveMoney": "You are about to remove money from your balance.",
@@ -1820,7 +1913,6 @@
     "willBeStoredAsNegative": "This will be stored as a negative amount automatically",
     "removeMoneyDescriptionPlaceholder": "Describe why this money is being removed (required)"
   },
-
   "suppliers": {
     "title": "Suppliers",
     "subtitle": "Manage your suppliers and track supplier debts",
@@ -2905,4 +2997,4 @@
       "stockRupture": "Stock Out"
     }
   }
-} 
+}

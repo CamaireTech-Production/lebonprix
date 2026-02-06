@@ -4,6 +4,7 @@ import { useAuth } from '@contexts/AuthContext';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@services/core/firebase';
 import { Card, Button, Input } from '@components/common';
+import LanguageSwitcher from '@components/common/LanguageSwitcher';
 import { Building2, Upload, ArrowLeft, ArrowRight, Info, X } from 'lucide-react';
 import { showWarningToast } from '@utils/core/toast';
 import { useTranslation } from 'react-i18next';
@@ -238,7 +239,10 @@ export default function CreateCompany() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow">
+      <div className="bg-white shadow relative">
+        <div className="absolute top-2 right-4">
+          <LanguageSwitcher />
+        </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-6">
             <div className="flex items-center">
@@ -254,14 +258,15 @@ export default function CreateCompany() {
                 <Building2 className="h-6 w-6 text-indigo-600" />
               </div>
               <div className="ml-3">
-                <h1 className="text-2xl font-bold text-gray-900">Créer une companie</h1>
-                <p className="text-sm text-gray-500">Remplissez les informations de votre entreprise</p>
+                <h1 className="text-2xl font-bold text-gray-900">{t('company.create.title')}</h1>
+                <p className="text-sm text-gray-500">{t('company.create.subtitle')}</p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* New User Message */}
       {/* New User Message */}
       {showNewUserMessage && (
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
@@ -271,11 +276,10 @@ export default function CreateCompany() {
                 <Info className="h-5 w-5 text-blue-400" />
               </div>
               <div className="ml-3 pr-8">
-                <h3 className="text-sm font-medium text-blue-800">Bienvenue sur Geskap !</h3>
+                <h3 className="text-sm font-medium text-blue-800">{t('company.create.newUserMessage.title')}</h3>
                 <div className="mt-2 text-sm text-blue-700">
                   <p>
-                    Pour accéder aux fonctionnalités, vous devez d'abord créer une entreprise.
-                    Vous commencerez avec le plan <strong>Starter</strong> (gratuit).
+                    {t('company.create.newUserMessage.content')}
                   </p>
                 </div>
               </div>
@@ -285,7 +289,7 @@ export default function CreateCompany() {
                   onClick={() => setShowNewUserMessage(false)}
                   className="bg-blue-50 rounded-md p-1.5 inline-flex text-blue-500 hover:bg-blue-100 focus:outline-none"
                 >
-                  <span className="sr-only">Fermer</span>
+                  <span className="sr-only">{t('company.create.newUserMessage.close')}</span>
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -446,14 +450,14 @@ export default function CreateCompany() {
               <label
                 htmlFor="logo-upload"
                 className={`cursor-pointer inline-block ${isUploadingLogo ? 'opacity-50 cursor-not-allowed' : ''}`}
-                aria-label="Sélectionner un logo"
+                aria-label={t('company.create.logo.change')}
               >
                 <div className={`flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md transition-colors ${isUploadingLogo
                   ? 'opacity-50 cursor-not-allowed bg-gray-100'
                   : 'hover:bg-gray-50'
                   }`}>
                   <Upload className="h-4 w-4 mr-2" />
-                  {isUploadingLogo ? 'Upload en cours...' : formData.logo ? 'Changer le logo' : 'Ajouter un logo'}
+                  {isUploadingLogo ? t('company.create.logo.uploading') : formData.logo ? t('company.create.logo.change') : t('company.create.logo.upload')}
                 </div>
               </label>
 
@@ -464,7 +468,7 @@ export default function CreateCompany() {
                   className="mt-2 text-sm text-red-600 hover:text-red-800"
                   disabled={isUploadingLogo}
                 >
-                  Supprimer le logo
+                  {t('company.create.logo.remove')}
                 </button>
               )}
             </div>
@@ -472,7 +476,7 @@ export default function CreateCompany() {
             {/* Company Name */}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                Nom de l'entreprise *
+                {t('company.create.name')} *
               </label>
               <input
                 type="text"
@@ -482,7 +486,7 @@ export default function CreateCompany() {
                 onChange={handleInputChange}
                 className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.name ? 'border-red-300' : 'border-gray-300'
                   }`}
-                placeholder="Nom de votre entreprise"
+                placeholder={t('company.create.namePlaceholder')}
               />
               {errors.name && (
                 <p className="mt-1 text-sm text-red-600">{errors.name}</p>
@@ -492,7 +496,7 @@ export default function CreateCompany() {
             {/* Description */}
             <div>
               <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                Description
+                {t('company.create.description')}
               </label>
               <textarea
                 id="description"
@@ -501,7 +505,7 @@ export default function CreateCompany() {
                 onChange={handleInputChange}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="Décrivez votre entreprise en quelques mots"
+                placeholder={t('company.create.descriptionPlaceholder')}
               />
             </div>
 
@@ -509,7 +513,7 @@ export default function CreateCompany() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                  Téléphone *
+                  {t('company.create.phone')} *
                 </label>
                 <div className="flex rounded-md shadow-sm">
                   <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
@@ -533,7 +537,7 @@ export default function CreateCompany() {
 
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email *
+                  {t('company.create.email')} *
                 </label>
                 <input
                   type="email"
@@ -554,7 +558,7 @@ export default function CreateCompany() {
             {/* Report Mail */}
             <div>
               <label htmlFor="report_mail" className="block text-sm font-medium text-gray-700 mb-2">
-                Email pour les rapports de vente *
+                {t('company.create.reportMail')} *
               </label>
               <input
                 type="email"
@@ -569,7 +573,7 @@ export default function CreateCompany() {
                 }}
                 className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.report_mail ? 'border-red-300' : 'border-gray-300'
                   }`}
-                placeholder="rapports@entreprise.com"
+                placeholder={t('company.create.reportMailPlaceholder')}
               />
               {errors.report_mail && (
                 <p className="mt-1 text-sm text-red-600">{errors.report_mail}</p>
@@ -598,7 +602,7 @@ export default function CreateCompany() {
             {/* Location */}
             <div>
               <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
-                Localisation
+                {t('company.create.location')}
               </label>
               <input
                 type="text"
@@ -607,10 +611,11 @@ export default function CreateCompany() {
                 value={formData.location}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="Ville, Pays"
+                placeholder={t('company.create.locationPlaceholder')}
               />
             </div>
 
+            {/* Navigation Buttons */}
             {/* Navigation Buttons */}
             <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
               {!showNewUserMessage && (
@@ -620,14 +625,14 @@ export default function CreateCompany() {
                   onClick={() => navigate(-1)}
                   disabled={isUploadingLogo}
                 >
-                  Annuler
+                  {t('company.create.buttons.cancel')}
                 </button>
               )}
               <Button
                 type="submit"
                 disabled={isUploadingLogo || isLoading || success}
               >
-                {isLoading ? 'Création...' : success ? 'Créée !' : 'Créer la companie'}
+                {isLoading ? t('company.create.buttons.creating') : success ? t('company.create.buttons.success') : t('company.create.buttons.create')}
               </Button>
             </div>
           </form>

@@ -1,16 +1,17 @@
-import { useState, FormEvent, useEffect, useCallback } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, FormEvent, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { Button, Input, SkeletonTable } from '@components/common';
+import LanguageSwitcher from '@components/common/LanguageSwitcher';
+import { useTranslation } from 'react-i18next';
 import { FirebaseError } from 'firebase/app';
 import { signUpUser } from '@services/auth/authService';
 import { showErrorToast, showSuccessToast } from '@utils/core/toast';
 import { validateUsername } from '@utils/validation/usernameValidation';
 import { getInvitation } from '@services/firestore/employees/invitationService';
-import { saveUserSession } from '@utils/storage/userSession';
-import { auth } from '@services/core/firebase';
 
 const Register = () => {
+  const { t } = useTranslation();
   // User form state
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -25,7 +26,7 @@ const Register = () => {
 
 
   const { loading, signInWithGoogle } = useAuth();
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const inviteId = searchParams.get('invite');
 
@@ -175,15 +176,19 @@ const Register = () => {
   };
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Créer votre compte</h2>
+    <div className='relative'>
+      <div className='absolute top-0 right-0'>
+        <LanguageSwitcher />
+      </div>
+
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">{t('auth.register.title')}</h2>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Account Information Section */}
         <div className="space-y-4">
           <div>
             <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-              Nom d'utilisateur <span className="text-red-500">*</span>
+              {t('auth.register.username')} <span className="text-red-500">*</span>
             </label>
             <Input
               id="username"
@@ -199,7 +204,7 @@ const Register = () => {
                 }
               }}
               error={fieldErrors.username}
-              helpText="3-30 caractères"
+              helpText={t('auth.register.usernameHelp')}
               className={fieldErrors.username ? 'border-red-500' : ''}
               required
             />
@@ -207,7 +212,7 @@ const Register = () => {
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email <span className="text-red-500">*</span>
+              {t('auth.email')} <span className="text-red-500">*</span>
             </label>
             <Input
               id="email"
@@ -230,7 +235,7 @@ const Register = () => {
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Mot de passe <span className="text-red-500">*</span>
+              {t('auth.password')} <span className="text-red-500">*</span>
             </label>
             <Input
               id="password"
@@ -253,7 +258,7 @@ const Register = () => {
 
           <div>
             <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-1">
-              Confirmer le mot de passe <span className="text-red-500">*</span>
+              {t('auth.register.confirmPassword')} <span className="text-red-500">*</span>
             </label>
             <Input
               id="confirm-password"
@@ -294,9 +299,9 @@ const Register = () => {
           </div>
           <div className="ml-3 text-sm">
             <label htmlFor="agree-terms" className={`${fieldErrors.agreeTerms ? 'text-red-600' : 'text-gray-700'}`}>
-              J'accepte les{' '}
+              {t('auth.register.agreeTerms')}{' '}
               <a href="#" className="text-indigo-600 hover:text-indigo-500">
-                conditions d'utilisation
+                {t('auth.register.terms')}
               </a>{' '}
               <span className="text-red-500">*</span>
             </label>
@@ -310,9 +315,9 @@ const Register = () => {
           type="submit"
           className="w-full"
           isLoading={isLoading}
-          loadingText="Creating account..."
+          loadingText={t('auth.register.creating')}
         >
-          Créer mon compte
+          {t('auth.register.submit')}
         </Button>
       </form>
 
@@ -323,7 +328,7 @@ const Register = () => {
             <div className="w-full border-t border-gray-300"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">Ou</span>
+            <span className="px-2 bg-white text-gray-500">{t('auth.register.or')}</span>
           </div>
         </div>
       </div>
@@ -359,7 +364,7 @@ const Register = () => {
             try {
               setIsLoading(true);
               await signInWithGoogle();
-              showSuccessToast('Inscription avec Google réussie ! Redirection en cours...');
+              showSuccessToast(t('auth.register.googleSuccess'));
               // Small delay to let onAuthStateChanged handle routing
               await new Promise(resolve => setTimeout(resolve, 100));
               // navigate('/mode-selection'); // Handled by AuthContext now
@@ -372,15 +377,15 @@ const Register = () => {
           loadingText="Inscription en cours..."
           disabled={isLoading}
         >
-          Continuer avec Google
+          {t('auth.register.continueWithGoogle')}
         </Button>
       </div>
 
       <div className="mt-6">
         <p className="text-center text-sm text-gray-600">
-          Vous avez déjà un compte ?{' '}
+          {t('auth.alreadyHaveAccount')}{' '}
           <Link to="/auth/login" className="text-indigo-600 hover:text-indigo-500 font-medium">
-            Se connecter
+            {t('auth.loginPage.submit')}
           </Link>
         </p>
       </div>
@@ -388,13 +393,13 @@ const Register = () => {
       {/* Information sur le processus */}
       <div className="mt-8 bg-blue-50 border border-blue-200 rounded-md p-4">
         <h3 className="text-sm font-medium text-blue-800 mb-2">
-          Comment ça marche ?
+          {t('auth.register.howItWorks')}
         </h3>
         <ol className="text-sm text-blue-700 space-y-1">
-          <li>1. Créez votre compte utilisateur</li>
-          <li>2. Accédez au dashboard de vos entreprises</li>
-          <li>3. Créez votre première entreprise</li>
-          <li>4. Invitez des employés si nécessaire</li>
+          <li>{t('auth.register.step1')}</li>
+          <li>{t('auth.register.step2')}</li>
+          <li>{t('auth.register.step3')}</li>
+          <li>{t('auth.register.step4')}</li>
         </ol>
       </div>
     </div>

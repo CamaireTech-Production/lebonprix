@@ -2,12 +2,15 @@ import React, { useState, FormEvent, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { Button, Input, SkeletonTable } from '@components/common';
+import LanguageSwitcher from '@components/common/LanguageSwitcher';
+import { useTranslation } from 'react-i18next';
 import { LoginPWAInstallButton } from '@components/pwa';
 import { getUserSession, hasActiveSession } from '@utils/storage/userSession';
 import { showErrorToast, showSuccessToast } from '@utils/core/toast';
 import { acceptInvitation, getInvitation } from '@services/firestore/employees/invitationService';
 
 const Login = () => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -171,8 +174,12 @@ const Login = () => {
   };
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Sign in to your account</h2>
+    <div className='relative'>
+      <div className='absolute top-0 right-0'>
+        <LanguageSwitcher />
+      </div>
+
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">{t('auth.loginPage.welcome')}</h2>
       {inviteId && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
           <p className="text-sm text-blue-800">
@@ -184,7 +191,7 @@ const Login = () => {
       <form onSubmit={handleSubmit}>
         <div className="space-y-4">
           <Input
-            label="Email"
+            label={t('auth.email')}
             id="email"
             name="email"
             type="email"
@@ -195,7 +202,7 @@ const Login = () => {
           />
 
           <Input
-            label="Password"
+            label={t('auth.password')}
             id="password"
             name="password"
             type="password"
@@ -216,13 +223,13 @@ const Login = () => {
                 onChange={(e) => setRememberMe(e.target.checked)}
               />
               <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
-                Remember me
+                {t('common.rememberMe') || 'Se souvenir de moi'}
               </label>
             </div>
 
             <div className="text-sm">
               <a href="#" className="text-indigo-600 hover:text-indigo-500">
-                Forgot your password?
+                {t('auth.forgotPassword')}
               </a>
             </div>
           </div>
@@ -231,10 +238,10 @@ const Login = () => {
             type="submit"
             className="w-full"
             isLoading={isLoading}
-            loadingText="Connexion en cours..."
+            loadingText={t('auth.loginPage.submitting')}
             disabled={isLoading}
           >
-            Sign in
+            {t('auth.loginPage.submit')}
           </Button>
         </div>
       </form>
@@ -246,7 +253,7 @@ const Login = () => {
             <div className="w-full border-t border-gray-300"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">Ou</span>
+            <span className="px-2 bg-white text-gray-500">{t('auth.register.or')}</span>
           </div>
         </div>
       </div>
@@ -293,15 +300,15 @@ const Login = () => {
           loadingText="Connexion en cours..."
           disabled={isLoading}
         >
-          Continuer avec Google
+          {t('auth.loginPage.google')}
         </Button>
       </div>
 
       <div className="mt-6">
         <p className="text-center text-sm text-gray-600">
-          Don't have an account?{' '}
+          {t('auth.dontHaveAccount')}{' '}
           <Link to="/auth/register" className="text-indigo-600 hover:text-indigo-500">
-            Register
+            {t('auth.signUp')}
           </Link>
         </p>
       </div>

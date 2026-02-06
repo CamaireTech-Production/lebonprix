@@ -1,4 +1,48 @@
 {
+  "company": {
+    "create": {
+      "title": "Créer une entreprise",
+      "subtitle": "Remplissez les informations de votre entreprise",
+      "name": "Nom de l'entreprise",
+      "namePlaceholder": "Nom de votre entreprise",
+      "description": "Description",
+      "descriptionPlaceholder": "Décrivez votre entreprise en quelques mots",
+      "phone": "Téléphone",
+      "email": "Email",
+      "reportMail": "Email pour les rapports de vente",
+      "reportMailPlaceholder": "rapports@entreprise.com",
+      "reportTime": "Heure de réception des rapports",
+      "reportTimeHelp": "Heure à laquelle les rapports seront envoyés (0-23h)",
+      "location": "Localisation",
+      "locationPlaceholder": "Ville, Pays",
+      "logo": {
+        "upload": "Ajouter un logo",
+        "change": "Changer le logo",
+        "remove": "Supprimer le logo",
+        "uploading": "Téléchargement..."
+      },
+      "buttons": {
+        "cancel": "Annuler",
+        "create": "Créer l'entreprise",
+        "creating": "Création...",
+        "success": "Créée !"
+      },
+      "newUserMessage": {
+        "title": "Bienvenue sur Geskap !",
+        "content": "Pour accéder aux fonctionnalités, vous devez d'abord créer une entreprise. Vous commencerez avec le plan Starter (gratuit).",
+        "close": "Fermer"
+      },
+      "errors": {
+        "nameRequired": "Le nom de l'entreprise est requis",
+        "phoneRequired": "Le numéro de téléphone est requis",
+        "emailRequired": "L'email est requis",
+        "reportEmailRequired": "L'email de rapport est requis",
+        "invalidEmail": "Veuillez entrer une adresse email valide",
+        "createFailed": "Erreur lors de la création de l'entreprise",
+        "logoUploadFailed": "Erreur lors du téléchargement du logo"
+      }
+    }
+  },
   "common": {
     "appName": "Geskap",
     "loading": "Chargement...",
@@ -44,7 +88,8 @@
     "mustBeGreaterThanZero": "doit être supérieur à zéro",
     "all": "Tous",
     "optional": "Optionnel",
-    "active": "Actuelle"
+    "active": "Actuelle",
+    "rememberMe": "Se souvenir de moi"
   },
   "auth": {
     "login": "Connexion",
@@ -56,7 +101,55 @@
     "signUp": "S'inscrire",
     "dontHaveAccount": "Vous n'avez pas de compte ?",
     "alreadyHaveAccount": "Vous avez déjà un compte ?",
-    "internalSystem": "Système de gestion interne"
+    "internalSystem": "Système de gestion interne",
+    "register": {
+      "title": "Créer votre compte",
+      "username": "Nom d'utilisateur",
+      "usernameHelp": "3-30 caractères",
+      "confirmPassword": "Confirmer le mot de passe",
+      "agreeTerms": "J'accepte les",
+      "terms": "conditions d'utilisation",
+      "submit": "Créer mon compte",
+      "creating": "Création du compte...",
+      "success": "Compte créé avec succès ! Veuillez patienter...",
+      "googleSuccess": "Inscription avec Google réussie ! Redirection...",
+      "or": "Ou",
+      "continueWithGoogle": "Continuer avec Google",
+      "howItWorks": "Comment ça marche ?",
+      "step1": "1. Créez votre compte utilisateur",
+      "step2": "2. Créez votre première entreprise",
+      "step3": "3. Accédez au dashboard de vos entreprises",
+      "step4": "4. Invitez des employés si nécessaire"
+    },
+    "loginPage": {
+      "welcome": "Bienvenue",
+      "submit": "Se connecter",
+      "submitting": "Connexion...",
+      "google": "Continuer avec Google"
+    }
+  },
+  "pwa": {
+    "install": {
+      "title": "Installer l'App",
+      "autoAvailable": "🚀 Installation automatique disponible !",
+      "fastAccess": "Accès rapide depuis votre écran d'accueil",
+      "installNow": "Installer Maintenant",
+      "install": "Installer",
+      "mobile": "Mobile",
+      "desktop": "Desktop",
+      "success": {
+        "title": "🎉 Votre app Geskap est prête !"
+      },
+      "guide": {
+        "title": "📱 Méthode recommandée",
+        "content1": "Regardez dans la barre d'adresse de votre navigateur",
+        "content2": "Cherchez une icône d'installation (📱 ou ⬇️) et cliquez dessus",
+        "tip": "💡 Cette icône apparaît automatiquement quand l'app est installable",
+        "other": "Autres méthodes :",
+        "benefits": "🎯 Avantages :",
+        "understood": "Compris"
+      }
+    }
   },
   "navigation": {
     "home": "Accueil",
