@@ -3,199 +3,198 @@
  * Centralized functions for phone number formatting and validation
  */
 
-import { DEFAULT_COUNTRY_CODE, DEFAULT_COUNTRY_CODE_DIGITS, CAMEROON_PHONE_RULES } from '../../config/phoneConfig';
+import { DEFAULT_COUNTRY, COUNTRIES, Country } from '../../config/phoneConfig';
+
+/**
+ * Helper to find country from a phone number string (e.g. +237...)
+ */
+export const getCountryFromPhone = (phone: string | null | undefined): Country => {
+  if (!phone) return DEFAULT_COUNTRY;
+  const cleaned = phone.trim();
+
+  // Check exact country code match
+  const found = COUNTRIES.find(c => cleaned.startsWith(c.code));
+  if (found) return found;
+
+  // If no + prefix, maybe it starts with 237 directly?
+  const foundWithoutPlus = COUNTRIES.find(c => cleaned.startsWith(c.code.substring(1)));
+  if (foundWithoutPlus) return foundWithoutPlus;
+
+  return DEFAULT_COUNTRY;
+};
+
+/**
+ * Formats a number string based on the country format mask.
+ * @param numberDigits - The digits of the LOCAL number (without country code)
+ * @param country - The country object
+ */
+export const formatPhoneDigits = (numberDigits: string, country: Country = DEFAULT_COUNTRY): string => {
+  let formatted = '';
+  let digitIndex = 0;
+
+  for (let i = 0; i < country.format.length; i++) {
+    if (digitIndex >= numberDigits.length) break;
+
+    if (country.format[i] === '#') {
+      formatted += numberDigits[digitIndex];
+      digitIndex++;
+    } else {
+      // It's a separator (space, dash, etc)
+      // Only add separator if we have more digits coming
+      if (digitIndex < numberDigits.length) {
+        formatted += country.format[i];
+      }
+    }
+  }
+  return formatted;
+};
 
 /**
  * Normalizes a phone number to standard format with country code
- * 
- * Handles multiple input formats:
- * - +237XXXXXXXXX (already normalized)
- * - 237XXXXXXXXX (country code without +)
- * - 0XXXXXXXXX (local format with leading zero)
- * - XXXXXXXXX (9 digits, assumed Cameroon)
- * - International numbers (preserves existing country code)
- * 
- * @param phone - Phone number to normalize
- * @param defaultCountryCode - Default country code if not present (default: '+237')
- * @returns Normalized phone number in format +237XXXXXXXXX or original format if international
+ * @returns Normalized E.164-like format (e.g. +237699887766)
  */
 export const normalizePhoneNumber = (
   phone: string | null | undefined,
-  defaultCountryCode: string = DEFAULT_COUNTRY_CODE
+  defaultCountryCode: string = DEFAULT_COUNTRY.code
 ): string => {
-  // Handle empty/null values
-  if (!phone || typeof phone !== 'string') {
-    return '';
-  }
+  if (!phone || typeof phone !== 'string') return '';
 
-  // Remove all non-digit characters except +
   let cleaned = phone.trim();
+  if (!cleaned) return '';
 
-  // If empty after cleaning, return empty
-  if (!cleaned) {
-    return '';
-  }
-
-  // Remove all non-digit characters
+  // Return empty if no digits
   const digitsOnly = cleaned.replace(/\D/g, '');
+  if (!digitsOnly) return '';
 
-  // If no digits, return empty
-  if (!digitsOnly) {
-    return '';
-  }
-
-  // Check if it's already an international number (starts with country code)
-  // Check for Cameroon first
-  if (digitsOnly.startsWith(DEFAULT_COUNTRY_CODE_DIGITS)) {
-    // Already has Cameroon country code
-    let numberPart = digitsOnly.substring(DEFAULT_COUNTRY_CODE_DIGITS.length);
-    
-    // Handle duplicate country codes (e.g., "23723785443333222" -> extract "23785443333222" -> "23785443333222")
-    // If the number part also starts with country code, remove it
-    if (numberPart.startsWith(DEFAULT_COUNTRY_CODE_DIGITS)) {
-      numberPart = numberPart.substring(DEFAULT_COUNTRY_CODE_DIGITS.length);
-    }
-    
-    // Remove leading zeros from number part
-    const cleanNumber = numberPart.replace(/^0+/, '');
-    // Validate length
-    if (cleanNumber.length === CAMEROON_PHONE_RULES.numberLength) {
-      return `${defaultCountryCode}${cleanNumber}`;
-    }
-  }
-
-  // Check for other country codes (2-3 digit country codes)
-  // If number is longer than 11 digits, it likely has a country code
-  if (digitsOnly.length > 11) {
-    // Try to detect if it's an international number
-    // Common country codes: 1, 7, 20-99, 200-999
-    // If it starts with a known pattern, preserve it
-    if (digitsOnly.length >= 10 && digitsOnly.length <= 15) {
-      // Check if it starts with a common international pattern
-      // For now, if it's clearly international (starts with 1, 2-9, etc.), preserve it
-      // This is a simple heuristic - can be enhanced with a country code list
-      const firstDigit = digitsOnly[0];
-      
-      // US/Canada (+1)
-      if (firstDigit === '1' && digitsOnly.length === 11) {
+  // Check if it already has a country code from our supported list
+  // try to match with + first
+  if (cleaned.startsWith('+')) {
+    const matchedCountry = COUNTRIES.find(c => cleaned.startsWith(c.code));
+    if (matchedCountry) {
+      // It's a valid supported international number
+      // We should just clean it up (remove spaces/dashes)
+      // Keep the + and the country code, then the rest digits
+      const codeDigits = matchedCountry.code.replace('+', '');
+      // Remove the code digits from the start of digitsOnly to get the local part
+      // But wait, digitsOnly includes the code digits.
+      if (digitsOnly.startsWith(codeDigits)) {
         return `+${digitsOnly}`;
       }
-      
-      // Other common patterns - if it doesn't look like a local Cameroon number, preserve
-      // This is conservative - we'll normalize Cameroon numbers, preserve others
+    }
+    // If + but not in our list, just return +digits
+    return `+${digitsOnly}`;
+  }
+
+  // If no +, check if it starts with digits of a known country code (heuristic)
+  // e.g. 237xxxxxxxxx
+  // Only do this if length is sufficient (> numberLength + codeLength)
+  // Simple heuristic: check default country code first.
+  const defaultCountry = COUNTRIES.find(c => c.code === defaultCountryCode) || DEFAULT_COUNTRY;
+  const defaultCodeDigits = defaultCountry.code.replace('+', '');
+
+  if (digitsOnly.startsWith(defaultCodeDigits)) {
+    // If the length without code matches valid length
+    const localPart = digitsOnly.substring(defaultCodeDigits.length).replace(/^0+/, ''); // also strip potential leading zero if user typed 23706...
+    if (defaultCountry.digits.includes(localPart.length)) {
+      return `${defaultCountry.code}${localPart}`;
     }
   }
 
-  // Handle local Cameroon formats
-  // Remove leading zeros
-  let cleanNumber = digitsOnly.replace(/^0+/, '');
-
-  // If it's 9 digits, assume it's a Cameroon number
-  if (cleanNumber.length === CAMEROON_PHONE_RULES.numberLength) {
-    // Validate it starts with valid prefix
-    const firstDigit = cleanNumber[0];
-    if (CAMEROON_PHONE_RULES.validPrefixes.includes(firstDigit as typeof CAMEROON_PHONE_RULES.validPrefixes[number])) {
-      return `${defaultCountryCode}${cleanNumber}`;
-    }
-  }
-
-  // If it's less than 9 digits, might be incomplete - still normalize
-  if (cleanNumber.length < CAMEROON_PHONE_RULES.numberLength) {
-    return `${defaultCountryCode}${cleanNumber}`;
-  }
-
-  // If it's more than 9 digits but doesn't match international pattern,
-  // assume it's a Cameroon number with extra digits (take last 9)
-  if (cleanNumber.length > CAMEROON_PHONE_RULES.numberLength) {
-    const lastNine = cleanNumber.slice(-CAMEROON_PHONE_RULES.numberLength);
-    const firstDigit = lastNine[0];
-    if (CAMEROON_PHONE_RULES.validPrefixes.includes(firstDigit as typeof CAMEROON_PHONE_RULES.validPrefixes[number])) {
-      return `${defaultCountryCode}${lastNine}`;
-    }
-  }
-
-  // Fallback: add country code if not present
-  if (!cleanNumber.startsWith(DEFAULT_COUNTRY_CODE_DIGITS)) {
-    return `${defaultCountryCode}${cleanNumber}`;
-  }
-
-  return `${defaultCountryCode}${cleanNumber}`;
+  // Assume local number and prepend default country code
+  // Strip leading zero first (common in French countries: 06...)
+  const localPart = digitsOnly.replace(/^0+/, '');
+  return `${defaultCountryCode}${localPart}`;
 };
 
 /**
- * Formats phone number for WhatsApp URL
- * Returns digits only (no +) for wa.me URLs
- * 
- * @param phone - Phone number to format
- * @returns Phone number in format 237XXXXXXXXX (digits only)
+ * Validates a phone number based on its country rules or provided country.
  */
+export const validatePhoneNumber = (phone: string, country: Country): boolean => {
+  if (!phone) return false;
+
+  // Normalize to digits only
+  const allDigits = phone.replace(/\D/g, '');
+  const codeDigits = country.code.replace(/\D/g, '');
+
+  let localDigits = allDigits;
+
+  // If starts with country code, strip it
+  if (allDigits.startsWith(codeDigits)) {
+    localDigits = allDigits.substring(codeDigits.length);
+  }
+
+  // Check length against supported lengths (local part)
+  if (!country.digits.includes(localDigits.length)) {
+    return false;
+  }
+
+  // Check prefix if defined
+  if (country.prefixes && country.prefixes.length > 0) {
+    return country.prefixes.some(prefix => localDigits.startsWith(prefix));
+  }
+
+  return true;
+};
+
+/**
+ * Validates if the phone number starts with a valid prefix for the country
+ * @param phone - The local phone digits
+ * @param country - The country configuration
+ */
+export const validatePhonePrefix = (phone: string, country: Country): boolean => {
+  if (!phone || !country.prefixes || country.prefixes.length === 0) return true;
+
+  // Normalize to digits
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 0) return true; // Allow empty or partial
+
+  // Should strict check? 
+  // If digits length is less than prefix length (e.g. typed "6"), we can check if any prefix starts with it
+  // But usually prefixes are short (1-2 chars).
+  // If user typed "6", and prefixes are "6" or "2", it matches.
+  // If user typed "5", it doesn't match.
+
+  // Logic: Check if the current digits START with one of the prefixes OR if one of the prefixes STARTS with current digits (partial match)
+  return country.prefixes.some(prefix => {
+    return digits.startsWith(prefix) || prefix.startsWith(digits);
+  });
+};
+
+
+/**
+ * @deprecated Use validatePhoneNumber with appropriate country instead
+ * Kept for backward compatibility
+ */
+export const validateCameroonPhone = (phone: string | null | undefined): boolean => {
+  if (!phone) return false;
+  const normalized = normalizePhoneNumber(phone, '+237');
+  if (!normalized.startsWith('+237')) return false;
+
+  const localPart = normalized.substring(4);
+  const cameroon = COUNTRIES.find(c => c.code === '+237');
+  return !!cameroon?.digits.includes(localPart.length);
+};
+
 export const formatPhoneForWhatsApp = (phone: string | null | undefined): string => {
   const normalized = normalizePhoneNumber(phone);
-  if (!normalized) {
-    return '';
-  }
-  // Remove + and return digits only
+  if (!normalized) return '';
   return normalized.replace(/\D/g, '');
 };
 
-/**
- * Validates if a phone number is a valid Cameroon number
- * 
- * @param phone - Phone number to validate
- * @returns true if valid Cameroon number, false otherwise
- */
-export const validateCameroonPhone = (phone: string | null | undefined): boolean => {
-  if (!phone) {
-    return false;
-  }
-
-  const normalized = normalizePhoneNumber(phone);
-  if (!normalized) {
-    return false;
-  }
-
-  // Check if it starts with +237
-  if (!normalized.startsWith(DEFAULT_COUNTRY_CODE)) {
-    return false;
-  }
-
-  // Extract number part (after +237)
-  const numberPart = normalized.substring(DEFAULT_COUNTRY_CODE.length);
-  
-  // Must be exactly 9 digits
-  if (numberPart.length !== CAMEROON_PHONE_RULES.numberLength) {
-    return false;
-  }
-
-  // Must start with valid prefix
-  const firstDigit = numberPart[0];
-  return CAMEROON_PHONE_RULES.validPrefixes.includes(firstDigit as typeof CAMEROON_PHONE_RULES.validPrefixes[number]);
-};
-
-/**
- * Formats phone number for display
- * Returns formatted string like +237 XX XX XX XX
- * 
- * @param phone - Phone number to format
- * @returns Formatted phone number for display
- */
 export const getPhoneDisplayValue = (phone: string | null | undefined): string => {
+  if (!phone) return '';
   const normalized = normalizePhoneNumber(phone);
-  if (!normalized) {
-    return '';
+  const country = getCountryFromPhone(normalized);
+
+  // Remove country code from normalized string
+  const codeDigits = country.code.replace('+', '');
+  const digitsOnly = normalized.replace(/\D/g, '');
+
+  if (digitsOnly.startsWith(codeDigits)) {
+    const localDigits = digitsOnly.substring(codeDigits.length);
+    return `${country.code} ${formatPhoneDigits(localDigits, country)}`;
   }
 
-  // If it's a Cameroon number, format nicely
-  if (normalized.startsWith(DEFAULT_COUNTRY_CODE)) {
-    const numberPart = normalized.substring(DEFAULT_COUNTRY_CODE.length);
-    if (numberPart.length === CAMEROON_PHONE_RULES.numberLength) {
-      // Format as +237 XX XX XX XX
-      const formatted = numberPart.match(/.{1,2}/g)?.join(' ') || numberPart;
-      return `${DEFAULT_COUNTRY_CODE} ${formatted}`;
-    }
-  }
-
-  // For other formats, return as is
   return normalized;
 };
 
@@ -212,4 +211,3 @@ export const normalizePhoneForComparison = (phone: string | null | undefined): s
   }
   return phone.replace(/\D/g, '');
 };
-

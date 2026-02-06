@@ -8,6 +8,7 @@
       "description": "Description",
       "descriptionPlaceholder": "Describe your company in a few words",
       "phone": "Phone",
+      "phoneHelp": "Auto-formatted by country (e.g. 6XX XX XX XX)",
       "email": "Email",
       "reportMail": "Email for sales reports",
       "reportMailPlaceholder": "reports@company.com",

@@ -1,259 +1,212 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown } from 'lucide-react';
-import { countryCodes, defaultCountry, type CountryCode } from '../../data/countryCodes';
-import { normalizePhoneNumber } from '@utils/core/phoneUtils';
+import React, { useState, useEffect, useRef } from 'react';
+import { COUNTRIES, DEFAULT_COUNTRY, Country } from '../../config/phoneConfig';
+import { getCountryFromPhone, formatPhoneDigits, normalizePhoneNumber, validatePhonePrefix } from '@utils/core/phoneUtils';
+import { ChevronDown, Check } from 'lucide-react';
 
 interface PhoneInputProps {
   value: string;
   onChange: (value: string) => void;
+  label?: string;
   error?: string;
-  placeholder?: string;
-  className?: string;
+  helpText?: string;
+  disabled?: boolean;
+  className?: string; // Additional classes for the container
+  required?: boolean;
 }
 
 const PhoneInput: React.FC<PhoneInputProps> = ({
   value,
   onChange,
+  label,
   error,
-  placeholder = "Enter phone number",
-  className = ""
+  helpText,
+  disabled = false,
+  className = '',
+  required = false
 }) => {
-  const [selectedCountry, setSelectedCountry] = useState<CountryCode>(defaultCountry);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState<Country>(DEFAULT_COUNTRY);
+  const [displayValue, setDisplayValue] = useState('');
+  const [isPrefixInvalid, setIsPrefixInvalid] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Detect country code from value on mount or when value changes
+  // Initialize state from props
   useEffect(() => {
-    if (value) {
-      // Check if value starts with any country code
-      for (const country of countryCodes) {
-        if (value.startsWith(country.dialCode)) {
-          setSelectedCountry(prevCountry => {
-            // Only update if different to avoid unnecessary re-renders
-            if (prevCountry.code !== country.code) {
-              return country;
-            }
-            return prevCountry;
-          });
-          break;
-        }
-      }
-    } else {
-      // If value is empty, reset to default country
-      setSelectedCountry(prevCountry => {
-        if (prevCountry.code !== defaultCountry.code) {
-          return defaultCountry;
-        }
-        return prevCountry;
-      });
-    }
-  }, [value]);
-
-  // Filter countries based on search query
-  const filteredCountries = countryCodes.filter(country =>
-    country.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    country.dialCode.includes(searchQuery) ||
-    country.code.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // Handle country selection
-  const handleCountrySelect = (country: CountryCode) => {
+    const country = getCountryFromPhone(value);
     setSelectedCountry(country);
-    setIsDropdownOpen(false);
-    setSearchQuery('');
-    
-    // Update the phone number with new country code
-    // Only combine if there's a number part
-    const currentNumber = getDisplayValue();
-    if (currentNumber) {
-      // Simple combination: country code + number (no complex normalization)
-      const fullNumber = `${country.dialCode}${currentNumber}`;
-      onChange(fullNumber);
+
+    // Extract local part
+    // Normalized value is typically +237XXXXXXXXX
+    // We want to display formatted local part: XXX XXX XXX
+
+    // First normalize ensuring we work with clean data
+    const normalized = normalizePhoneNumber(value, country.code);
+
+    // Remove country code from start
+    let localPart = '';
+    const codeDigits = country.code.replace('+', '');
+
+    // Remove all non-digits
+    const allDigits = normalized.replace(/\D/g, '');
+
+    if (allDigits.startsWith(codeDigits)) {
+      localPart = allDigits.substring(codeDigits.length);
     } else {
-      // If no number, keep it empty
-      onChange('');
+      // Fallback if something is weird, just keep digits
+      localPart = allDigits;
     }
-    
-    // Focus back to input
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 100);
-  };
 
-  // Handle phone number input - user types ONLY digits
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const inputValue = e.target.value;
-    
-    // Remove any non-digit characters - user should only type digits
-    let cleanValue = inputValue.replace(/[^\d]/g, '');
-    
-    // Remove country code digits if they were accidentally included
-    // The input should only contain the number part, not the country code
-    const countryCodeDigits = selectedCountry.dialCode.replace(/\D/g, '');
-    if (cleanValue.startsWith(countryCodeDigits)) {
-      cleanValue = cleanValue.substring(countryCodeDigits.length);
+    // Format the local part
+    const formatted = formatPhoneDigits(localPart, country);
+    setDisplayValue(formatted);
+
+    // Validate prefix initially if value exists
+    if (localPart) {
+      setIsPrefixInvalid(!validatePhonePrefix(localPart, country));
     }
-    
-    // Remove leading zeros
-    cleanValue = cleanValue.replace(/^0+/, '');
-    
-    // Send to parent: combine country code + digits (simple, no complex normalization)
-    if (cleanValue) {
-      const fullNumber = `${selectedCountry.dialCode}${cleanValue}`;
-      onChange(fullNumber);
-    } else {
-      // If input is empty, send empty string
-      onChange('');
-    }
-  };
+  }, [value]); // careful with dependency loop, but value comes from parent
 
-  // Handle input focus
-  const handleInputFocus = () => {
-    // Don't do anything on focus - let user type naturally
-    // The input will show only the number part (via getDisplayValue)
-  };
-
-  // Close dropdown when clicking outside
+  // Click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-        setSearchQuery('');
+        setIsOpen(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Parse current value to extract ONLY the number part (digits only, no country code)
-  const getDisplayValue = () => {
-    if (!value) return '';
-    
-    // Remove all non-digits first to get pure digits
-    let digitsOnly = value.replace(/\D/g, '');
-    
-    // If value starts with a country code, extract the number part
-    // Check all country codes, starting with the selected one
-    const countriesToCheck = [selectedCountry, ...countryCodes.filter(c => c.code !== selectedCountry.code)];
-    
-    for (const country of countriesToCheck) {
-      const countryDigits = country.dialCode.replace(/\D/g, '');
-      if (digitsOnly.startsWith(countryDigits)) {
-        let numberPart = digitsOnly.substring(countryDigits.length);
-        // Handle duplicate country codes (e.g., "237237658789345" -> "237658789345" -> "658789345")
-        if (numberPart.startsWith(countryDigits)) {
-          numberPart = numberPart.substring(countryDigits.length);
-        }
-        // Remove any leading zeros
-        return numberPart.replace(/^0+/, '');
-      }
-    }
-    
-    // If no country code found, return digits as-is (remove leading zeros)
-    return digitsOnly.replace(/^0+/, '');
+  const handleCountrySelect = (country: Country) => {
+    setSelectedCountry(country);
+    setIsOpen(false);
+
+    // When country changes, keep the local digits but update the prefix
+    // Get raw digits from current display value
+    const currentDigits = displayValue.replace(/\D/g, '');
+
+    // Re-validate length? For now just switch code.
+    // Parent validation will handle if length is incorrect for new country.
+    const newValue = `${country.code}${currentDigits}`;
+    onChange(newValue);
   };
 
-  // Get full phone number with country code for display
-  const getFullPhoneNumber = () => {
-    const displayValue = getDisplayValue();
-    if (!displayValue) return '';
-    return `${selectedCountry.dialCode}${displayValue}`;
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value;
+
+    // Allow only digits and formatting chars?
+    // Let's strip everything to digits first
+    const rawDigits = inputValue.replace(/\D/g, '');
+
+    // Check max length for this country (max allowed digits)
+    const maxDigits = Math.max(...selectedCountry.digits);
+
+    if (rawDigits.length > maxDigits) {
+      // Don't update if too long
+      return;
+    }
+
+    // Format immediately
+    // const formatted = formatPhoneDigits(rawDigits, selectedCountry);
+    // setDisplayValue(formatted); // This will happen in useEffect if we trust parent updates fast enough. 
+    // But for smooth typing, maybe set local state too? 
+    // Actually parent `onChange` updates `value` prop, which triggers `useEffect`.
+    // In React controlled inputs, this might cause cursor jumps if formatting changes length.
+    // Ideally we just call onChange with E.164.
+
+    // Validate prefix
+    const isValidPrefix = validatePhonePrefix(rawDigits, selectedCountry);
+    setIsPrefixInvalid(!isValidPrefix);
+
+    const newValue = `${selectedCountry.code}${rawDigits}`;
+    onChange(newValue);
   };
 
   return (
-    <div className={`relative ${className}`}>
-      <div className="flex">
-        {/* Country Code Dropdown */}
+    <div className={`w-full ${className}`}>
+      {label && (
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {label} {required && '*'}
+        </label>
+      )}
+
+      <div className="relative mt-1 rounded-md shadow-sm flex">
+        {/* Country Dropdown */}
         <div className="relative" ref={dropdownRef}>
           <button
             type="button"
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className={`flex items-center space-x-2 px-3 py-2 border-r-0 border rounded-l-lg focus:ring-2 focus:ring-theme-brown focus:border-theme-brown ${
-              error ? 'border-red-500' : 'border-gray-300'
-            } bg-gray-50 hover:bg-gray-100 transition-colors`}
+            className={`
+              relative flex items-center h-full px-3 py-2 border border-r-0 border-gray-300 rounded-l-md bg-gray-50 text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors
+              ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}
+              ${error ? 'border-red-300' : ''}
+            `}
+            onClick={() => !disabled && setIsOpen(!isOpen)}
+            disabled={disabled}
           >
-            <span className="text-lg">{selectedCountry.flag}</span>
-            <span className="text-sm font-medium text-gray-700">{selectedCountry.dialCode}</span>
-            <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+            <span className="flex items-center gap-2">
+              <span className="text-xl leading-none" role="img" aria-label={selectedCountry.name}>
+                {selectedCountry.flag}
+              </span>
+              <span className="text-sm font-medium text-gray-700">{selectedCountry.code}</span>
+            </span>
+            <ChevronDown className={`w-4 h-4 ml-2 transition-transform duration-200 ${isOpen ? 'transform rotate-180' : ''}`} />
           </button>
 
           {/* Dropdown Menu */}
-          {isDropdownOpen && (
-            <div className="absolute top-full left-0 mt-1 w-80 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-64 overflow-hidden">
-              {/* Search Input */}
-              <div className="p-3 border-b border-gray-200">
-                <input
-                  type="text"
-                  placeholder="Search countries..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                />
-              </div>
-
-              {/* Country List */}
-              <div className="max-h-48 overflow-y-auto">
-                {filteredCountries.map((country) => (
-                  <button
-                    key={country.code}
-                    type="button"
-                    onClick={() => handleCountrySelect(country)}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 text-left hover:bg-gray-50 transition-colors ${
-                      selectedCountry.code === country.code ? 'bg-emerald-50 text-theme-olive' : ''
-                    }`}
-                  >
-                    <span className="text-lg">{country.flag}</span>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-gray-900">{country.name}</div>
-                      <div className="text-xs text-gray-500">{country.dialCode}</div>
+          {isOpen && (
+            <div className="absolute z-10 w-72 mt-1 bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
+              {COUNTRIES.map((country) => (
+                <button
+                  key={country.code}
+                  type="button"
+                  className={`
+                    w-full flex items-center justify-between px-4 py-2 text-sm text-left hover:bg-gray-100 transition-colors
+                    ${country.code === selectedCountry.code ? 'bg-indigo-50 text-indigo-900' : 'text-gray-900'}
+                  `}
+                  onClick={() => handleCountrySelect(country)}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl" role="img" aria-label={country.name}>{country.flag}</span>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{country.name}</span>
+                      <span className="text-gray-500 text-xs">{country.code}</span>
                     </div>
-                    {selectedCountry.code === country.code && (
-                      <div className="w-2 h-2 bg-theme-olive rounded-full"></div>
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              {/* No Results */}
-              {filteredCountries.length === 0 && (
-                <div className="p-3 text-center text-gray-500 text-sm">
-                  No countries found
-                </div>
-              )}
+                  </div>
+                  {country.code === selectedCountry.code && (
+                    <Check className="w-4 h-4 text-indigo-600" />
+                  )}
+                </button>
+              ))}
             </div>
           )}
         </div>
 
-        {/* Phone Number Input */}
+        {/* Number Input */}
         <input
-          ref={inputRef}
           type="tel"
-          value={getDisplayValue()}
-          onChange={handlePhoneChange}
-          onFocus={handleInputFocus}
-          placeholder={placeholder}
-          className={`flex-1 px-3 py-2 border rounded-r-lg focus:ring-2 focus:ring-theme-brown focus:border-theme-brown ${
-            error ? 'border-red-500' : 'border-gray-300'
-          }`}
+          className={`
+            flex-1 block w-full rounded-none rounded-r-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm
+            ${(error || isPrefixInvalid) ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50 text-red-900' : ''}
+            ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}
+          `}
+          placeholder={selectedCountry.format.replace(/#/g, '0')} // e.g. 699 00 00 00
+          value={displayValue}
+          onChange={handleInputChange}
+          disabled={disabled}
         />
       </div>
 
-      {/* Error Message */}
-      {error && (
-        <p className="text-red-500 text-xs mt-1">{error}</p>
-      )}
-
-      {/* Full Phone Number Display - Always show when there's a number */}
-      {getDisplayValue() && (
-        <p className="text-xs text-gray-500 mt-1">
-          Full number: {getFullPhoneNumber()}
+      {isPrefixInvalid && !error && (
+        <p className="mt-1 text-sm text-red-600 animate-fadeIn">
+          Le numéro doit commencer par {selectedCountry.prefixes?.join(' ou ')}
         </p>
       )}
+
+      {error ? (
+        <p className="mt-1 text-sm text-red-600 animate-fadeIn">{error}</p>
+      ) : helpText ? (
+        <p className="mt-1 text-sm text-gray-500">{helpText}</p>
+      ) : null}
     </div>
   );
 };

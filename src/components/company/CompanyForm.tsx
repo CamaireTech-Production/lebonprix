@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@services/core/firebase';
-import { Card, Button, Input } from '@components/common';
+import { Card, Button, Input, PhoneInput } from '@components/common';
 import { Building2, Upload, Info, X } from 'lucide-react';
-import { showWarningToast, showErrorToast } from '@utils/core/toast';
+import { showWarningToast } from '@utils/core/toast';
 import { useTranslation } from 'react-i18next';
-import { validateCameroonPhone, normalizePhoneNumber } from '@utils/core/phoneUtils';
+import { validatePhoneNumber, getCountryFromPhone } from '@utils/core/phoneUtils';
 import { createCompany } from '@services/firestore/companies/companyService';
 
 interface CompanyFormData {
@@ -65,20 +65,18 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({ onSuccess, onCancel, i
         }
     };
 
-    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value.replace(/\D/g, '');
-        if (value.length <= 9) {
-            setFormData(prev => ({
-                ...prev,
-                phone: value
-            }));
+    // PhoneInput returns the full value string directly
+    const handlePhoneChange = (value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            phone: value
+        }));
 
-            if (errors.phone) {
-                setErrors(prev => ({
-                    ...prev,
-                    phone: undefined
-                }));
-            }
+        if (errors.phone) {
+            setErrors(prev => ({
+                ...prev,
+                phone: undefined
+            }));
         }
     };
 
@@ -92,13 +90,9 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({ onSuccess, onCancel, i
         if (!formData.phone.trim()) {
             newErrors.phone = 'Le téléphone est requis';
         } else {
-            const fullPhone = `+237${formData.phone}`;
-            if (!validateCameroonPhone(fullPhone)) {
-                if (formData.phone.length !== 9) {
-                    newErrors.phone = 'Le numéro de téléphone doit contenir 9 chiffres';
-                } else {
-                    newErrors.phone = 'Format de téléphone invalide. Le numéro doit commencer par 6, 7, 8 ou 9';
-                }
+            const country = getCountryFromPhone(formData.phone);
+            if (!validatePhoneNumber(formData.phone, country)) {
+                newErrors.phone = `Numéro invalide pour ${country.name}`;
             }
         }
 
@@ -147,12 +141,10 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({ onSuccess, onCancel, i
                 showWarningToast(t('settingsPage.messages.reportTimeDefault'));
             }
 
-            const normalizedPhone = normalizePhoneNumber(`+237${formData.phone.trim()}`);
-
             const company = await createCompany(currentUser.uid, {
                 name: formData.name.trim(),
                 description: formData.description.trim(),
-                phone: normalizedPhone,
+                phone: formData.phone.trim(),
                 email: formData.email.trim(),
                 report_mail: formData.report_mail.trim(),
                 report_time: reportTime,
@@ -345,26 +337,14 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({ onSuccess, onCancel, i
             {/* Phone and Email */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                        {t('company.create.phone')} *
-                    </label>
-                    <div className="flex rounded-md shadow-sm">
-                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
-                            +237
-                        </span>
-                        <Input
-                            type="tel"
-                            id="phone"
-                            name="phone"
-                            value={formData.phone}
-                            onChange={handlePhoneChange}
-                            placeholder="678904568"
-                            className={`flex-1 rounded-l-none ${errors.phone ? 'border-red-300' : ''}`}
-                            error={errors.phone}
-                            helpText="9 chiffres après +237"
-                            required
-                        />
-                    </div>
+                    <PhoneInput
+                        label={t('company.create.phone')}
+                        value={formData.phone}
+                        onChange={handlePhoneChange}
+                        error={errors.phone}
+                        helpText={t('company.create.phoneHelp')}
+                        required
+                    />
                 </div>
 
                 <div>
