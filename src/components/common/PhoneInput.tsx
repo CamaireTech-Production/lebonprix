@@ -157,11 +157,11 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
             <div className="absolute z-10 w-72 mt-1 bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
               {COUNTRIES.map((country) => (
                 <button
-                  key={country.code}
+                  key={country.name}
                   type="button"
                   className={`
                     w-full flex items-center justify-between px-4 py-2 text-sm text-left hover:bg-gray-100 transition-colors
-                    ${country.code === selectedCountry.code ? 'bg-indigo-50 text-indigo-900' : 'text-gray-900'}
+                    ${country.name === selectedCountry.name ? 'bg-indigo-50 text-indigo-900' : 'text-gray-900'}
                   `}
                   onClick={() => handleCountrySelect(country)}
                 >
@@ -172,10 +172,11 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
                       <span className="text-gray-500 text-xs">{country.code}</span>
                     </div>
                   </div>
-                  {country.code === selectedCountry.code && (
+                  {country.name === selectedCountry.name && (
                     <Check className="w-4 h-4 text-indigo-600" />
                   )}
                 </button>
+
               ))}
             </div>
           )}
