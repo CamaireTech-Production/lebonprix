@@ -28,7 +28,14 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
   const [selectedCountry, setSelectedCountry] = useState<Country>(DEFAULT_COUNTRY);
   const [displayValue, setDisplayValue] = useState('');
   const [isPrefixInvalid, setIsPrefixInvalid] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const filteredCountries = COUNTRIES.filter(country =>
+    country.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    country.code.includes(searchQuery)
+  );
+
 
   // Initialize state from props
   useEffect(() => {
@@ -77,7 +84,15 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Reset search when opening dropdown
+  useEffect(() => {
+    if (isOpen) {
+      setSearchQuery('');
+    }
+  }, [isOpen]);
+
   const handleCountrySelect = (country: Country) => {
+
     setSelectedCountry(country);
     setIsOpen(false);
 
@@ -154,32 +169,53 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
 
           {/* Dropdown Menu */}
           {isOpen && (
-            <div className="absolute z-10 w-72 mt-1 bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
-              {COUNTRIES.map((country) => (
-                <button
-                  key={country.name}
-                  type="button"
-                  className={`
-                    w-full flex items-center justify-between px-4 py-2 text-sm text-left hover:bg-gray-100 transition-colors
-                    ${country.name === selectedCountry.name ? 'bg-indigo-50 text-indigo-900' : 'text-gray-900'}
-                  `}
-                  onClick={() => handleCountrySelect(country)}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl" role="img" aria-label={country.name}>{country.flag}</span>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{country.name}</span>
-                      <span className="text-gray-500 text-xs">{country.code}</span>
-                    </div>
-                  </div>
-                  {country.name === selectedCountry.name && (
-                    <Check className="w-4 h-4 text-indigo-600" />
-                  )}
-                </button>
+            <div className="absolute z-10 w-72 mt-1 bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-hidden focus:outline-none sm:text-sm flex flex-col">
+              {/* Search properties */}
+              <div className="p-2 border-b border-gray-100 bg-white sticky top-0 z-20">
+                <input
+                  type="text"
+                  placeholder="Rechercher un pays..."
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  autoFocus
+                />
+              </div>
 
-              ))}
+              <div className="overflow-y-auto max-h-48">
+                {filteredCountries.length > 0 ? (
+                  filteredCountries.map((country) => (
+                    <button
+                      key={country.name}
+                      type="button"
+                      className={`
+                        w-full flex items-center justify-between px-4 py-2 text-sm text-left hover:bg-gray-100 transition-colors
+                        ${country.name === selectedCountry.name ? 'bg-indigo-50 text-indigo-900' : 'text-gray-900'}
+                      `}
+                      onClick={() => handleCountrySelect(country)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl" role="img" aria-label={country.name}>{country.flag}</span>
+                        <div className="flex flex-col">
+                          <span className="font-medium truncate max-w-[140px]">{country.name}</span>
+                          <span className="text-gray-500 text-xs">{country.code}</span>
+                        </div>
+                      </div>
+                      {country.name === selectedCountry.name && (
+                        <Check className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+                      )}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                    Aucun pays trouvé
+                  </div>
+                )}
+              </div>
             </div>
           )}
+
         </div>
 
         {/* Number Input */}
