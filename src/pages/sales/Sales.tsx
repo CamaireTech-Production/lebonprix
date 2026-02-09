@@ -23,7 +23,7 @@ import { Modal, ModalFooter, Input, PriceInput, Badge, Button, Card, ImageWithSk
 import { useProducts, useCustomers } from '@hooks/data/useFirestore';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
 import { useInfiniteSales } from '@hooks/data/useInfiniteSales';
-import { formatPrice } from '@utils/formatting/formatPrice';
+import { useCurrency } from '@hooks/useCurrency';
 import { CURRENCIES } from '@constants/currencies';
 import type { Product, OrderStatus, Sale, SaleProduct, Customer, PaymentStatus } from '../../types/models';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
@@ -82,8 +82,7 @@ const Sales: React.FC = () => {
   const { customers } = useCustomers();
   const { activeSources } = useCustomerSources();
   const { user, company } = useAuth();
-  const currencyCode = company?.currency || 'XAF';
-  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
+  const { format: formatCurrency } = useCurrency();
   // OPTIMIZATION: Removed useSales() hook to avoid duplicate subscription
   // useInfiniteSales() already provides real-time updates via subscription
   // We'll use updateSaleDocument directly from service instead
@@ -714,10 +713,10 @@ const Sales: React.FC = () => {
           </td>
           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{sp.quantity}</td>
           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-            {formatPrice(sp.basePrice, currencySymbol)}
+            {formatCurrency(sp.basePrice)}
           </td>
           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-            {sp.negotiatedPrice ? formatPrice(sp.negotiatedPrice, currencySymbol) : '-'}
+            {sp.negotiatedPrice ? formatCurrency(sp.negotiatedPrice) : '-'}
           </td>
           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
             {product ? product.reference : '-'}
@@ -756,7 +755,7 @@ const Sales: React.FC = () => {
           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
             {sale.customerInfo.name}
             <div className="text-xs text-gray-600 mt-1">
-              Profit: {formatPrice(saleProfit, currencySymbol)}
+              Profit: {formatCurrency(saleProfit)}
             </div>
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -771,7 +770,7 @@ const Sales: React.FC = () => {
             })}
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm">
-            {formatPrice(sale.totalAmount, currencySymbol)}
+            {formatCurrency(sale.totalAmount)}
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm">
             {sale.createdAt && typeof sale.createdAt.seconds === 'number'
@@ -1006,7 +1005,7 @@ const Sales: React.FC = () => {
         <div>
           <div className="font-medium">{product.name}</div>
           <div className="text-sm text-gray-500">
-            {getEffectiveProductStock(product, stockMap)} {t('sales.modals.add.products.inStock')} - {formatPrice(product.sellingPrice)} XAF
+            {getEffectiveProductStock(product, stockMap)} {t('sales.modals.add.products.inStock')} - {formatCurrency(product.sellingPrice)}
           </div>
         </div>
       </div>
@@ -1073,7 +1072,7 @@ const Sales: React.FC = () => {
           <h1 className="text-2xl font-semibold text-gray-900">{t('sales.title')}</h1>
           <p className="text-gray-600">{t('sales.subtitle')}</p>
           <p className="text-gray-800 mt-2 font-medium">
-            {t('sales.overallProfit', { defaultValue: 'Total Profit:' })} {formatPrice(overallTotalProfit)} XAF
+            {t('sales.overallProfit', { defaultValue: 'Total Profit:' })} {formatCurrency(overallTotalProfit)}
           </p>
         </div>
 
@@ -1322,7 +1321,7 @@ const Sales: React.FC = () => {
                 {t('sales.modals.link.success.customer')}: {currentSale.customerInfo.name}
               </p>
               <p className="text-sm text-emerald-600">
-                {t('sales.modals.link.success.totalAmount')}: {formatPrice(currentSale.totalAmount)} XAF
+                {t('sales.modals.link.success.totalAmount')}: {formatCurrency(currentSale.totalAmount)}
               </p>
             </div>
             <div className="flex justify-end space-x-2 sticky top-0 bg-white z-10 py-2">
@@ -1544,7 +1543,7 @@ const Sales: React.FC = () => {
                           <span className="text-sm font-medium text-gray-700">
                             {t('sales.modals.edit.products.standardPrice')}:
                           </span>
-                          <span className="ml-2">{formatPrice(product.product.sellingPrice)} XAF</span>
+                          <span className="ml-2">{formatCurrency(product.product.sellingPrice)}</span>
                         </div>
                         <div>
                           <span className="text-sm font-medium text-gray-700">
@@ -1587,7 +1586,7 @@ const Sales: React.FC = () => {
                           <span className="text-sm font-medium text-blue-700">
                             {t('sales.modals.edit.products.productTotal')}:
                           </span>
-                          <span className="ml-2 text-blue-900">{formatPrice(calculateProductTotal(product))} XAF</span>
+                          <span className="ml-2 text-blue-900">{formatCurrency(calculateProductTotal(product))}</span>
                         </div>
                       )}
                     </>
@@ -1600,7 +1599,7 @@ const Sales: React.FC = () => {
                 <span className="text-lg font-medium text-emerald-700">
                   {t('sales.modals.edit.products.totalAmount')}:
                 </span>
-                <span className="ml-2 text-emerald-900 text-lg">{formatPrice(calculateTotal())} XAF</span>
+                <span className="ml-2 text-emerald-900 text-lg">{formatCurrency(calculateTotal())}</span>
               </div>
             )}
           </div>
@@ -1649,7 +1648,7 @@ const Sales: React.FC = () => {
           <p className="text-gray-700">
             {t('sales.modals.delete.message', {
               customerName: currentSale?.customerInfo.name,
-              amount: formatPrice(currentSale?.totalAmount ?? 0),
+              amount: formatCurrency(currentSale?.totalAmount ?? 0),
             })}
           </p>
           <div className="bg-red-50 p-4 rounded-md">

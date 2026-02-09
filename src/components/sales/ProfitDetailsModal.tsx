@@ -162,7 +162,7 @@ const ProfitDetailsModal: React.FC<ProfitDetailsModalProps> = ({ isOpen, onClose
                                       );
                                     })}
                                   </tbody>
-                                  appeared</table>
+                                </table>
                                 <div className="text-xs text-gray-600 mb-2">
                                   {t('sales.modals.profitDetails.batchProfitFormula', {
                                     defaultValue: 'Batch Profit = (Sale Price - Batch Cost Price) × Qty',
