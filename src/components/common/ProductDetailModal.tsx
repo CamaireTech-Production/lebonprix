@@ -28,7 +28,6 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   companyId
 }) => {
   const { addToCart } = useCart();
-  const { format } = useCurrency();
   const [isDesktop, setIsDesktop] = useState(false);
 
   // Check if screen is desktop size
@@ -44,9 +43,9 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   // Use passed data immediately
   const [company, setCompany] = useState<Company | null>(initialCompany);
+  const { format } = useCurrency(company?.currency);
   const [product, setProduct] = useState<Product | null>(initialProduct);
   const [sellerSettings, setSellerSettings] = useState<SellerSettings | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Product detail state
@@ -54,27 +53,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [selectedVariations, setSelectedVariations] = useState<Record<string, string>>({});
   const [isFavorite, setIsFavorite] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [selectedColor, setSelectedColor] = useState<string>('');
-  const [selectedSize, setSelectedSize] = useState<string>('');
 
-  // Extract available colors from product variations
-  const availableColors = product?.tags?.find(tag => tag.name === 'Color')?.variations?.map(v => v.name) || [];
 
-  // Extract available sizes from product variations
-  const availableSizes = product?.tags?.find(tag => tag.name === 'Size')?.variations?.map(v => v.name) || [];
 
-  // Update selectedColor and selectedSize when selectedVariations changes
-  useEffect(() => {
-    const colorVariation = selectedVariations['Color'];
-    if (colorVariation) {
-      setSelectedColor(colorVariation);
-    }
 
-    const sizeVariation = selectedVariations['Size'];
-    if (sizeVariation) {
-      setSelectedSize(sizeVariation);
-    }
-  }, [selectedVariations]);
 
   // Fetch fresh data in background to ensure data freshness
   useEffect(() => {
@@ -143,7 +125,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     if (!product || !company) return;
 
     const variations = Object.entries(selectedVariations)
-      .filter(([key, value]) => value) // Only include selected variations
+      .filter(([_key, value]) => value) // Only include selected variations
       .map(([key, value]) => `${key}: ${value}`)
       .join(', ');
 

@@ -2,10 +2,10 @@ import { useAuth } from '@contexts/AuthContext';
 import { CURRENCIES, DEFAULT_CURRENCY } from '@constants/currencies';
 import { formatPrice } from '@utils/formatting/formatPrice';
 
-export const useCurrency = () => {
+export const useCurrency = (providedCurrencyCode?: string) => {
     const { company } = useAuth();
 
-    const currencyCode = company?.currency || DEFAULT_CURRENCY.code;
+    const currencyCode = providedCurrencyCode || company?.currency || DEFAULT_CURRENCY.code;
     const currency = CURRENCIES.find(c => c.code === currencyCode) || DEFAULT_CURRENCY;
 
     /**

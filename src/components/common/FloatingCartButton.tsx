@@ -10,15 +10,16 @@ const placeholderImg = '/placeholder.png';
 
 interface FloatingCartButtonProps {
   className?: string;
+  currency?: string;
 }
 
-const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' }) => {
+const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '', currency: providedCurrency }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const params = useParams<{ companyId?: string }>();
   const { cart, updateCartItem, getCartItemCount, getCartTotal, currentCompanyId } = useCart();
   const { company } = useAuth();
-  const { format } = useCurrency();
+  const { format } = useCurrency(providedCurrency);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [showAddedAnimation, setShowAddedAnimation] = useState(false);
 

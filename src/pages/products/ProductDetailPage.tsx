@@ -4,7 +4,6 @@ import { useCart } from '../../contexts/CartContext';
 import { getCompanyByUserId, getSellerSettings } from '@services/firestore/firestore';
 import { subscribeToProducts } from '@services/firestore/products/productService';
 import { trackProductView } from '@services/firestore/site/siteService';
-import { formatPrice } from '@utils/formatting/formatPrice';
 import type { Company, Product } from '../../types/models';
 import type { SellerSettings } from '../../types/order';
 import { ArrowLeft, Share2, Plus, Minus, ShoppingCart, Camera, QrCode, MessageCircle } from 'lucide-react';
@@ -15,7 +14,7 @@ import { showSuccessToast } from '@utils/core/toast';
 import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
-import { CURRENCIES } from '@constants/currencies';
+import { useCurrency } from '@hooks/useCurrency';
 
 const placeholderImg = '/placeholder.png';
 
@@ -138,8 +137,7 @@ const ProductDetailPage = () => {
   };
 
   const colors = getCompanyColors();
-  const currencyCode = company?.currency || 'XAF';
-  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
+  const { format } = useCurrency(company?.currency);
 
   // Calculate product stock from batches
   const { batches: allBatches } = useAllStockBatches();
@@ -185,8 +183,8 @@ const ProductDetailPage = () => {
 *${product.name}*
 ${variations ? `Options: ${variations}` : ''}
 Quantité: ${quantity}
-Prix unitaire: ${formatPrice(displayPrice, currencySymbol)}
-Total: ${formatPrice(totalPrice, currencySymbol)}
+Prix unitaire: ${format(displayPrice)}
+Total: ${format(totalPrice)}
 
 Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
 
@@ -326,11 +324,11 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
         <div className="flex items-center justify-between">
           <div>
             <p className="text-3xl font-bold" style={{ color: colors.primary }}>
-              {formatPrice(displayPrice, currencySymbol)}
+              {format(displayPrice)}
             </p>
             {product.cataloguePrice && product.cataloguePrice !== product.sellingPrice && (
               <p className="text-sm text-gray-500 line-through">
-                {formatPrice(product.sellingPrice, currencySymbol)}
+                {format(product.sellingPrice)}
               </p>
             )}
           </div>
@@ -472,7 +470,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
       </div>
 
       {/* Floating Cart Button */}
-      <FloatingCartButton />
+      <FloatingCartButton currency={company?.currency} />
 
       {/* Barcode Generator Modal */}
       {showBarcodeGenerator && companyName && companyId && (
