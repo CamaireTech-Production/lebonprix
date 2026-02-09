@@ -18,6 +18,7 @@ export interface CompanyData {
   report_mail?: string;
   report_time?: string | number; // Format: "HH:mm" (e.g., "19:30") or number (0-23) for backward compatibility
   planType?: 'starter' | 'enterprise'; // NEW: Plan type for module separation
+  currency?: string; // Currency code
 }
 
 /**
@@ -61,7 +62,8 @@ export const createCompany = async (
       ...(companyData.description && { description: companyData.description }),
       ...(companyData.location && { location: companyData.location }),
       ...(companyData.logo && { logo: companyData.logo }),
-      ...(companyData.report_mail && { report_mail: companyData.report_mail })
+      ...(companyData.report_mail && { report_mail: companyData.report_mail }),
+      ...(companyData.currency && { currency: companyData.currency })
     };
 
     // 3. Sauvegarder en base de données

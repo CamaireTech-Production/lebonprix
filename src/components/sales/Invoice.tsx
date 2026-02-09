@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
-import { formatPrice } from '@utils/formatting/formatPrice';
+import { useCurrency } from '@hooks/useCurrency';
 
 interface InvoiceProps {
   sale: Sale;
@@ -13,11 +13,12 @@ interface InvoiceProps {
 const Invoice = ({ sale, products }: InvoiceProps) => {
   const { company } = useAuth();
   const { t, i18n } = useTranslation();
+  const { format: formatCurrency } = useCurrency();
 
   const formatDate = (timestamp: any) => {
     if (!timestamp?.seconds) return 'N/A';
-    return format(new Date(timestamp.seconds * 1000), 'PPP', { 
-      locale: i18n.language === 'fr' ? fr : undefined 
+    return format(new Date(timestamp.seconds * 1000), 'PPP', {
+      locale: i18n.language === 'fr' ? fr : undefined
     });
   };
 
@@ -58,8 +59,8 @@ const Invoice = ({ sale, products }: InvoiceProps) => {
       <div className="flex flex-col md:flex-row md:justify-between md:items-start mb-8">
         <div className="mb-4 md:mb-0 flex items-start space-x-4">
           {company.logo && (
-            <img 
-              src={company.logo} 
+            <img
+              src={company.logo}
               alt={`${company.name} logo`}
               className="w-16 h-16 object-contain"
             />
@@ -110,8 +111,8 @@ const Invoice = ({ sale, products }: InvoiceProps) => {
                 <tr key={index} className="border-b border-gray-100">
                   <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900">{product?.name || t('invoice.products.unknown')}</td>
                   <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900 text-right">{saleProduct.quantity}</td>
-                  <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900 text-right">{formatPrice(unitPrice)} XAF</td>
-                  <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900 text-right">{formatPrice(total)} XAF</td>
+                  <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900 text-right">{formatCurrency(unitPrice)}</td>
+                  <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900 text-right">{formatCurrency(total)}</td>
                 </tr>
               );
             })}
@@ -125,17 +126,17 @@ const Invoice = ({ sale, products }: InvoiceProps) => {
           <div className="space-y-2">
             <div className="flex justify-between text-sm md:text-base text-gray-600">
               <span>{t('invoice.summary.subtotal')}</span>
-              <span>{formatPrice(calculateSubtotal())} XAF</span>
+              <span>{formatCurrency(calculateSubtotal())}</span>
             </div>
             {(sale.deliveryFee ?? 0) > 0 && (
               <div className="flex justify-between text-sm md:text-base text-gray-600">
                 <span>{t('invoice.summary.deliveryFee')}</span>
-                <span>{formatPrice(sale.deliveryFee ?? 0)} XAF</span>
+                <span>{formatCurrency(sale.deliveryFee ?? 0)}</span>
               </div>
             )}
             <div className="border-t border-gray-200 pt-2 flex justify-between font-semibold text-sm md:text-base text-gray-900">
               <span>{t('invoice.summary.total')}</span>
-              <span>{formatPrice(calculateSubtotal() + (sale.deliveryFee ?? 0))} XAF</span>
+              <span>{formatCurrency(calculateSubtotal() + (sale.deliveryFee ?? 0))}</span>
             </div>
           </div>
         </div>

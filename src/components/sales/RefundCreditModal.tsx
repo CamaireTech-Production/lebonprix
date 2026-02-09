@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, ModalFooter, Input, PriceInput, Textarea } from '@components/common';
 import { useTranslation } from 'react-i18next';
-import { formatPrice } from '@utils/formatting/formatPrice';
+import { useCurrency } from '@hooks/useCurrency';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import type { Sale } from '../../types/models';
 
@@ -19,6 +19,7 @@ export const RefundCreditModal: React.FC<RefundCreditModalProps> = ({
   onRefund,
 }) => {
   const { t } = useTranslation();
+  const { format } = useCurrency();
   const [refundAmount, setRefundAmount] = useState<string>('');
   const [reason, setReason] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money' | 'card' | null>(null);
@@ -106,16 +107,16 @@ export const RefundCreditModal: React.FC<RefundCreditModalProps> = ({
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">{t('sales.credit.totalAmount') || 'Total Amount'}:</span>
-              <span className="font-medium">{formatPrice(sale.totalAmount)} XAF</span>
+              <span className="font-medium">{format(sale.totalAmount)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">{t('sales.refund.totalRefunded') || 'Total Refunded'}:</span>
-              <span className="font-medium text-orange-600">{formatPrice(totalRefunded)} XAF</span>
+              <span className="font-medium text-orange-600">{format(totalRefunded)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">{t('sales.credit.outstandingAmount') || 'Outstanding Amount'}:</span>
               <span className="font-bold text-orange-600 text-lg">
-                {formatPrice(outstandingAmount)} XAF
+                {format(outstandingAmount)}
               </span>
             </div>
           </div>
@@ -128,7 +129,7 @@ export const RefundCreditModal: React.FC<RefundCreditModalProps> = ({
             name="refundAmount"
             value={refundAmount}
             onChange={(e) => setRefundAmount(e.target.value)}
-            placeholder={formatPrice(outstandingAmount)}
+            placeholder={format(outstandingAmount)}
             required
             max={outstandingAmount}
           />
@@ -136,7 +137,7 @@ export const RefundCreditModal: React.FC<RefundCreditModalProps> = ({
             <div className="mt-2 p-3 bg-blue-50 rounded-lg">
               <div className="text-sm text-gray-600">{t('sales.refund.remainingAfter') || 'Remaining After Refund'}:</div>
               <div className="text-lg font-bold text-blue-600">
-                {formatPrice(newRemainingAmount)} XAF
+                {format(newRemainingAmount)}
               </div>
             </div>
           )}
@@ -163,33 +164,30 @@ export const RefundCreditModal: React.FC<RefundCreditModalProps> = ({
             <button
               type="button"
               onClick={() => setPaymentMethod('cash')}
-              className={`p-3 border-2 rounded-lg transition-colors text-sm ${
-                paymentMethod === 'cash'
-                  ? 'border-emerald-500 bg-emerald-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
+              className={`p-3 border-2 rounded-lg transition-colors text-sm ${paymentMethod === 'cash'
+                ? 'border-emerald-500 bg-emerald-50'
+                : 'border-gray-200 hover:border-gray-300'
+                }`}
             >
               {t('pos.payment.cash') || 'Cash'}
             </button>
             <button
               type="button"
               onClick={() => setPaymentMethod('mobile_money')}
-              className={`p-3 border-2 rounded-lg transition-colors text-sm ${
-                paymentMethod === 'mobile_money'
-                  ? 'border-emerald-500 bg-emerald-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
+              className={`p-3 border-2 rounded-lg transition-colors text-sm ${paymentMethod === 'mobile_money'
+                ? 'border-emerald-500 bg-emerald-50'
+                : 'border-gray-200 hover:border-gray-300'
+                }`}
             >
               {t('pos.payment.mobileMoney') || 'Mobile Money'}
             </button>
             <button
               type="button"
               onClick={() => setPaymentMethod('card')}
-              className={`p-3 border-2 rounded-lg transition-colors text-sm ${
-                paymentMethod === 'card'
-                  ? 'border-emerald-500 bg-emerald-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
+              className={`p-3 border-2 rounded-lg transition-colors text-sm ${paymentMethod === 'card'
+                ? 'border-emerald-500 bg-emerald-50'
+                : 'border-gray-200 hover:border-gray-300'
+                }`}
             >
               {t('pos.payment.card') || 'Card'}
             </button>

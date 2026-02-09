@@ -5,7 +5,7 @@ import { Plus, Trash2, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { logError } from '@utils/core/logger';
-import { formatPrice } from '@utils/formatting/formatPrice';
+import { useCurrency } from '@hooks/useCurrency';
 import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
 import type { Sale, StockBatch } from '../../types/models';
 import SaleDetailsModal from './SaleDetailsModal';
@@ -36,6 +36,7 @@ interface ProductStockInfo {
 
 const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdded }) => {
   const { t } = useTranslation();
+  const { format } = useCurrency();
   const { company, user, isOwner } = useAuth();
   const { isStarter } = useModules(); // Check if Starter plan
   const { shops, loading: shopsLoading, error: shopsError } = useShops();
@@ -392,7 +393,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 return `${stock} in stock (global)`;
               }
               return 'Loading stock...';
-            })()} - {formatPrice(product.sellingPrice)} XAF
+            })()} - {format(product.sellingPrice)}
           </div>
         </div>
       </div>
@@ -433,7 +434,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     }
 
     const batchInfo = stockInfo.batches.map(batch =>
-      `${batch.remainingQuantity} at ${formatPrice(batch.costPrice)} XAF`
+      `${batch.remainingQuantity} at ${format(batch.costPrice)}`
     ).join(', ');
 
     return `${stockInfo.totalStock} units total (${batchInfo})`;
@@ -988,7 +989,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                                 return `${stock} in stock`;
                               }
                               return 'Loading stock...';
-                            })()} - {formatPrice(product.product.sellingPrice)} XAF
+                            })()} - {format(product.product.sellingPrice)}
                           </p>
                         </div>
                         <button
@@ -1017,7 +1018,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                                 {formatStockBatchInfo(stockInfo)}
                                 {stockInfo.averageCostPrice > 0 && (
                                   <div className="mt-1 text-xs text-blue-600">
-                                    Average cost: {formatPrice(stockInfo.averageCostPrice)} XAF
+                                    Average cost: {format(stockInfo.averageCostPrice)}
                                   </div>
                                 )}
                               </div>
@@ -1058,7 +1059,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                       {product.quantity && (
                         <div className="p-3 bg-blue-50 rounded-md">
                           <span className="text-sm font-medium text-blue-700">Product Total:</span>
-                          <span className="ml-2 text-blue-900">{formatPrice(calculateProductTotal(product))} XAF</span>
+                          <span className="ml-2 text-blue-900">{format(calculateProductTotal(product))}</span>
                         </div>
                       )}
                     </div>
@@ -1111,7 +1112,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                       <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-md">
                         <div>
                           <span className="text-sm font-medium text-gray-700">Standard Price:</span>
-                          <span className="ml-2">{formatPrice(product.product.sellingPrice)} XAF</span>
+                          <span className="ml-2">{format(product.product.sellingPrice)}</span>
                         </div>
                         <div>
                           <span className="text-sm font-medium text-gray-700">Available Stock:</span>
@@ -1142,7 +1143,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                                 {formatStockBatchInfo(stockInfo)}
                                 {stockInfo.averageCostPrice > 0 && (
                                   <div className="mt-1 text-xs text-blue-600">
-                                    Average cost: {stockInfo.averageCostPrice.toLocaleString()} XAF
+                                    Average cost: {format(stockInfo.averageCostPrice)}
                                   </div>
                                 )}
                               </div>
@@ -1184,7 +1185,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                       {product.quantity && (
                         <div className="p-3 bg-blue-50 rounded-md">
                           <span className="text-sm font-medium text-blue-700">Product Total:</span>
-                          <span className="ml-2 text-blue-900">{formatPrice(calculateProductTotal(product))} XAF</span>
+                          <span className="ml-2 text-blue-900">{format(calculateProductTotal(product))}</span>
                         </div>
                       )}
                     </>
@@ -1195,7 +1196,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
               {formData.products.some(p => p.quantity) && (
                 <div className="p-4 bg-green-50 rounded-md">
                   <span className="text-lg font-medium text-green-700">Total Amount:</span>
-                  <span className="ml-2 text-green-900 text-lg">{formatPrice(calculateTotal())} XAF</span>
+                  <span className="ml-2 text-green-900 text-lg">{format(calculateTotal())}</span>
                 </div>
               )}
             </div>
@@ -1347,7 +1348,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                                   return `${stock} in stock (global)`;
                                 }
                                 return 'Loading stock...';
-                              })()} - {formatPrice(product.sellingPrice)} XAF
+                              })()} - {format(product.sellingPrice)}
                             </p>
                           </div>
                         </div>
@@ -1369,7 +1370,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
               {formData.products.some(p => p.quantity) && (
                 <div className="mt-6 p-4 bg-green-50 rounded-md">
                   <span className="text-lg font-medium text-green-700">Total Amount:</span>
-                  <span className="ml-2 text-green-900 text-lg">{formatPrice(calculateTotal())} XAF</span>
+                  <span className="ml-2 text-green-900 text-lg">{format(calculateTotal())}</span>
                 </div>
               )}
             </div>

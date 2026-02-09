@@ -10,6 +10,7 @@ import { getAvailableStockBatches } from '@services/firestore/stock/stockService
 import type { Company, Product, Category, Shop } from '../../types/models';
 import { Search, Package, AlertCircle, MapPin, Plus, Heart, Phone } from 'lucide-react';
 import { Button, FloatingCartButton, ProductDetailModal, ImageWithSkeleton, LanguageSwitcher, SkeletonCatalogue, SkeletonLoader } from '@components/common';
+import { useCurrency } from '@hooks/useCurrency';
 
 const placeholderImg = '/placeholder.png';
 
@@ -20,6 +21,7 @@ const Catalogue = () => {
   const categoryParam = searchParams.get('category'); // For backward compatibility
   const categoriesParam = searchParams.get('categories'); // For multiple categories
   const { addToCart } = useCart();
+  const { format } = useCurrency();
   const [company, setCompany] = useState<Company | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -629,10 +631,7 @@ const Catalogue = () => {
                     <p className="text-xs text-gray-500 mb-2 sm:mb-3">{product.category}</p>
                     <div className="flex items-center justify-between">
                       <span className="text-xs sm:text-sm md:text-base font-bold" style={{ color: getCompanyColors().secondary }}>
-                        {((product.cataloguePrice && product.cataloguePrice > 0) ? product.cataloguePrice : (product.sellingPrice ?? 0)).toLocaleString('fr-FR', {
-                          style: 'currency',
-                          currency: 'XAF'
-                        })}
+                        {format((product.cataloguePrice && product.cataloguePrice > 0) ? product.cataloguePrice : (product.sellingPrice ?? 0))}
                       </span>
                       <button
                         onClick={(e) => {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, ModalFooter, Input, PriceInput } from '@components/common';
 import { useTranslation } from 'react-i18next';
-import { formatPrice } from '@utils/formatting/formatPrice';
+import { useCurrency } from '@hooks/useCurrency';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import type { Sale, OrderStatus } from '../../types/models';
 import { DollarSign, Smartphone, CreditCard } from 'lucide-react';
@@ -20,6 +20,7 @@ export const SettleCreditModal: React.FC<SettleCreditModalProps> = ({
   onSettle,
 }) => {
   const { t } = useTranslation();
+  const { format } = useCurrency();
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money' | 'card' | null>(null);
   const [amountReceived, setAmountReceived] = useState<string>('');
   const [transactionReference, setTransactionReference] = useState<string>('');
@@ -29,8 +30,8 @@ export const SettleCreditModal: React.FC<SettleCreditModalProps> = ({
   if (!sale) return null;
 
   const outstandingAmount = sale.remainingAmount ?? sale.totalAmount;
-  const change = paymentMethod === 'cash' && amountReceived 
-    ? parseFloat(amountReceived) - outstandingAmount 
+  const change = paymentMethod === 'cash' && amountReceived
+    ? parseFloat(amountReceived) - outstandingAmount
     : 0;
 
   const handleSettle = async () => {
@@ -115,12 +116,12 @@ export const SettleCreditModal: React.FC<SettleCreditModalProps> = ({
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">{t('sales.credit.totalAmount') || 'Total Amount'}:</span>
-              <span className="font-medium">{formatPrice(sale.totalAmount)} XAF</span>
+              <span className="font-medium">{format(sale.totalAmount)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">{t('sales.credit.outstandingAmount') || 'Outstanding Amount'}:</span>
               <span className="font-bold text-orange-600 text-lg">
-                {formatPrice(outstandingAmount)} XAF
+                {format(outstandingAmount)}
               </span>
             </div>
           </div>
@@ -134,11 +135,10 @@ export const SettleCreditModal: React.FC<SettleCreditModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <button
               onClick={() => setPaymentMethod('cash')}
-              className={`p-4 border-2 rounded-lg transition-colors flex items-center space-x-3 ${
-                paymentMethod === 'cash'
-                  ? 'border-emerald-500 bg-emerald-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
+              className={`p-4 border-2 rounded-lg transition-colors flex items-center space-x-3 ${paymentMethod === 'cash'
+                ? 'border-emerald-500 bg-emerald-50'
+                : 'border-gray-200 hover:border-gray-300'
+                }`}
             >
               <DollarSign size={24} className="text-emerald-600" />
               <div className="text-left">
@@ -148,11 +148,10 @@ export const SettleCreditModal: React.FC<SettleCreditModalProps> = ({
 
             <button
               onClick={() => setPaymentMethod('mobile_money')}
-              className={`p-4 border-2 rounded-lg transition-colors flex items-center space-x-3 ${
-                paymentMethod === 'mobile_money'
-                  ? 'border-emerald-500 bg-emerald-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
+              className={`p-4 border-2 rounded-lg transition-colors flex items-center space-x-3 ${paymentMethod === 'mobile_money'
+                ? 'border-emerald-500 bg-emerald-50'
+                : 'border-gray-200 hover:border-gray-300'
+                }`}
             >
               <Smartphone size={24} className="text-blue-600" />
               <div className="text-left">
@@ -162,11 +161,10 @@ export const SettleCreditModal: React.FC<SettleCreditModalProps> = ({
 
             <button
               onClick={() => setPaymentMethod('card')}
-              className={`p-4 border-2 rounded-lg transition-colors flex items-center space-x-3 ${
-                paymentMethod === 'card'
-                  ? 'border-emerald-500 bg-emerald-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
+              className={`p-4 border-2 rounded-lg transition-colors flex items-center space-x-3 ${paymentMethod === 'card'
+                ? 'border-emerald-500 bg-emerald-50'
+                : 'border-gray-200 hover:border-gray-300'
+                }`}
             >
               <CreditCard size={24} className="text-purple-600" />
               <div className="text-left">
@@ -184,12 +182,12 @@ export const SettleCreditModal: React.FC<SettleCreditModalProps> = ({
               name="amountReceived"
               value={amountReceived}
               onChange={(e) => setAmountReceived(e.target.value)}
-              placeholder={formatPrice(outstandingAmount)}
+              placeholder={format(outstandingAmount)}
             />
             {change > 0 && (
               <div className="mt-2 p-3 bg-green-50 rounded-lg">
                 <div className="text-sm text-gray-600">{t('pos.payment.change') || 'Change'}:</div>
-                <div className="text-xl font-bold text-green-600">{formatPrice(change)} XAF</div>
+                <div className="text-xl font-bold text-green-600">{format(change)}</div>
               </div>
             )}
           </div>

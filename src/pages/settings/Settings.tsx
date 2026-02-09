@@ -1,9 +1,9 @@
 import { useState, ChangeEvent, useEffect } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { Card, Button, Input, PriceInput, PhoneInput } from '@components/common';
-import ActivityList from '../../components/dashboard/ActivityList';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import { useTranslation } from 'react-i18next';
+import ActivityList from '../../components/dashboard/ActivityList';
 import { useSales, useExpenses, useAuditLogs, useProducts } from '@hooks/data/useFirestore';
 import { getSellerSettings, updateSellerSettings } from '@services/firestore/firestore';
 import { getCheckoutSettingsWithDefaults, saveCheckoutSettings, resetCheckoutSettings, subscribeToCheckoutSettings, migrateCheckoutSettingsToNewDefaults } from '@services/utilities/checkoutSettingsService';
@@ -19,7 +19,8 @@ import PaymentMethodModal from '../../components/settings/PaymentMethodModal';
 import { SalesAndPOSTab } from '../../components/settings/SalesAndPOSTab';
 import { combineActivities } from '@utils/business/activityUtils';
 import { formatReportTime } from '@utils/business/reportTimeUtils';
-import { Plus, Copy, Check, ExternalLink, CreditCard, Truck, ShoppingBag, Save, RotateCcw, Eye, Trash2, ChevronDown, ChevronUp, Edit2, Phone, Hash, Link, Key, Building2, User, Shield, Bell, Globe } from 'lucide-react';
+import { CURRENCIES, DEFAULT_CURRENCY } from '@constants/currencies';
+import { ExternalLink, CreditCard, Truck, Key, Building2, User, Shield, Bell, Globe, Phone, Hash, Link, Plus, Check, Trash2, Edit2, ChevronDown, ChevronUp, Save, Copy } from 'lucide-react';
 
 function normalizeWebsite(raw: string): string | undefined {
   const url = (raw || '').trim();
@@ -97,6 +98,7 @@ const Settings = () => {
     emailReportsEnabled: true,
     logo: '',
     website: '',
+    currency: DEFAULT_CURRENCY.code,
     // Catalogue colors
     cataloguePrimaryColor: '#183524',
     catalogueSecondaryColor: '#e2b069',
@@ -134,6 +136,7 @@ const Settings = () => {
         emailReportsEnabled: company.emailReportsEnabled !== false, // Default true
         logo: company.logo || '',
         website: company.website || '',
+        currency: company.currency || DEFAULT_CURRENCY.code,
         // Catalogue colors
         cataloguePrimaryColor: company.catalogueColors?.primary || company.primaryColor || '#183524',
         catalogueSecondaryColor: company.catalogueColors?.secondary || company.secondaryColor || '#e2b069',
@@ -257,7 +260,7 @@ const Settings = () => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedLinks(prev => new Set(prev).add(linkId));
-      showSuccessToast('Link copied to clipboard!');
+      showSuccessToast(t('settingsPage.paymentGateways.messages.copySuccess', 'Link copied to clipboard!'));
 
       // Reset the copied state after 2 seconds
       setTimeout(() => {
@@ -268,7 +271,7 @@ const Settings = () => {
         });
       }, 2000);
     } catch {
-      showErrorToast('Failed to copy link');
+      showErrorToast(t('settingsPage.paymentGateways.messages.copyError', 'Failed to copy link'));
     }
   };
 
@@ -487,31 +490,74 @@ const Settings = () => {
     return true;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validatePasswordChange()) {
-      return;
-    }
-
-    if (!validateEmailChange()) {
-      return;
-    }
-
+  // Separate handlers for each section
+  const handleSaveColors = async () => {
+    if (!company?.id) return;
     setIsLoading(true);
+    try {
+      await updateCompany({
+        catalogueColors: {
+          primary: formData.cataloguePrimaryColor,
+          secondary: formData.catalogueSecondaryColor,
+          tertiary: formData.catalogueTertiaryColor,
+        },
+        dashboardColors: {
+          primary: formData.dashboardPrimaryColor,
+          secondary: formData.dashboardSecondaryColor,
+          tertiary: formData.dashboardTertiaryColor,
+          headerText: formData.dashboardHeaderTextColor,
+        },
+        // Legacy support
+        primaryColor: formData.cataloguePrimaryColor,
+        secondaryColor: formData.catalogueSecondaryColor,
+        tertiaryColor: formData.catalogueTertiaryColor,
+      });
+      showSuccessToast(t('settingsPage.messages.colorsUpdated', 'Colors updated successfully'));
+    } catch (error: any) {
+      console.error('Error updating colors:', error);
+      showErrorToast(error.message || t('settingsPage.messages.updateFailed'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  const handleSaveCompanyInfo = async () => {
+    if (!company?.id) return;
+    setIsLoading(true);
     try {
       const normalizedWebsite = normalizeWebsite(formData.website);
       if (normalizedWebsite) {
         try {
           new URL(normalizedWebsite);
         } catch {
-          showErrorToast('URL de site web invalide (doit être http/https)');
+          showErrorToast(t('settingsPage.messages.invalidWebsiteUrl', 'URL de site web invalide (doit être http/https)'));
           setIsLoading(false);
           return;
         }
       }
 
+      await updateCompany({
+        name: formData.name,
+        description: formData.description || undefined,
+        phone: formData.phone,
+        location: formData.location || undefined,
+        logo: formData.logo || undefined,
+        website: normalizedWebsite,
+        currency: formData.currency,
+      });
+      showSuccessToast(t('settingsPage.messages.companyInfoUpdated', 'Informations de l\'entreprise mises à jour'));
+    } catch (error: any) {
+      console.error('Error updating company info:', error);
+      showErrorToast(error.message || t('settingsPage.messages.updateFailed'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSaveReportSettings = async () => {
+    if (!company?.id) return;
+    setIsLoading(true);
+    try {
       // Handle report_time: validate "HH:mm" format or default to "08:00"
       let reportTime = formData.report_time || '08:00';
       const timePattern = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
@@ -520,122 +566,74 @@ const Settings = () => {
         showWarningToast(t('settingsPage.messages.reportTimeDefault'));
       }
 
-      // Update company information
-      // Use new email if email change is in progress, otherwise use current email
-      const emailToUse = formData.newEmail && formData.confirmEmail && formData.emailChangePassword
-        ? formData.newEmail
-        : formData.email;
-
-      const companyData = {
-        name: formData.name,
-        description: formData.description || undefined,
-        phone: formData.phone,
-        location: formData.location || undefined,
-        logo: formData.logo || undefined,
-        email: emailToUse,
+      await updateCompany({
+        email: formData.email, // Ensure email is preserved or updated if needed
         report_mail: formData.report_mail || undefined,
         report_time: reportTime,
         emailReportsEnabled: formData.emailReportsEnabled,
-        website: normalizedWebsite,
-        // New color schemes
-        catalogueColors: {
-          primary: formData.cataloguePrimaryColor,
-          secondary: formData.catalogueSecondaryColor,
-          tertiary: formData.catalogueTertiaryColor
-        },
-        dashboardColors: {
-          primary: formData.dashboardPrimaryColor,
-          secondary: formData.dashboardSecondaryColor,
-          tertiary: formData.dashboardTertiaryColor,
-          headerText: formData.dashboardHeaderTextColor
-        },
-        // Legacy colors (for backward compatibility)
-        primaryColor: formData.primaryColor,
-        secondaryColor: formData.secondaryColor,
-        tertiaryColor: formData.tertiaryColor,
-        // Stock management
-        lowStockThreshold: formData.lowStockThreshold || 10
-      };
-
-      try {
-        await updateCompany(companyData);
-      } catch (error: any) {
-        // Si l'erreur concerne report_mail, continuer avec les autres champs
-        if (error.message && error.message.includes('report_mail')) {
-          showWarningToast('Email de rapport non sauvegardé (les autres modifications sont OK)');
-          // Retirer report_mail et réessayer
-          const { report_mail, ...companyDataWithoutReportMail } = companyData;
-          await updateCompany(companyDataWithoutReportMail);
-        } else {
-          throw error;
-        }
-      }
-
-      // Update email if provided
-      if (formData.newEmail && formData.confirmEmail && formData.emailChangePassword) {
+      });
+      showSuccessToast(t('settingsPage.messages.reportSettingsUpdated', 'Paramètres de rapport mis à jour'));
+    } catch (error: any) {
+      // Si l'erreur concerne report_mail, essayer sans
+      if (error.message && error.message.includes('report_mail')) {
+        showWarningToast(t('settingsPage.messages.reportSettingsUpdated', 'Paramètres de rapport mis à jour') + ' (Email not saved)');
         try {
-          await updateUserEmail(formData.newEmail, formData.emailChangePassword);
-          showSuccessToast(t('settingsPage.messages.emailUpdated', 'Email updated successfully. Please check your new email for verification.'));
-
-          // Reset email fields after successful update
-          setFormData(prev => ({
-            ...prev,
-            newEmail: '',
-            confirmEmail: '',
-            emailChangePassword: '',
-            email: formData.newEmail, // Update current email in form
-          }));
-        } catch (error: any) {
-          // Email update failed, but company update might have succeeded
-          // Show specific error for email update
-          showErrorToast(error.message || t('settingsPage.messages.emailUpdateFailed', 'Failed to update email address'));
-          throw error; // Re-throw to prevent showing success message
-        }
+          await updateCompany({
+            report_time: formData.report_time || '08:00',
+            emailReportsEnabled: formData.emailReportsEnabled,
+          });
+        } catch (e) { console.error(e); }
+      } else {
+        showErrorToast(error.message || t('settingsPage.messages.updateFailed'));
       }
-
-      // Update password if provided
-      if (formData.currentPassword && formData.newPassword) {
-        await updateUserPassword(formData.currentPassword, formData.newPassword);
-      }
-
-      showSuccessToast(t('settingsPage.messages.settingsUpdated'));
-
-      // Reset password fields after successful update
-      setFormData(prev => ({
-        ...prev,
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
-      }));
-    } catch (error: unknown) {
-      console.error('Error updating settings:', error);
-      showErrorToast((error as Error).message || t('settingsPage.messages.updateFailed'));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleCancel = () => {
-    if (company) {
-      setFormData(prev => ({
-        ...prev,
-        name: company.name || '',
-        description: company.description || '',
-        phone: company.phone?.replace('+237', '') || '',
-        location: company.location || '',
-        email: company.email || '',
-        report_time: formatReportTime(company.report_time) || '08:00',
-        logo: company.logo || '',
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
-        newEmail: '',
-        confirmEmail: '',
-        emailChangePassword: '',
-      }));
+  const handleUpdateEmail = async () => {
+    if (!validateEmailChange()) return;
+    setIsLoading(true);
+    try {
+      if (formData.newEmail && formData.confirmEmail && formData.emailChangePassword) {
+        await updateUserEmail(formData.newEmail, formData.emailChangePassword);
+        showSuccessToast(t('settingsPage.messages.emailUpdated', 'Email mis à jour avec succès. Veuillez vérifier votre nouvelle adresse e-mail pour la vérification.'));
+        // Reset email fields
+        setFormData(prev => ({
+          ...prev,
+          newEmail: '',
+          confirmEmail: '',
+          emailChangePassword: '',
+          email: formData.newEmail, // Optimistic update
+        }));
+      }
+    } catch (error: any) {
+      showErrorToast(error.message || t('settingsPage.messages.emailUpdateFailed', 'Failed to update email address'));
+    } finally {
+      setIsLoading(false);
     }
-    setPasswordError('');
-    setEmailError('');
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!validatePasswordChange()) return;
+    setIsLoading(true);
+    try {
+      if (formData.currentPassword && formData.newPassword) {
+        await updateUserPassword(formData.currentPassword, formData.newPassword);
+        showSuccessToast(t('settingsPage.messages.passwordUpdated', 'Mot de passe mis à jour'));
+        // Reset password fields
+        setFormData(prev => ({
+          ...prev,
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: '',
+        }));
+      }
+    } catch (error: any) {
+      showErrorToast(error.message || t('settingsPage.messages.updateFailed'));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Language change handler
@@ -666,10 +664,10 @@ const Settings = () => {
     try {
       setCheckoutSaving(true);
       await saveCheckoutSettings(company.id, checkoutSettings, user?.uid);
-      showSuccessToast('Checkout settings saved successfully!');
+      showSuccessToast(t('settingsPage.checkout.messages.saveSuccess', 'Checkout settings saved successfully!'));
     } catch (error) {
       console.error('Error saving checkout settings:', error);
-      showErrorToast('Failed to save checkout settings');
+      showErrorToast(t('settingsPage.checkout.messages.saveError', 'Failed to save checkout settings'));
     } finally {
       setCheckoutSaving(false);
     }
@@ -678,16 +676,16 @@ const Settings = () => {
   const handleResetCheckoutSettings = async () => {
     if (!company?.id) return;
 
-    if (window.confirm('Are you sure you want to reset all checkout settings to default?')) {
+    if (window.confirm(t('settingsPage.checkout.messages.resetConfirm', 'Are you sure you want to reset all checkout settings to default?'))) {
       try {
         setCheckoutSaving(true);
         await resetCheckoutSettings(company.id, user?.uid);
         const settings = await getCheckoutSettingsWithDefaults(company.id, user?.uid);
         setCheckoutSettings(settings);
-        showSuccessToast('Checkout settings reset to default!');
+        showSuccessToast(t('settingsPage.checkout.messages.resetSuccess', 'Checkout settings reset to default!'));
       } catch (error) {
         console.error('Error resetting checkout settings:', error);
-        showErrorToast('Failed to reset checkout settings');
+        showErrorToast(t('settingsPage.checkout.messages.resetError', 'Failed to reset checkout settings'));
       } finally {
         setCheckoutSaving(false);
       }
@@ -762,10 +760,10 @@ const Settings = () => {
         }
       });
 
-      showSuccessToast('Payment integration settings saved');
+      showSuccessToast(t('settingsPage.paymentGateways.messages.saveSuccess', 'Payment integration settings saved'));
     } catch (error) {
       console.error('Error saving CinetPay config:', error);
-      showErrorToast('Failed to save payment integration settings');
+      showErrorToast(t('settingsPage.paymentGateways.messages.saveError', 'Failed to save payment integration settings'));
     } finally {
       setCinetpaySaving(false);
     }
@@ -773,7 +771,7 @@ const Settings = () => {
 
   const handleTestCinetpayConnection = async () => {
     if (!cinetpayConfig?.siteId || !cinetpayConfig?.apiKey) {
-      showErrorToast('Please enter Site ID and API Key first');
+      showErrorToast(t('settingsPage.paymentGateways.messages.credentialsRequired', 'Please enter Site ID and API Key first'));
       return;
     }
 
@@ -782,13 +780,13 @@ const Settings = () => {
       const result = await validateCinetPayCredentials(cinetpayConfig.siteId, cinetpayConfig.apiKey);
 
       if (result.isValid) {
-        showSuccessToast('Connection successful! Credentials are valid.');
+        showSuccessToast(t('settingsPage.paymentGateways.messages.testSuccess', 'Connection successful! Credentials are valid.'));
       } else {
-        showErrorToast(`Connection failed: ${result.message}`);
+        showErrorToast(t('settingsPage.paymentGateways.messages.testFailedWithMessage', 'Connection failed: {{message}}', { message: result.message }));
       }
     } catch (error) {
       console.error('Error testing CinetPay connection:', error);
-      showErrorToast('Failed to test connection');
+      showErrorToast(t('settingsPage.paymentGateways.messages.testError', 'Failed to test connection'));
     } finally {
       setCinetpayTesting(false);
     }
@@ -845,10 +843,10 @@ const Settings = () => {
         }
       });
 
-      showSuccessToast('Campay payment settings saved');
+      showSuccessToast(t('settingsPage.paymentGateways.messages.saveSuccess', 'Campay payment settings saved'));
     } catch (error) {
       console.error('Error saving Campay config:', error);
-      showErrorToast('Failed to save Campay payment settings');
+      showErrorToast(t('settingsPage.paymentGateways.messages.saveError', 'Failed to save Campay payment settings'));
     } finally {
       setCampaySaving(false);
     }
@@ -856,7 +854,7 @@ const Settings = () => {
 
   const handleTestCampayConnection = async () => {
     if (!campayConfig?.appId) {
-      showErrorToast('Please enter App ID first');
+      showErrorToast(t('settingsPage.paymentGateways.messages.appIdRequired', 'Please enter App ID first'));
       return;
     }
 
@@ -868,13 +866,13 @@ const Settings = () => {
       );
 
       if (result.isValid) {
-        showSuccessToast('Connection successful! Credentials are valid.');
+        showSuccessToast(t('settingsPage.paymentGateways.messages.testSuccess', 'Connection successful! Credentials are valid.'));
       } else {
-        showErrorToast(`Connection failed: ${result.message}`);
+        showErrorToast(t('settingsPage.paymentGateways.messages.testFailedWithMessage', 'Connection failed: {{message}}', { message: result.message }));
       }
     } catch (error) {
       console.error('Error testing Campay connection:', error);
-      showErrorToast('Failed to test connection');
+      showErrorToast(t('settingsPage.paymentGateways.messages.testError', 'Failed to test connection'));
     } finally {
       setCampayTesting(false);
     }
@@ -885,9 +883,7 @@ const Settings = () => {
 
     // Show confirmation dialog
     const confirmed = window.confirm(
-      'Are you sure you want to clear your Campay credentials?\n\n' +
-      'This will remove your App ID. You will need to re-enter it to use Campay payments.\n\n' +
-      'This action cannot be undone.'
+      t('settingsPage.paymentGateways.messages.clearCampayConfirm', 'Are you sure you want to clear your Campay credentials?\n\nThis will remove your App ID. You will need to re-enter it to use Campay payments.\n\nThis action cannot be undone.')
     );
 
     if (!confirmed) return;
@@ -895,14 +891,14 @@ const Settings = () => {
     try {
       setCampaySaving(true);
       await saveCampayConfig(company.id, { appId: '', isActive: false }, user?.uid);
-      showSuccessToast('Campay credentials cleared');
+      showSuccessToast(t('settingsPage.paymentGateways.messages.clearSuccess', 'Campay credentials cleared'));
 
       // Reload config
       const updatedConfig = await initializeCampayConfig(company.id, user?.uid);
       setCampayConfig(updatedConfig);
     } catch (error) {
       console.error('Error clearing Campay credentials:', error);
-      showErrorToast('Failed to clear credentials');
+      showErrorToast(t('settingsPage.paymentGateways.messages.clearError', 'Failed to clear credentials'));
     } finally {
       setCampaySaving(false);
     }
@@ -913,9 +909,7 @@ const Settings = () => {
 
     // Show confirmation dialog
     const confirmed = window.confirm(
-      'Are you sure you want to clear your CinetPay credentials?\n\n' +
-      'This will remove your Site ID and API Key. You will need to re-enter them to use online payments.\n\n' +
-      'This action cannot be undone.'
+      t('settingsPage.paymentGateways.messages.clearCinetpayConfirm', 'Are you sure you want to clear your CinetPay credentials?\n\nThis will remove your Site ID and API Key. You will need to re-enter them to use online payments.\n\nThis action cannot be undone.')
     );
 
     if (!confirmed) return;
@@ -941,10 +935,10 @@ const Settings = () => {
         }
       });
 
-      showSuccessToast('CinetPay credentials cleared successfully');
+      showSuccessToast(t('settingsPage.paymentGateways.messages.clearSuccess', 'CinetPay credentials cleared successfully'));
     } catch (error) {
       console.error('Error clearing CinetPay credentials:', error);
-      showErrorToast('Failed to clear credentials');
+      showErrorToast(t('settingsPage.paymentGateways.messages.clearError', 'Failed to clear credentials'));
     } finally {
       setCinetpaySaving(false);
     }
@@ -1095,14 +1089,14 @@ const Settings = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
             `}
           >
-            Sales & POS
+            {t('settingsPage.tabs.salesPos', 'Sales & POS')}
           </button>
         </nav>
       </div>
 
       {/* Colors Tab */}
       {activeTab === 'colors' && (
-        <form onSubmit={handleSubmit}>
+        <div className="space-y-6">
           <Card>
             <div className="max-w-4xl mx-auto">
               <div className="space-y-6">
@@ -1411,7 +1405,8 @@ const Settings = () => {
                     Cancel
                   </Button>
                   <Button
-                    type="submit"
+                    type="button"
+                    onClick={handleSaveColors}
                     isLoading={isLoading}
                     disabled={isLoading}
                   >
@@ -1421,177 +1416,222 @@ const Settings = () => {
               </div>
             </div>
           </Card>
-        </form>
+        </div>
       )}
 
       {/* Account Settings Tab */}
       {activeTab === 'account' && (
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-6">
-            {/* Company Information Section */}
-            <Card>
-              <div className="px-6 py-4 border-b border-gray-200">
-                <div className="flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-gray-600" />
-                  <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.sections.companyInfo', 'Company Information')}</h3>
+        <div className="space-y-6">
+          {/* Company Information Section */}
+          <Card>
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-gray-600" />
+                <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.sections.companyInfo', 'Company Information')}</h3>
+              </div>
+              <Button
+                onClick={handleSaveCompanyInfo}
+                isLoading={isLoading}
+                disabled={isLoading}
+                size="sm"
+              >
+                {t('common.save', 'Enregistrer')}
+              </Button>
+            </div>
+            <div className="p-6 space-y-6">
+              {/* Company Logo */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('settingsPage.account.companyLogo')}
+                </label>
+                <div className="mt-1 flex items-center space-x-4">
+                  <div className="flex-shrink-0">
+                    {formData.logo ? (
+                      <img
+                        src={formData.logo}
+                        alt="Company logo"
+                        className="h-16 w-16 object-cover rounded-lg"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="h-16 w-16 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
+                        <span className="text-gray-400">{t('settingsPage.account.noLogo')}</span>
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoChange}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                  />
                 </div>
               </div>
-              <div className="p-6 space-y-6">
-                {/* Company Logo */}
+
+              {/* Company Details */}
+              <div className="space-y-4">
+                <Input
+                  label={t('settingsPage.account.companyName')}
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  required
+                />
+                <Input
+                  label={t('settingsPage.account.description')}
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  helpText={t('settingsPage.account.descriptionHelp')}
+                />
+                <PhoneInput
+                  label={t('settingsPage.account.phoneNumber')}
+                  value={formData.phone}
+                  onChange={handlePhoneChange}
+                  helpText={t('settingsPage.account.phoneHelp')}
+                  required
+                />
+                <Input
+                  label={t('settingsPage.account.location')}
+                  name="location"
+                  value={formData.location}
+                  onChange={handleInputChange}
+                  helpText={t('settingsPage.account.locationHelp')}
+                />
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t('settingsPage.account.companyLogo')}
-                  </label>
-                  <div className="mt-1 flex items-center space-x-4">
-                    <div className="flex-shrink-0">
-                      {formData.logo ? (
-                        <img
-                          src={formData.logo}
-                          alt="Company logo"
-                          className="h-16 w-16 object-cover rounded-lg"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="h-16 w-16 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
-                          <span className="text-gray-400">{t('settingsPage.account.noLogo')}</span>
-                        </div>
-                      )}
-                    </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('settingsPage.account.website', 'Site web')}</label>
+                  <div className="flex rounded-md shadow-sm">
+                    <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                      https://
+                    </span>
                     <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoChange}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                      type="text"
+                      name="website"
+                      value={(formData.website || '').replace(/^https?:\/\//i, '')}
+                      onChange={handleWebsiteChange}
+                      placeholder="mon-entreprise.com"
+                      className="flex-1 rounded-l-none border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
+                  <p className="mt-1 text-sm text-gray-500">{t('settingsPage.account.websiteHelp', 'URL publique de votre entreprise (facultatif)')}</p>
                 </div>
 
-                {/* Company Details */}
-                <div className="space-y-4">
-                  <Input
-                    label={t('settingsPage.account.companyName')}
-                    name="name"
-                    value={formData.name}
+                {/* Currency Selector */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('settingsPage.account.mainCurrency', 'Devise principale')}</label>
+                  <select
+                    name="currency"
+                    value={formData.currency}
                     onChange={handleInputChange}
+                    className="block w-full rounded-md border border-gray-300 py-2 px-3 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-emerald-500 sm:text-sm"
+                  >
+                    {CURRENCIES.map((currency) => (
+                      <option key={currency.code} value={currency.code}>
+                        {currency.name} ({currency.symbol})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-sm text-gray-500">{t('settingsPage.account.mainCurrencyHelp', 'La devise utilisée par défaut dans toute l\'application.')}</p>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Report Settings Section */}
+          {(isOwner || effectiveRole !== 'vendeur') && (
+            <Card>
+              <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-gray-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.sections.reportSettings', 'Report Settings')}</h3>
+                </div>
+                <Button
+                  onClick={handleSaveReportSettings}
+                  isLoading={isLoading}
+                  disabled={isLoading}
+                  size="sm"
+                >
+                  {t('common.save', 'Enregistrer')}
+                </Button>
+              </div>
+              <div className="p-6 space-y-4">
+                <Input
+                  label={t('settingsPage.account.reportMail')}
+                  name="report_mail"
+                  type="email"
+                  value={formData.report_mail}
+                  onChange={handleInputChange}
+                  onBlur={() => {
+                    if (formData.report_mail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.report_mail)) {
+                      // Validation silencieuse
+                    }
+                  }}
+                  placeholder="rapports@entreprise.com"
+                  helpText={t('settingsPage.account.reportMailHelp')}
+                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('settingsPage.account.reportTime')}
+                  </label>
+                  <input
+                    type="time"
+                    name="report_time"
+                    value={formData.report_time}
+                    onChange={handleInputChange}
+                    className="block w-full px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                     required
                   />
-                  <Input
-                    label={t('settingsPage.account.description')}
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    helpText={t('settingsPage.account.descriptionHelp')}
-                  />
-                  <PhoneInput
-                    label={t('settingsPage.account.phoneNumber')}
-                    value={formData.phone}
-                    onChange={handlePhoneChange}
-                    helpText={t('settingsPage.account.phoneHelp')}
-                    required
-                  />
-                  <Input
-                    label={t('settingsPage.account.location')}
-                    name="location"
-                    value={formData.location}
-                    onChange={handleInputChange}
-                    helpText={t('settingsPage.account.locationHelp')}
-                  />
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Site web</label>
-                    <div className="flex rounded-md shadow-sm">
-                      <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
-                        https://
-                      </span>
-                      <input
-                        type="text"
-                        name="website"
-                        value={(formData.website || '').replace(/^https?:\/\//i, '')}
-                        onChange={handleWebsiteChange}
-                        placeholder="mon-entreprise.com"
-                        className="flex-1 rounded-l-none border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
+                  <p className="mt-1 text-sm text-gray-500">
+                    {t('settingsPage.account.reportTimeHelp')}
+                  </p>
+                </div>
+                <div>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      id="emailReportsEnabled"
+                      name="emailReportsEnabled"
+                      checked={formData.emailReportsEnabled}
+                      onChange={(e) => setFormData(prev => ({ ...prev, emailReportsEnabled: e.target.checked }))}
+                      className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                    />
+                    <div className="flex-1">
+                      <label htmlFor="emailReportsEnabled" className="block text-sm font-medium text-gray-700 cursor-pointer">
+                        {t('settingsPage.account.emailReportsEnabled')}
+                      </label>
+                      <p className="mt-1 text-sm text-gray-500">
+                        {t('settingsPage.account.emailReportsEnabledHelp')}
+                      </p>
                     </div>
-                    <p className="mt-1 text-sm text-gray-500">URL publique de votre entreprise (facultatif)</p>
                   </div>
                 </div>
               </div>
             </Card>
+          )}
 
-            {/* Report Settings Section */}
-            {(isOwner || effectiveRole !== 'vendeur') && (
-              <Card>
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <div className="flex items-center gap-2">
-                    <Bell className="w-5 h-5 text-gray-600" />
-                    <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.sections.reportSettings', 'Report Settings')}</h3>
-                  </div>
-                </div>
-                <div className="p-6 space-y-4">
-                  <Input
-                    label={t('settingsPage.account.reportMail')}
-                    name="report_mail"
-                    type="email"
-                    value={formData.report_mail}
-                    onChange={handleInputChange}
-                    onBlur={() => {
-                      if (formData.report_mail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.report_mail)) {
-                        // Validation silencieuse
-                      }
-                    }}
-                    placeholder="rapports@entreprise.com"
-                    helpText={t('settingsPage.account.reportMailHelp')}
-                  />
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('settingsPage.account.reportTime')}
-                    </label>
-                    <input
-                      type="time"
-                      name="report_time"
-                      value={formData.report_time}
-                      onChange={handleInputChange}
-                      className="block w-full px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
-                      required
-                    />
-                    <p className="mt-1 text-sm text-gray-500">
-                      {t('settingsPage.account.reportTimeHelp')}
-                    </p>
-                  </div>
-                  <div>
-                    <div className="flex items-center space-x-3">
-                      <input
-                        type="checkbox"
-                        id="emailReportsEnabled"
-                        name="emailReportsEnabled"
-                        checked={formData.emailReportsEnabled}
-                        onChange={(e) => setFormData(prev => ({ ...prev, emailReportsEnabled: e.target.checked }))}
-                        className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
-                      />
-                      <div className="flex-1">
-                        <label htmlFor="emailReportsEnabled" className="block text-sm font-medium text-gray-700 cursor-pointer">
-                          {t('settingsPage.account.emailReportsEnabled')}
-                        </label>
-                        <p className="mt-1 text-sm text-gray-500">
-                          {t('settingsPage.account.emailReportsEnabledHelp')}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            )}
-
-            {/* Personal Information Section */}
-            <Card>
-              <div className="px-6 py-4 border-b border-gray-200">
-                <div className="flex items-center gap-2">
-                  <User className="w-5 h-5 text-gray-600" />
-                  <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.sections.personalInfo', 'Personal Information')}</h3>
-                </div>
+          {/* Personal Information Section */}
+          <Card>
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <User className="w-5 h-5 text-gray-600" />
+                <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.sections.personalInfo', 'Personal Information')}</h3>
               </div>
-              <div className="p-6 space-y-4">
-                <div>
-                  {safeCanChangeEmail() ? (
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                {safeCanChangeEmail() ? (
+                  <Input
+                    label={t('settingsPage.account.emailAddress')}
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required
+                    disabled
+                    helpText={t('settingsPage.account.currentEmailHelp', 'This is your current email address. Use the form below to change it.')}
+                  />
+                ) : (
+                  <>
                     <Input
                       label={t('settingsPage.account.emailAddress')}
                       name="email"
@@ -1600,2212 +1640,2199 @@ const Settings = () => {
                       onChange={handleInputChange}
                       required
                       disabled
-                      helpText={t('settingsPage.account.currentEmailHelp', 'This is your current email address. Use the form below to change it.')}
                     />
-                  ) : (
-                    <>
-                      <Input
-                        label={t('settingsPage.account.emailAddress')}
-                        name="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        required
-                        disabled
-                      />
-                      <div className="mt-1">
-                        <p className="text-xs text-gray-500">
-                          {safeGetUserAuthProvider() === 'google.com'
-                            ? t('settingsPage.account.googleEmailHelp', 'Email is managed by your Google account. To change it, please update your email in your Google account settings.')
-                            : t('settingsPage.account.emailDisabledHelp', 'Email cannot be changed as it is used for critical operations and reports.')}
-                        </p>
-                        {safeGetUserAuthProvider() === 'google.com' && (
+                    <div className="mt-1">
+                      <p className="text-xs text-gray-500">
+                        {safeGetUserAuthProvider() === 'google.com'
+                          ? t('settingsPage.account.googleEmailHelp', 'Email is managed by your Google account. To change it, please update your email in your Google account settings.')
+                          : t('settingsPage.account.emailDisabledHelp', 'Email cannot be changed as it is used for critical operations and reports.')}
+                      </p>
+                      {safeGetUserAuthProvider() === 'google.com' && (
+                        <a
+                          href="https://myaccount.google.com/personal-info"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 underline"
+                        >
+                          {t('settingsPage.account.updateEmailInGoogleAccount', 'Update email in my Google account')}
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </Card>
+
+          {/* Security Section */}
+          <Card>
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-gray-600" />
+                <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.sections.security', 'Security')}</h3>
+              </div>
+            </div>
+            <div className="p-6">
+              {/* Email Change - Only show for email/password users */}
+              {safeCanChangeEmail() ? (
+                <div>
+                  <h4 className="text-base font-medium text-gray-900 mb-4">{t('settingsPage.account.changeEmail', 'Change Email Address')}</h4>
+                  {emailError && (
+                    <div className="mb-4 bg-red-50 text-red-800 p-3 rounded-md text-sm">
+                      {emailError}
+                    </div>
+                  )}
+                  <div className="space-y-4">
+                    <Input
+                      label={t('settingsPage.account.newEmailAddress', 'New Email Address')}
+                      name="newEmail"
+                      type="email"
+                      value={formData.newEmail}
+                      onChange={handleInputChange}
+                      helpText={t('settingsPage.account.newEmailHelp', 'Enter your new email address')}
+                    />
+                    <Input
+                      label={t('settingsPage.account.confirmNewEmail', 'Confirm New Email Address')}
+                      name="confirmEmail"
+                      type="email"
+                      value={formData.confirmEmail}
+                      onChange={handleInputChange}
+                      helpText={t('settingsPage.account.confirmNewEmailHelp', 'Re-enter your new email address to confirm')}
+                    />
+                    <Input
+                      label={t('settingsPage.account.currentPasswordForEmail', 'Current Password')}
+                      name="emailChangePassword"
+                      type="password"
+                      value={formData.emailChangePassword}
+                      onChange={handleInputChange}
+                      helpText={t('settingsPage.account.currentPasswordForEmailHelp', 'Enter your current password to confirm the email change')}
+                    />
+                  </div>
+                  <p className="mt-3 text-sm text-gray-500">
+                    {t('settingsPage.account.emailChangeNote', 'A verification email will be sent to your new email address after the change.')}
+                  </p>
+                  <div className="mt-4 flex justify-end">
+                    <Button
+                      onClick={handleUpdateEmail}
+                      isLoading={isLoading}
+                      disabled={isLoading || !formData.newEmail || !formData.confirmEmail || !formData.emailChangePassword}
+                      size="sm"
+                    >
+                      {t('settingsPage.account.updateEmail', 'Mettre à jour l\'email')}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Divider between email and password sections */}
+              {safeCanChangeEmail() && safeCanChangePassword() && (
+                <div className="my-6 border-t border-gray-200"></div>
+              )}
+
+              {/* Password Change - Only show for email/password users */}
+              {safeCanChangePassword() ? (
+                <div>
+                  <h4 className="text-base font-medium text-gray-900 mb-4">{t('settingsPage.account.changePassword')}</h4>
+                  {passwordError && (
+                    <div className="mb-4 bg-red-50 text-red-800 p-3 rounded-md text-sm">
+                      {passwordError}
+                    </div>
+                  )}
+                  <div className="space-y-4">
+                    <Input
+                      label={t('settingsPage.account.currentPassword')}
+                      name="currentPassword"
+                      type="password"
+                      value={formData.currentPassword}
+                      onChange={handleInputChange}
+                      helpText={t('settingsPage.account.currentPasswordHelp')}
+                    />
+                    <Input
+                      label={t('settingsPage.account.newPassword')}
+                      name="newPassword"
+                      type="password"
+                      value={formData.newPassword}
+                      onChange={handleInputChange}
+                      helpText={t('settingsPage.account.newPasswordHelp')}
+                    />
+                    <Input
+                      label={t('settingsPage.account.confirmNewPassword')}
+                      name="confirmPassword"
+                      type="password"
+                      value={formData.confirmPassword}
+                      onChange={handleInputChange}
+                      helpText={t('settingsPage.account.confirmNewPasswordHelp')}
+                    />
+                    <div className="mt-4 flex justify-end">
+                      <Button
+                        onClick={handleUpdatePassword}
+                        isLoading={isLoading}
+                        disabled={isLoading || !formData.currentPassword || !formData.newPassword || !formData.confirmPassword}
+                        size="sm"
+                      >
+                        {t('settingsPage.account.updatePassword', 'Mettre à jour le mot de passe')}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Authentication Provider Info - Show for Google/OAuth users */
+                <div>
+                  <h4 className="text-base font-medium text-gray-900 mb-4">{t('settingsPage.account.authMethod', 'Méthode de connexion')}</h4>
+                  <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      {safeGetUserAuthProvider() === 'google.com' && (
+                        <svg className="w-5 h-5" viewBox="0 0 24 24">
+                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                        </svg>
+                      )}
+                      <span className="font-medium text-amber-800">
+                        {safeGetUserAuthProvider() === 'google.com'
+                          ? t('settingsPage.account.connectedWithGoogle', 'Connecté via Google')
+                          : t('settingsPage.account.connectedWithProvider', `Connecté via ${safeGetUserAuthProvider()}`, { provider: safeGetUserAuthProvider() })}
+                      </span>
+                    </div>
+                    <p className="text-sm text-amber-700">
+                      {t('settingsPage.account.googlePasswordNote',
+                        'Vous êtes connecté avec Google. Pour modifier votre mot de passe, veuillez utiliser les paramètres de votre compte Google.')}
+                    </p>
+                    <div className="flex flex-wrap gap-3 mt-3">
+                      {safeGetUserAuthProvider() === 'google.com' && (
+                        <>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            icon={<Key className="w-4 h-4" />}
+                            onClick={() => setShowAddPasswordDialog(true)}
+                          >
+                            {t('settingsPage.account.addPassword', 'Ajouter un mot de passe')}
+                          </Button>
                           <a
-                            href="https://myaccount.google.com/personal-info"
+                            href="https://myaccount.google.com/security"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="mt-2 inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 underline"
+                            className="inline-flex items-center gap-1 text-sm text-amber-800 hover:text-amber-900 underline py-2"
                           >
-                            {t('settingsPage.account.updateEmailInGoogleAccount', 'Update email in my Google account')}
+                            {t('settingsPage.account.manageGoogleAccount', 'Gérer mon compte Google')}
                             <ExternalLink className="w-3 h-3" />
                           </a>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </Card>
-
-            {/* Security Section */}
-            <Card>
-              <div className="px-6 py-4 border-b border-gray-200">
-                <div className="flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-gray-600" />
-                  <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.sections.security', 'Security')}</h3>
-                </div>
-              </div>
-              <div className="p-6">
-                {/* Email Change - Only show for email/password users */}
-                {safeCanChangeEmail() ? (
-                  <div>
-                    <h4 className="text-base font-medium text-gray-900 mb-4">{t('settingsPage.account.changeEmail', 'Change Email Address')}</h4>
-                    {emailError && (
-                      <div className="mb-4 bg-red-50 text-red-800 p-3 rounded-md text-sm">
-                        {emailError}
-                      </div>
-                    )}
-                    <div className="space-y-4">
-                      <Input
-                        label={t('settingsPage.account.newEmailAddress', 'New Email Address')}
-                        name="newEmail"
-                        type="email"
-                        value={formData.newEmail}
-                        onChange={handleInputChange}
-                        helpText={t('settingsPage.account.newEmailHelp', 'Enter your new email address')}
-                      />
-                      <Input
-                        label={t('settingsPage.account.confirmNewEmail', 'Confirm New Email Address')}
-                        name="confirmEmail"
-                        type="email"
-                        value={formData.confirmEmail}
-                        onChange={handleInputChange}
-                        helpText={t('settingsPage.account.confirmNewEmailHelp', 'Re-enter your new email address to confirm')}
-                      />
-                      <Input
-                        label={t('settingsPage.account.currentPasswordForEmail', 'Current Password')}
-                        name="emailChangePassword"
-                        type="password"
-                        value={formData.emailChangePassword}
-                        onChange={handleInputChange}
-                        helpText={t('settingsPage.account.currentPasswordForEmailHelp', 'Enter your current password to confirm the email change')}
-                      />
+                        </>
+                      )}
                     </div>
-                    <p className="mt-3 text-sm text-gray-500">
-                      {t('settingsPage.account.emailChangeNote', 'A verification email will be sent to your new email address after the change.')}
+                  </div>
+
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Preferences Section */}
+          <Card>
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <Globe className="w-5 h-5 text-gray-600" />
+                <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.sections.preferences', 'Preferences')}</h3>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-start">
+                  <div className="flex items-center h-5">
+                    <input
+                      id="email-notifications"
+                      name="email-notifications"
+                      type="checkbox"
+                      className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                      defaultChecked
+                    />
+                  </div>
+                  <div className="ml-3">
+                    <label htmlFor="email-notifications" className="text-sm font-medium text-gray-700">
+                      {t('settingsPage.account.emailNotifications')}
+                    </label>
+                    <p className="text-sm text-gray-500">
+                      {t('settingsPage.account.emailNotificationsHelp')}
                     </p>
                   </div>
-                ) : null}
-
-                {/* Divider between email and password sections */}
-                {safeCanChangeEmail() && safeCanChangePassword() && (
-                  <div className="my-6 border-t border-gray-200"></div>
-                )}
-
-                {/* Password Change - Only show for email/password users */}
-                {safeCanChangePassword() ? (
-                  <div>
-                    <h4 className="text-base font-medium text-gray-900 mb-4">{t('settingsPage.account.changePassword')}</h4>
-                    {passwordError && (
-                      <div className="mb-4 bg-red-50 text-red-800 p-3 rounded-md text-sm">
-                        {passwordError}
-                      </div>
-                    )}
-                    <div className="space-y-4">
-                      <Input
-                        label={t('settingsPage.account.currentPassword')}
-                        name="currentPassword"
-                        type="password"
-                        value={formData.currentPassword}
-                        onChange={handleInputChange}
-                        helpText={t('settingsPage.account.currentPasswordHelp')}
-                      />
-                      <Input
-                        label={t('settingsPage.account.newPassword')}
-                        name="newPassword"
-                        type="password"
-                        value={formData.newPassword}
-                        onChange={handleInputChange}
-                        helpText={t('settingsPage.account.newPasswordHelp')}
-                      />
-                      <Input
-                        label={t('settingsPage.account.confirmNewPassword')}
-                        name="confirmPassword"
-                        type="password"
-                        value={formData.confirmPassword}
-                        onChange={handleInputChange}
-                        helpText={t('settingsPage.account.confirmNewPasswordHelp')}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  /* Authentication Provider Info - Show for Google/OAuth users */
-                  <div>
-                    <h4 className="text-base font-medium text-gray-900 mb-4">{t('settingsPage.account.authMethod', 'Méthode de connexion')}</h4>
-                    <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        {safeGetUserAuthProvider() === 'google.com' && (
-                          <svg className="w-5 h-5" viewBox="0 0 24 24">
-                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                          </svg>
-                        )}
-                        <span className="font-medium text-amber-800">
-                          {safeGetUserAuthProvider() === 'google.com'
-                            ? t('settingsPage.account.connectedWithGoogle', 'Connecté via Google')
-                            : t('settingsPage.account.connectedWithProvider', `Connecté via ${safeGetUserAuthProvider()}`, { provider: safeGetUserAuthProvider() })}
-                        </span>
-                      </div>
-                      <p className="text-sm text-amber-700">
-                        {t('settingsPage.account.googlePasswordNote',
-                          'Vous êtes connecté avec Google. Pour modifier votre mot de passe, veuillez utiliser les paramètres de votre compte Google.')}
-                      </p>
-                      <div className="flex flex-wrap gap-3 mt-3">
-                        {safeGetUserAuthProvider() === 'google.com' && (
-                          <>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              icon={<Key className="w-4 h-4" />}
-                              onClick={() => setShowAddPasswordDialog(true)}
-                            >
-                              {t('settingsPage.account.addPassword', 'Ajouter un mot de passe')}
-                            </Button>
-                            <a
-                              href="https://myaccount.google.com/security"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-sm text-amber-800 hover:text-amber-900 underline py-2"
-                            >
-                              {t('settingsPage.account.manageGoogleAccount', 'Gérer mon compte Google')}
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            {/* Preferences Section */}
-            <Card>
-              <div className="px-6 py-4 border-b border-gray-200">
-                <div className="flex items-center gap-2">
-                  <Globe className="w-5 h-5 text-gray-600" />
-                  <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.sections.preferences', 'Preferences')}</h3>
                 </div>
-              </div>
-              <div className="p-6">
-                <div className="space-y-4">
-                  <div className="flex items-start">
-                    <div className="flex items-center h-5">
-                      <input
-                        id="email-notifications"
-                        name="email-notifications"
-                        type="checkbox"
-                        className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
-                        defaultChecked
-                      />
-                    </div>
-                    <div className="ml-3">
-                      <label htmlFor="email-notifications" className="text-sm font-medium text-gray-700">
-                        {t('settingsPage.account.emailNotifications')}
-                      </label>
-                      <p className="text-sm text-gray-500">
-                        {t('settingsPage.account.emailNotificationsHelp')}
-                      </p>
-                    </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('settingsPage.account.language')}
-                    </label>
-                    <select
-                      className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                      value={i18n.language}
-                      onChange={handleLanguageChange}
-                    >
-                      <option value="en">{t('languages.en')}</option>
-                      <option value="fr">{t('languages.fr')}</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            {/* Form Actions */}
-            <div className="flex justify-end space-x-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancel}
-                disabled={isLoading}
-              >
-                {t('settingsPage.account.cancel')}
-              </Button>
-              <Button
-                type="submit"
-                isLoading={isLoading}
-                disabled={isLoading}
-              >
-                {t('settingsPage.account.saveChanges')}
-              </Button>
-            </div>
-          </div>
-        </form>
-      )}
-
-      {/* Order & Delivery Settings Tab */}
-      {activeTab === 'ordering' && (
-        <Card>
-          <div className="max-w-xl mx-auto">
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-medium text-gray-900">{t('settingsPage.ordering.title')}</h3>
-                <p className="text-sm text-gray-600 mt-1">{t('settingsPage.ordering.subtitle')}</p>
-              </div>
-              {/* Business Info */}
-              <div className="space-y-4">
-                <Input
-                  label={t('settingsPage.ordering.businessName')}
-                  name="businessName"
-                  value={orderingSettings?.businessName || ''}
-                  onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, businessName: e.target.value } : prev)}
-                />
-                <PhoneInput
-                  label={t('settingsPage.ordering.whatsappNumber')}
-                  value={orderingSettings?.whatsappNumber || ''}
-                  onChange={(value) => setOrderingSettings(prev => prev ? { ...prev, whatsappNumber: value } : prev)}
-                  helpText={t('settingsPage.ordering.whatsappNumberHelp')}
-                />
-              </div>
-
-              {/* Delivery Fee and Currency */}
-              <div className="grid grid-cols-2 gap-4">
-                <PriceInput
-                  label={t('settingsPage.ordering.deliveryFee')}
-                  name="deliveryFee"
-                  value={orderingSettings?.deliveryFee ?? 0}
-                  onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, deliveryFee: Number(e.target.value) } : prev)}
-                />
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('settingsPage.ordering.currency')}</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('settingsPage.account.language')}
+                  </label>
                   <select
-                    className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
-                    value={orderingSettings?.currency || 'XAF'}
-                    onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, currency: e.target.value } : prev)}
+                    className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    value={i18n.language}
+                    onChange={handleLanguageChange}
                   >
-                    <option value="XAF">XAF</option>
-                    <option value="XOF">XOF</option>
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
+                    <option value="en">{t('languages.en')}</option>
+                    <option value="fr">{t('languages.fr')}</option>
                   </select>
                 </div>
               </div>
-
-              {/* Actions */}
-              <div className="flex justify-end space-x-3">
-                <Button
-                  variant="outline"
-                  type="button"
-                  disabled={orderingSaving || orderingLoading}
-                  onClick={() => {
-                    // Reset from server/company defaults
-                    if (!company) return;
-                    setOrderingSettings({
-                      whatsappNumber: company.phone || '',
-                      businessName: company.name || '',
-                      paymentMethods: {
-                        customMethods: []
-                      },
-                      deliveryFee: 0,
-                      currency: 'XAF'
-                    });
-                  }}
-                >
-                  {t('settingsPage.ordering.reset')}
-                </Button>
-                <Button
-                  type="button"
-                  isLoading={orderingSaving}
-                  disabled={orderingSaving || orderingLoading || !orderingSettings}
-                  onClick={async () => {
-                    if (!company?.id || !orderingSettings) return;
-                    try {
-                      setOrderingSaving(true);
-                      await updateSellerSettings(company.id, orderingSettings);
-                      showSuccessToast(t('settingsPage.ordering.settingsUpdated'));
-                    } catch (e: unknown) {
-                      console.error(e);
-                      showErrorToast((e as Error).message || t('settingsPage.ordering.settingsUpdateFailed'));
-                    } finally {
-                      setOrderingSaving(false);
-                    }
-                  }}
-                >
-                  {t('settingsPage.ordering.saveSettings')}
-                </Button>
-              </div>
             </div>
-          </div>
-        </Card>
-      )}
-      {/* Activity Logs Tab */}
-      {activeTab === 'activity' && (
-        <ActivityList activities={activities} />
-      )}
+          </Card>
 
-      {/* Catalogue Links Tab */}
-      {activeTab === 'catalogue' && (
-        <Card>
-          <div className="max-w-4xl mx-auto">
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">{t('settingsPage.catalogue.title')}</h3>
-                <p className="text-sm text-gray-600">
-                  Generate shareable links for your product categories to use on your external landing pages.
-                </p>
-              </div>
+        </div>
+      )}
+      {/* Order & Delivery Settings Tab */}
+      {
+        activeTab === 'ordering' && (
+          <Card>
+            <div className="max-w-xl mx-auto">
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900">{t('settingsPage.ordering.title')}</h3>
+                  <p className="text-sm text-gray-600 mt-1">{t('settingsPage.ordering.subtitle')}</p>
+                </div>
+                {/* Business Info */}
+                <div className="space-y-4">
+                  <Input
+                    label={t('settingsPage.ordering.businessName')}
+                    name="businessName"
+                    value={orderingSettings?.businessName || ''}
+                    onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, businessName: e.target.value } : prev)}
+                  />
+                  <PhoneInput
+                    label={t('settingsPage.ordering.whatsappNumber')}
+                    value={orderingSettings?.whatsappNumber || ''}
+                    onChange={(value) => setOrderingSettings(prev => prev ? { ...prev, whatsappNumber: value } : prev)}
+                    helpText={t('settingsPage.ordering.whatsappNumberHelp')}
+                  />
+                </div>
 
-              {/* Base Catalogue URL */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium text-gray-900 mb-2">Your Catalogue URL</h4>
-                <div className="flex items-center space-x-2">
-                  <code className="flex-1 bg-white p-2 rounded border text-sm font-mono">
-                    {typeof window !== 'undefined'
-                      ? `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${user?.uid}`
-                      : 'Loading...'
-                    }
-                  </code>
+                {/* Delivery Fee */}
+                <div className="grid grid-cols-1 gap-4">
+                  <PriceInput
+                    label={t('settingsPage.ordering.deliveryFee')}
+                    name="deliveryFee"
+                    value={orderingSettings?.deliveryFee ?? 0}
+                    onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, deliveryFee: Number(e.target.value) } : prev)}
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="flex justify-end space-x-3">
                   <Button
-                    size="sm"
-                    onClick={() => copyToClipboard(
-                      `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${user?.uid}`,
-                      'base-catalogue'
-                    )}
+                    variant="outline"
+                    type="button"
+                    disabled={orderingSaving || orderingLoading}
+                    onClick={() => {
+                      // Reset from server/company defaults
+                      if (!company) return;
+                      setOrderingSettings({
+                        whatsappNumber: company.phone || '',
+                        businessName: company.name || '',
+                        paymentMethods: {
+                          customMethods: []
+                        },
+                        deliveryFee: 0,
+                        currency: 'XAF'
+                      });
+                    }}
                   >
-                    {copiedLinks.has('base-catalogue') ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
+                    {t('settingsPage.ordering.reset')}
+                  </Button>
+                  <Button
+                    type="button"
+                    isLoading={orderingSaving}
+                    disabled={orderingSaving || orderingLoading || !orderingSettings}
+                    onClick={async () => {
+                      if (!company?.id || !orderingSettings) return;
+                      try {
+                        setOrderingSaving(true);
+                        await updateSellerSettings(company.id, orderingSettings);
+                        showSuccessToast(t('settingsPage.ordering.settingsUpdated'));
+                      } catch (e: unknown) {
+                        console.error(e);
+                        showErrorToast((e as Error).message || t('settingsPage.ordering.settingsUpdateFailed'));
+                      } finally {
+                        setOrderingSaving(false);
+                      }
+                    }}
+                  >
+                    {t('settingsPage.ordering.saveSettings')}
                   </Button>
                 </div>
               </div>
+            </div>
+          </Card>
+        )
+      }
+      {/* Activity Logs Tab */}
+      {
+        activeTab === 'activity' && (
+          <ActivityList activities={activities} />
+        )
+      }
 
-              {/* Category Links */}
-              <div>
-                <h4 className="font-medium text-gray-900 mb-4">Category-Specific Links</h4>
-                {(() => {
-                  const categories = Array.from(new Set(products.map(p => p.category))).sort();
+      {/* Catalogue Links Tab */}
+      {
+        activeTab === 'catalogue' && (
+          <Card>
+            <div className="max-w-4xl mx-auto">
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">{t('settingsPage.catalogue.title')}</h3>
+                  <p className="text-sm text-gray-600">
+                    Generate shareable links for your product categories to use on your external landing pages.
+                  </p>
+                </div>
 
-                  if (categories.length === 0) {
+                {/* Base Catalogue URL */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-gray-900 mb-2">Your Catalogue URL</h4>
+                  <div className="flex items-center space-x-2">
+                    <code className="flex-1 bg-white p-2 rounded border text-sm font-mono">
+                      {typeof window !== 'undefined'
+                        ? `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${user?.uid}`
+                        : 'Loading...'
+                      }
+                    </code>
+                    <Button
+                      size="sm"
+                      onClick={() => copyToClipboard(
+                        `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${user?.uid}`,
+                        'base-catalogue'
+                      )}
+                    >
+                      {copiedLinks.has('base-catalogue') ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Category Links */}
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-4">Category-Specific Links</h4>
+                  {(() => {
+                    const categories = Array.from(new Set(products.map(p => p.category))).sort();
+
+                    if (categories.length === 0) {
+                      return (
+                        <div className="text-center py-8 text-gray-500">
+                          <p>No products found. Add some products to generate category links.</p>
+                        </div>
+                      );
+                    }
+
                     return (
-                      <div className="text-center py-8 text-gray-500">
-                        <p>No products found. Add some products to generate category links.</p>
+                      <div className="space-y-3">
+                        {categories.map(category => {
+                          const categoryProducts = products.filter(p => p.category === category);
+                          const categoryUrl = `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${user?.uid}?categories=${encodeURIComponent(category)}`;
+                          const linkId = `category-${category}`;
+
+                          return (
+                            <div key={category} className="bg-white border rounded-lg p-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <h5 className="font-medium text-gray-900">{category}</h5>
+                                  <p className="text-sm text-gray-500">
+                                    {categoryProducts.length} product{categoryProducts.length !== 1 ? 's' : ''}
+                                  </p>
+                                  <code className="text-xs text-gray-600 mt-1 block font-mono">
+                                    {categoryUrl}
+                                  </code>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => window.open(categoryUrl, '_blank')}
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => copyToClipboard(categoryUrl, linkId)}
+                                  >
+                                    {copiedLinks.has(linkId) ? (
+                                      <Check className="h-4 w-4" />
+                                    ) : (
+                                      <Copy className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     );
-                  }
-
-                  return (
-                    <div className="space-y-3">
-                      {categories.map(category => {
-                        const categoryProducts = products.filter(p => p.category === category);
-                        const categoryUrl = `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${user?.uid}?categories=${encodeURIComponent(category)}`;
-                        const linkId = `category-${category}`;
-
-                        return (
-                          <div key={category} className="bg-white border rounded-lg p-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1">
-                                <h5 className="font-medium text-gray-900">{category}</h5>
-                                <p className="text-sm text-gray-500">
-                                  {categoryProducts.length} product{categoryProducts.length !== 1 ? 's' : ''}
-                                </p>
-                                <code className="text-xs text-gray-600 mt-1 block font-mono">
-                                  {categoryUrl}
-                                </code>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => window.open(categoryUrl, '_blank')}
-                                >
-                                  <ExternalLink className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={() => copyToClipboard(categoryUrl, linkId)}
-                                >
-                                  {copiedLinks.has(linkId) ? (
-                                    <Check className="h-4 w-4" />
-                                  ) : (
-                                    <Copy className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Multi-Category Links */}
-              {(() => {
-                const categories = Array.from(new Set(products.map(p => p.category))).sort();
-                return categories.length > 1;
-              })() && (
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-4">Multi-Category Links</h4>
-                    <div className="bg-yellow-50 p-4 rounded-lg mb-4">
-                      <p className="text-sm text-yellow-800">
-                        You can combine multiple categories in one link by separating them with commas.
-                      </p>
-                      <div className="mt-2">
-                        <code className="text-xs bg-white p-2 rounded border font-mono">
-                          {window.location.origin}/catalogue/{company?.name?.toLowerCase().replace(/\s+/g, '-')}/{user?.uid}?categories=Category1,Category2
-                        </code>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-              {/* Usage Instructions */}
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="font-medium text-blue-900 mb-2">How to Use</h4>
-                <ul className="text-sm text-blue-800 space-y-1">
-                  <li>• Copy the base catalogue URL to link to your full product catalog</li>
-                  <li>• Copy category-specific links to showcase particular product types</li>
-                  <li>• Combine multiple categories by adding commas: ?categories=Electronics,Clothing</li>
-                  <li>• Paste these links into your external landing pages or websites</li>
-                  <li>• When customers click these links, they'll see your products in your POS system</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Checkout Settings Tab */}
-      {activeTab === 'checkout' && (
-        <div className="space-y-6">
-          {checkoutLoading ? (
-            <Card>
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
-                <span className="ml-3 text-gray-600">{t('settingsPage.checkout.loading')}</span>
-              </div>
-            </Card>
-          ) : checkoutSettings ? (
-            <>
-              {/* General Sections */}
-              <Card>
-                <div className="max-w-4xl mx-auto">
-                  <div className="space-y-6">
-                    <div className="text-center mb-8">
-                      <h3 className="text-2xl font-semibold text-gray-900 mb-2">{t('settingsPage.checkout.title')}</h3>
-                      <p className="text-gray-600">{t('settingsPage.checkout.subtitle')}</p>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                      {/* Settings Controls */}
-                      <div className="space-y-6">
-                        {/* Section-Level Controls */}
-                        <div className="bg-white rounded-lg shadow-sm border p-6">
-                          <div className="flex items-center space-x-2 mb-4">
-                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                            <h2 className="text-xl font-semibold text-gray-900">{t('settingsPage.checkout.disableSections')}</h2>
-                          </div>
-                          <p className="text-sm text-gray-600 mb-6">{t('settingsPage.checkout.disableSectionsDescription')}</p>
-                          <div className="space-y-4">
-                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                              <div>
-                                <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.contactSection')}</label>
-                                <p className="text-xs text-gray-500">{t('settingsPage.checkout.contactSectionDescription')}</p>
-                              </div>
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={checkoutSettings.showContactSection}
-                                  onChange={(e) => handleCheckoutSettingsUpdate({ showContactSection: e.target.checked })}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                              </label>
-                            </div>
-
-                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                              <div>
-                                <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.deliverySection')}</label>
-                                <p className="text-xs text-gray-500">{t('settingsPage.checkout.deliverySectionDescription')}</p>
-                              </div>
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={checkoutSettings.showDeliverySection}
-                                  onChange={(e) => handleCheckoutSettingsUpdate({ showDeliverySection: e.target.checked })}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                              </label>
-                            </div>
-
-                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                              <div>
-                                <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.paymentSection')}</label>
-                                <p className="text-xs text-gray-500">{t('settingsPage.checkout.paymentSectionDescription')}</p>
-                              </div>
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={checkoutSettings.showPaymentSection}
-                                  onChange={(e) => handleCheckoutSettingsUpdate({ showPaymentSection: e.target.checked })}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                              </label>
-                            </div>
-
-                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                              <div>
-                                <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.orderSummarySection')}</label>
-                                <p className="text-xs text-gray-500">{t('settingsPage.checkout.orderSummarySectionDescription')}</p>
-                              </div>
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={checkoutSettings.showOrderSummary}
-                                  onChange={(e) => handleCheckoutSettingsUpdate({ showOrderSummary: e.target.checked })}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                              </label>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Contact Section Field Controls */}
-                        {checkoutSettings.showContactSection && (
-                          <div className="bg-white rounded-lg shadow-sm border p-6 ml-4 border-l-4 border-l-blue-200">
-                            <div className="flex items-center space-x-2 mb-4">
-                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                              <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.checkout.contactFields')}</h3>
-                            </div>
-                            <p className="text-sm text-gray-600 mb-4">{t('settingsPage.checkout.contactFieldsDescription')}</p>
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-700">Nom complet</label>
-                                  <p className="text-xs text-gray-500">Afficher le champ de saisie du nom complet</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checkoutSettings.showName ?? true}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showName: e.target.checked })}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                                </label>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.phoneField')}</label>
-                                  <p className="text-xs text-gray-500">{t('settingsPage.checkout.phoneFieldDescription')}</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checkoutSettings.showPhone}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showPhone: e.target.checked })}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                                </label>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-700">Quartier/Résidence</label>
-                                  <p className="text-xs text-gray-500">Afficher le champ de saisie du quartier ou résidence</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checkoutSettings.showQuarter ?? true}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showQuarter: e.target.checked })}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                                </label>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.emailField')}</label>
-                                  <p className="text-xs text-gray-500">{t('settingsPage.checkout.emailFieldDescription')}</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checkoutSettings.showEmail}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showEmail: e.target.checked })}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                                </label>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.newsletterOptIn')}</label>
-                                  <p className="text-xs text-gray-500">{t('settingsPage.checkout.newsletterOptInDescription')}</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checkoutSettings.showNewsletter}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showNewsletter: e.target.checked })}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                                </label>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Delivery Section Field Controls */}
-                        {checkoutSettings.showDeliverySection && (
-                          <div className="bg-white rounded-lg shadow-sm border p-6 ml-4 border-l-4 border-l-green-200">
-                            <div className="flex items-center space-x-2 mb-4">
-                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                              <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.checkout.deliveryFields')}</h3>
-                            </div>
-                            <p className="text-sm text-gray-600 mb-4">{t('settingsPage.checkout.deliveryFieldsDescription')}</p>
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-700">Nom pour livraison</label>
-                                  <p className="text-xs text-gray-500">Afficher le champ de nom pour la livraison (prérempli depuis Contact)</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checkoutSettings.showDeliveryName ?? true}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryName: e.target.checked })}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                                </label>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-700">Téléphone pour livraison</label>
-                                  <p className="text-xs text-gray-500">Afficher le champ de téléphone pour la livraison (prérempli depuis Contact)</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checkoutSettings.showDeliveryPhone ?? true}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryPhone: e.target.checked })}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                                </label>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-700">Adresse ligne 1 (Rue + Numéro)</label>
-                                  <p className="text-xs text-gray-500">Afficher le champ d'adresse principale (requis)</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checkoutSettings.showDeliveryAddressLine1 ?? true}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryAddressLine1: e.target.checked })}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                                </label>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-700">Adresse ligne 2 (Complément)</label>
-                                  <p className="text-xs text-gray-500">Afficher le champ de complément d'adresse (optionnel)</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checkoutSettings.showDeliveryAddressLine2 ?? true}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryAddressLine2: e.target.checked })}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                                </label>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-700">Quartier/Zone de livraison</label>
-                                  <p className="text-xs text-gray-500">Afficher le champ de quartier/zone de livraison (requis)</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checkoutSettings.showDeliveryQuarter ?? true}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryQuarter: e.target.checked })}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                                </label>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-700">Ville de livraison</label>
-                                  <p className="text-xs text-gray-500">Afficher le champ de ville de livraison (optionnel)</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checkoutSettings.showDeliveryCity ?? true}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryCity: e.target.checked })}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                                </label>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.deliveryInstructions') || 'Instructions de livraison'}</label>
-                                  <p className="text-xs text-gray-500">{t('settingsPage.checkout.deliveryInstructionsDescription') || 'Afficher le champ d\'instructions de livraison'}</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checkoutSettings.showDeliveryInstructions}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryInstructions: e.target.checked })}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                                </label>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.country')}</label>
-                                  <p className="text-xs text-gray-500">{t('settingsPage.checkout.countryDescription')}</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checkoutSettings.showCountry}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showCountry: e.target.checked })}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                                </label>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.deliveryInstructions')}</label>
-                                  <p className="text-xs text-gray-500">{t('settingsPage.checkout.deliveryInstructionsDescription')}</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checkoutSettings.showDeliveryInstructions}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryInstructions: e.target.checked })}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                                </label>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Payment Methods - Read Only */}
-                        <div className="bg-white rounded-lg shadow-sm border p-6">
-                          <h2 className="text-xl font-semibold text-gray-900 mb-2">{t('settingsPage.checkout.paymentMethods')}</h2>
-                          <p className="text-xs text-gray-500 mb-4">{t('settingsPage.checkout.paymentMethodsReadOnly')}</p>
-                          <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-2">
-                                <div className="w-6 h-6 bg-yellow-500 rounded flex items-center justify-center">
-                                  <span className="text-white font-bold text-xs">M</span>
-                                </div>
-                                <span className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.mtnMoney')}</span>
-                              </div>
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${checkoutSettings.enabledPaymentMethods.mtnMoney
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-gray-100 text-gray-500'
-                                }`}>
-                                {checkoutSettings.enabledPaymentMethods.mtnMoney ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-2">
-                                <div className="w-6 h-6 bg-orange-500 rounded flex items-center justify-center">
-                                  <span className="text-white font-bold text-xs">O</span>
-                                </div>
-                                <span className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.orangeMoney')}</span>
-                              </div>
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${checkoutSettings.enabledPaymentMethods.orangeMoney
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-gray-100 text-gray-500'
-                                }`}>
-                                {checkoutSettings.enabledPaymentMethods.orangeMoney ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-2">
-                                <CreditCard className="h-5 w-5 text-gray-600" />
-                                <span className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.visaCard')}</span>
-                              </div>
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${checkoutSettings.enabledPaymentMethods.visaCard
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-gray-100 text-gray-500'
-                                }`}>
-                                {checkoutSettings.enabledPaymentMethods.visaCard ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-2">
-                                <Truck className="h-5 w-5 text-emerald-600" />
-                                <span className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.payOnsite')}</span>
-                              </div>
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${checkoutSettings.enabledPaymentMethods.payOnsite
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-gray-100 text-gray-500'
-                                }`}>
-                                {checkoutSettings.enabledPaymentMethods.payOnsite ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
-                              </span>
-                            </div>
-
-                            {/* Active Custom Payment Methods */}
-                            {orderingSettings?.paymentMethods?.customMethods && orderingSettings.paymentMethods.customMethods.filter(m => m.isActive).length > 0 && (
-                              <>
-                                {orderingSettings.paymentMethods.customMethods
-                                  .filter(m => m.isActive)
-                                  .map((method) => (
-                                    <div key={method.id} className="flex items-center justify-between">
-                                      <div className="flex items-center space-x-2">
-                                        <div className="w-6 h-6 bg-purple-100 rounded flex items-center justify-center">
-                                          {method.type === 'phone' && <Phone className="h-4 w-4 text-purple-600" />}
-                                          {method.type === 'ussd' && <Hash className="h-4 w-4 text-purple-600" />}
-                                          {method.type === 'link' && <Link className="h-4 w-4 text-purple-600" />}
-                                        </div>
-                                        <div>
-                                          <span className="text-sm font-medium text-gray-700 block">{method.name}</span>
-                                          <span className="text-xs text-gray-500">
-                                            {method.type === 'phone' && '📞'}
-                                            {method.type === 'ussd' && '🔢'}
-                                            {method.type === 'link' && '🔗'}
-                                            {' '}{method.value}
-                                          </span>
-                                        </div>
-                                      </div>
-                                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-                                        {t('settingsPage.checkout.enabled')}
-                                      </span>
-                                    </div>
-                                  ))}
-                              </>
-                            )}
-
-                            {/* Payment Gateways Status */}
-                            <div className="pt-4 mt-4 border-t border-gray-200">
-                              <h3 className="text-sm font-semibold text-gray-700 mb-3">{t('settingsPage.checkout.paymentGateways')}</h3>
-                              <div className="space-y-3">
-                                {/* CinetPay Status */}
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center space-x-2">
-                                    <div className="w-6 h-6 bg-blue-100 rounded flex items-center justify-center">
-                                      <CreditCard className="h-4 w-4 text-blue-600" />
-                                    </div>
-                                    <span className="text-sm font-medium text-gray-700">{t('settingsPage.paymentGateways.cinetpay.name')}</span>
-                                  </div>
-                                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${cinetpayConfig?.isActive
-                                    ? 'bg-emerald-100 text-emerald-700'
-                                    : 'bg-gray-100 text-gray-500'
-                                    }`}>
-                                    {cinetpayConfig?.isActive ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
-                                  </span>
-                                </div>
-
-                                {/* Campay Status */}
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center space-x-2">
-                                    <div className="w-6 h-6 bg-emerald-100 rounded flex items-center justify-center">
-                                      <span className="text-emerald-600 font-bold text-xs">CP</span>
-                                    </div>
-                                    <span className="text-sm font-medium text-gray-700">{t('settingsPage.paymentGateways.campay.name')}</span>
-                                  </div>
-                                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${campayConfig?.isActive
-                                    ? 'bg-emerald-100 text-emerald-700'
-                                    : 'bg-gray-100 text-gray-500'
-                                    }`}>
-                                    {campayConfig?.isActive ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Catalogue Display Settings */}
-                        <div className="bg-white rounded-lg shadow-sm border p-6">
-                          <div className="flex items-center space-x-2 mb-4">
-                            <ShoppingBag className="h-5 w-5 text-emerald-600" />
-                            <h2 className="text-xl font-semibold text-gray-900">{t('settingsPage.checkout.catalogueDisplay')}</h2>
-                          </div>
-
-                          <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.showCheckoutInCatalogue')}</label>
-                                <p className="text-xs text-gray-500">{t('settingsPage.checkout.showCheckoutInCatalogueDescription')}</p>
-                              </div>
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={checkoutSettings.showCheckoutInCatalogue}
-                                  onChange={(e) => handleCheckoutSettingsUpdate({ showCheckoutInCatalogue: e.target.checked })}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                              </label>
-                            </div>
-
-                            {checkoutSettings.showCheckoutInCatalogue && (
-                              <div className="ml-4 space-y-4 border-l-2 border-gray-200 pl-4">
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    {t('settingsPage.checkout.checkoutButtonText')}
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={checkoutSettings.checkoutButtonText}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ checkoutButtonText: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                                    placeholder="Checkout Now"
-                                  />
-                                </div>
-
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    {t('settingsPage.checkout.checkoutButtonColor')}
-                                  </label>
-                                  <div className="flex items-center space-x-3">
-                                    <input
-                                      type="color"
-                                      value={checkoutSettings.checkoutButtonColor}
-                                      onChange={(e) => handleCheckoutSettingsUpdate({ checkoutButtonColor: e.target.value })}
-                                      className="w-12 h-8 border border-gray-300 rounded cursor-pointer"
-                                    />
-                                    <input
-                                      type="text"
-                                      value={checkoutSettings.checkoutButtonColor}
-                                      onChange={(e) => handleCheckoutSettingsUpdate({ checkoutButtonColor: e.target.value })}
-                                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                                      placeholder="#10b981"
-                                    />
-                                  </div>
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    {t('settingsPage.checkout.checkoutButtonColorDescription')}
-                                  </p>
-                                </div>
-
-                                <div className="bg-gray-50 rounded-lg p-4">
-                                  <p className="text-sm font-medium text-gray-700 mb-2">{t('settingsPage.checkout.preview')}:</p>
-                                  <button
-                                    style={{ backgroundColor: checkoutSettings.checkoutButtonColor }}
-                                    className="px-4 py-2 text-white rounded-lg font-medium"
-                                  >
-                                    {checkoutSettings.checkoutButtonText}
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex justify-end space-x-4">
-                          <Button
-                            onClick={handleResetCheckoutSettings}
-                            disabled={checkoutSaving}
-                            variant="outline"
-                            className="flex items-center"
-                          >
-                            <RotateCcw size={20} className="mr-2" />
-                            {t('settingsPage.checkout.resetToDefault')}
-                          </Button>
-                          <Button
-                            onClick={handleSaveCheckoutSettings}
-                            disabled={checkoutSaving}
-                            className="flex items-center"
-                          >
-                            {checkoutSaving ? (
-                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                            ) : (
-                              <Save size={20} className="mr-2" />
-                            )}
-                            {t('settingsPage.checkout.saveSettings')}
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Preview Panel */}
-                      <div className="bg-white rounded-lg shadow-sm border p-6 h-fit">
-                        <div className="flex items-center space-x-2 mb-4">
-                          <Eye className="h-5 w-5 text-emerald-600" />
-                          <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.checkout.livePreview')}</h3>
-                        </div>
-
-                        <div className="space-y-3 text-sm">
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-600">{t('settingsPage.checkout.contactSection')}</span>
-                            <span className={`px-2 py-1 rounded text-xs ${checkoutSettings.showContactSection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
-                              }`}>
-                              {checkoutSettings.showContactSection ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-600">{t('settingsPage.checkout.deliverySection')}</span>
-                            <span className={`px-2 py-1 rounded text-xs ${checkoutSettings.showDeliverySection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
-                              }`}>
-                              {checkoutSettings.showDeliverySection ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-600">{t('settingsPage.checkout.paymentSection')}</span>
-                            <span className={`px-2 py-1 rounded text-xs ${checkoutSettings.showPaymentSection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
-                              }`}>
-                              {checkoutSettings.showPaymentSection ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-600">{t('settingsPage.checkout.orderSummarySection')}</span>
-                            <span className={`px-2 py-1 rounded text-xs ${checkoutSettings.showOrderSummary ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
-                              }`}>
-                              {checkoutSettings.showOrderSummary ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
-                            </span>
-                          </div>
-
-                          {/* Individual Field Status */}
-                          {checkoutSettings.showContactSection && (
-                            <div className="border-t border-gray-200 pt-3">
-                              <div className="text-gray-600 mb-2">{t('settingsPage.checkout.contactFieldsLabel')}</div>
-                              <div className="space-y-1">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Nom complet</span>
-                                  <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showName ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
-                                    }`}></span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">{t('settingsPage.checkout.phoneField')}</span>
-                                  <span className={`w-2 h-2 rounded-full ${checkoutSettings.showPhone ? 'bg-emerald-500' : 'bg-gray-300'
-                                    }`}></span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Quartier/Résidence</span>
-                                  <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showQuarter ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
-                                    }`}></span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">{t('settingsPage.checkout.emailField')}</span>
-                                  <span className={`w-2 h-2 rounded-full ${checkoutSettings.showEmail ? 'bg-emerald-500' : 'bg-gray-300'
-                                    }`}></span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">{t('settingsPage.checkout.newsletterOptIn')}</span>
-                                  <span className={`w-2 h-2 rounded-full ${checkoutSettings.showNewsletter ? 'bg-emerald-500' : 'bg-gray-300'
-                                    }`}></span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {checkoutSettings.showDeliverySection && (
-                            <div className="border-t border-gray-200 pt-3">
-                              <div className="text-gray-600 mb-2">{t('settingsPage.checkout.deliveryFieldsLabel')}</div>
-                              <div className="space-y-1">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Nom pour livraison</span>
-                                  <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showDeliveryName ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
-                                    }`}></span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Téléphone pour livraison</span>
-                                  <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showDeliveryPhone ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
-                                    }`}></span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Adresse ligne 1</span>
-                                  <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showDeliveryAddressLine1 ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
-                                    }`}></span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Adresse ligne 2</span>
-                                  <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showDeliveryAddressLine2 ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
-                                    }`}></span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Quartier/Zone de livraison</span>
-                                  <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showDeliveryQuarter ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
-                                    }`}></span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Ville de livraison</span>
-                                  <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showDeliveryCity ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
-                                    }`}></span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">{t('settingsPage.checkout.deliveryInstructions')}</span>
-                                  <span className={`w-2 h-2 rounded-full ${checkoutSettings.showDeliveryInstructions ? 'bg-emerald-500' : 'bg-gray-300'
-                                    }`}></span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">{t('settingsPage.checkout.country')}</span>
-                                  <span className={`w-2 h-2 rounded-full ${checkoutSettings.showCountry ? 'bg-emerald-500' : 'bg-gray-300'
-                                    }`}></span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="border-t border-gray-200 pt-3">
-                            <div className="text-gray-600 mb-2">{t('settingsPage.checkout.paymentMethodsLabel')}</div>
-                            <div className="space-y-1">
-                              {Object.entries(checkoutSettings.enabledPaymentMethods).map(([method, enabled]) => (
-                                <div key={method} className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500 capitalize">
-                                    {method === 'mtnMoney' ? t('settingsPage.checkout.mtnMoney') :
-                                      method === 'orangeMoney' ? t('settingsPage.checkout.orangeMoney') :
-                                        method === 'visaCard' ? t('settingsPage.checkout.visaCard') :
-                                          method === 'payOnsite' ? t('settingsPage.checkout.payOnsite') :
-                                            method.replace(/([A-Z])/g, ' $1').trim()}
-                                  </span>
-                                  <span className={`w-2 h-2 rounded-full ${enabled ? 'bg-emerald-500' : 'bg-gray-300'
-                                    }`}></span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="border-t border-gray-200 pt-3">
-                            <div className="flex items-center justify-between">
-                              <span className="text-gray-600">{t('settingsPage.checkout.catalogueCheckout')}</span>
-                              <span className={`px-2 py-1 rounded text-xs ${checkoutSettings.showCheckoutInCatalogue ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
-                                }`}>
-                                {checkoutSettings.showCheckoutInCatalogue ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
-                              </span>
-                            </div>
-                            {checkoutSettings.showCheckoutInCatalogue && (
-                              <div className="mt-2">
-                                <div className="text-xs text-gray-500 mb-1">{t('settingsPage.checkout.buttonPreview')}</div>
-                                <button
-                                  style={{ backgroundColor: checkoutSettings.checkoutButtonColor }}
-                                  className="px-3 py-1 text-white rounded text-xs font-medium"
-                                >
-                                  {checkoutSettings.checkoutButtonText}
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            </>
-          ) : (
-            <Card>
-              <div className="text-center py-8 text-gray-500">
-                <p>{t('settingsPage.checkout.loadFailed')}</p>
-              </div>
-            </Card>
-          )}
-        </div>
-      )}
-
-      {/* Payment Methods & Gateways Tab */}
-      {activeTab === 'payment' && (
-        <div className="space-y-6 max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('settingsPage.paymentMethodsAndGateways.title')}</h2>
-            <p className="text-gray-600">{t('settingsPage.paymentMethodsAndGateways.subtitle')}</p>
-          </div>
-
-          {/* Payment Methods Section - At the Top */}
-          {checkoutSettings && (
-            <Card>
-              <div className="p-6">
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.title')}</h3>
-                  <p className="text-sm text-gray-600">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.subtitle')}</p>
+                  })()}
                 </div>
 
-                <div className="space-y-4">
-                  {/* MTN Money */}
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center">
-                          <span className="text-white font-bold text-sm">M</span>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-900 block">
-                            {t('settingsPage.checkout.mtnMoney')}
-                          </label>
-                          <p className="text-xs text-gray-600">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.mtnMoneyDesc')}</p>
-                        </div>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={checkoutSettings.enabledPaymentMethods.mtnMoney}
-                          onChange={async (e) => {
-                            handleCheckoutSettingsUpdate({
-                              enabledPaymentMethods: {
-                                ...checkoutSettings.enabledPaymentMethods,
-                                mtnMoney: e.target.checked
-                              }
-                            });
-                            if (company?.id) {
-                              try {
-                                const updated = {
-                                  ...checkoutSettings,
-                                  enabledPaymentMethods: {
-                                    ...checkoutSettings.enabledPaymentMethods,
-                                    mtnMoney: e.target.checked
-                                  }
-                                };
-                                await saveCheckoutSettings(company.id, updated, user?.uid);
-                                showSuccessToast(t('settingsPage.paymentMethodsAndGateways.paymentMethods.updated'));
-                              } catch (error) {
-                                console.error('Error saving payment method:', error);
-                                showErrorToast(t('settingsPage.paymentMethodsAndGateways.paymentMethods.updateFailed'));
-                              }
-                            }
-                          }}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Orange Money */}
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
-                          <span className="text-white font-bold text-sm">O</span>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-900 block">
-                            {t('settingsPage.checkout.orangeMoney')}
-                          </label>
-                          <p className="text-xs text-gray-600">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.orangeMoneyDesc')}</p>
+                {/* Multi-Category Links */}
+                {(() => {
+                  const categories = Array.from(new Set(products.map(p => p.category))).sort();
+                  return categories.length > 1;
+                })() && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-4">Multi-Category Links</h4>
+                      <div className="bg-yellow-50 p-4 rounded-lg mb-4">
+                        <p className="text-sm text-yellow-800">
+                          You can combine multiple categories in one link by separating them with commas.
+                        </p>
+                        <div className="mt-2">
+                          <code className="text-xs bg-white p-2 rounded border font-mono">
+                            {window.location.origin}/catalogue/{company?.name?.toLowerCase().replace(/\s+/g, '-')}/{user?.uid}?categories=Category1,Category2
+                          </code>
                         </div>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={checkoutSettings.enabledPaymentMethods.orangeMoney}
-                          onChange={async (e) => {
-                            handleCheckoutSettingsUpdate({
-                              enabledPaymentMethods: {
-                                ...checkoutSettings.enabledPaymentMethods,
-                                orangeMoney: e.target.checked
-                              }
-                            });
-                            if (company?.id) {
-                              try {
-                                const updated = {
-                                  ...checkoutSettings,
-                                  enabledPaymentMethods: {
-                                    ...checkoutSettings.enabledPaymentMethods,
-                                    orangeMoney: e.target.checked
-                                  }
-                                };
-                                await saveCheckoutSettings(company.id, updated, user?.uid);
-                                showSuccessToast(t('settingsPage.paymentMethodsAndGateways.paymentMethods.updated'));
-                              } catch (error) {
-                                console.error('Error saving payment method:', error);
-                                showErrorToast(t('settingsPage.paymentMethodsAndGateways.paymentMethods.updateFailed'));
-                              }
-                            }
-                          }}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                      </label>
                     </div>
-                  </div>
-
-                  {/* Visa Card */}
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <CreditCard className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-900 block">
-                            {t('settingsPage.checkout.visaCard')}
-                          </label>
-                          <p className="text-xs text-gray-600">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.visaCardDesc')}</p>
-                        </div>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={checkoutSettings.enabledPaymentMethods.visaCard}
-                          onChange={async (e) => {
-                            handleCheckoutSettingsUpdate({
-                              enabledPaymentMethods: {
-                                ...checkoutSettings.enabledPaymentMethods,
-                                visaCard: e.target.checked
-                              }
-                            });
-                            if (company?.id) {
-                              try {
-                                const updated = {
-                                  ...checkoutSettings,
-                                  enabledPaymentMethods: {
-                                    ...checkoutSettings.enabledPaymentMethods,
-                                    visaCard: e.target.checked
-                                  }
-                                };
-                                await saveCheckoutSettings(company.id, updated, user?.uid);
-                                showSuccessToast(t('settingsPage.paymentMethodsAndGateways.paymentMethods.updated'));
-                              } catch (error) {
-                                console.error('Error saving payment method:', error);
-                                showErrorToast(t('settingsPage.paymentMethodsAndGateways.paymentMethods.updateFailed'));
-                              }
-                            }
-                          }}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Pay Onsite */}
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
-                          <Truck className="h-5 w-5 text-emerald-600" />
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-900 block">
-                            {t('settingsPage.checkout.payOnsite')}
-                          </label>
-                          <p className="text-xs text-gray-600">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.payOnsiteDesc')}</p>
-                        </div>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={checkoutSettings.enabledPaymentMethods.payOnsite}
-                          onChange={async (e) => {
-                            handleCheckoutSettingsUpdate({
-                              enabledPaymentMethods: {
-                                ...checkoutSettings.enabledPaymentMethods,
-                                payOnsite: e.target.checked
-                              }
-                            });
-                            if (company?.id) {
-                              try {
-                                const updated = {
-                                  ...checkoutSettings,
-                                  enabledPaymentMethods: {
-                                    ...checkoutSettings.enabledPaymentMethods,
-                                    payOnsite: e.target.checked
-                                  }
-                                };
-                                await saveCheckoutSettings(company.id, updated, user?.uid);
-                                showSuccessToast(t('settingsPage.paymentMethodsAndGateways.paymentMethods.updated'));
-                              } catch (error) {
-                                console.error('Error saving payment method:', error);
-                                showErrorToast(t('settingsPage.paymentMethodsAndGateways.paymentMethods.updateFailed'));
-                              }
-                            }
-                          }}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Active Custom Payment Methods - Show as toggles in main list */}
-                  {orderingSettings?.paymentMethods?.customMethods && orderingSettings.paymentMethods.customMethods.filter(m => m.isActive).length > 0 && (
-                    <>
-                      {orderingSettings.paymentMethods.customMethods
-                        .filter(m => m.isActive)
-                        .map((method) => (
-                          <div key={method.id} className="bg-gray-50 rounded-lg p-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                                  {method.type === 'phone' && <Phone className="h-5 w-5 text-purple-600" />}
-                                  {method.type === 'ussd' && <Hash className="h-5 w-5 text-purple-600" />}
-                                  {method.type === 'link' && <Link className="h-5 w-5 text-purple-600" />}
-                                </div>
-                                <div>
-                                  <label className="text-sm font-medium text-gray-900 block">
-                                    {method.name}
-                                  </label>
-                                  <p className="text-xs text-gray-600">
-                                    {method.type === 'phone' && '📞'}
-                                    {method.type === 'ussd' && '🔢'}
-                                    {method.type === 'link' && '🔗'}
-                                    {' '}{method.value}
-                                  </p>
-                                </div>
-                              </div>
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={method.isActive}
-                                  onChange={async (e) => {
-                                    await handleUpdatePaymentMethod(method.id, { isActive: e.target.checked });
-                                  }}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                              </label>
-                            </div>
-                          </div>
-                        ))}
-                    </>
                   )}
 
-                  {/* Custom Payment Methods Management */}
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-900">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.customMethods')}</h4>
-                        <p className="text-xs text-gray-600 mt-1">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.customMethodsDesc')}</p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setEditingPaymentMethodId(null);
-                          setIsPaymentMethodModalOpen(true);
-                        }}
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        {t('settingsPage.paymentMethodsAndGateways.paymentMethods.addCustom')}
-                      </Button>
-                    </div>
-                    {orderingSettings?.paymentMethods?.customMethods && orderingSettings.paymentMethods.customMethods.length > 0 ? (
-                      <div className="space-y-2">
-                        {orderingSettings.paymentMethods.customMethods.map((method) => (
-                          <div key={method.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                            <div className="flex items-center space-x-3 flex-1">
-                              <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                                {method.type === 'phone' && <Phone className="h-4 w-4 text-purple-600" />}
-                                {method.type === 'ussd' && <Hash className="h-4 w-4 text-purple-600" />}
-                                {method.type === 'link' && <Link className="h-4 w-4 text-purple-600" />}
-                              </div>
-                              <div className="flex-1">
-                                <span className="text-sm font-medium text-gray-900 block">{method.name}</span>
-                                <span className="text-xs text-gray-500">
-                                  {method.type === 'phone' && '📞'}
-                                  {method.type === 'ussd' && '🔢'}
-                                  {method.type === 'link' && '🔗'}
-                                  {' '}{method.value}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-3">
-                              {/* Toggle Switch */}
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={method.isActive}
-                                  onChange={async (e) => {
-                                    await handleUpdatePaymentMethod(method.id, { isActive: e.target.checked });
-                                  }}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                              </label>
-                              {/* Edit Button */}
-                              <button
-                                onClick={() => {
-                                  setEditingPaymentMethodId(method.id);
-                                  setIsPaymentMethodModalOpen(true);
-                                }}
-                                className="text-gray-500 hover:text-emerald-600 p-1"
-                                title={t('settingsPage.paymentMethodsAndGateways.paymentMethods.edit')}
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </button>
-                              {/* Delete Button */}
-                              <button
-                                onClick={async () => {
-                                  if (window.confirm(t('settingsPage.paymentMethodsAndGateways.paymentMethods.deleteConfirm'))) {
-                                    await handleDeletePaymentMethod(method.id);
-                                  }
-                                }}
-                                className="text-gray-500 hover:text-red-600 p-1"
-                                title={t('settingsPage.paymentMethodsAndGateways.paymentMethods.delete')}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-500 text-center py-4">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.noCustomMethods')}</p>
-                    )}
-                  </div>
+                {/* Usage Instructions */}
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-blue-900 mb-2">How to Use</h4>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    <li>• Copy the base catalogue URL to link to your full product catalog</li>
+                    <li>• Copy category-specific links to showcase particular product types</li>
+                    <li>• Combine multiple categories by adding commas: ?categories=Electronics,Clothing</li>
+                    <li>• Paste these links into your external landing pages or websites</li>
+                    <li>• When customers click these links, they'll see your products in your POS system</li>
+                  </ul>
                 </div>
               </div>
-            </Card>
-          )}
-
-          {/* Payment Gateways Section */}
-          <div className="space-y-4">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('settingsPage.paymentMethodsAndGateways.gateways.title')}</h3>
-              <p className="text-sm text-gray-600">{t('settingsPage.paymentMethodsAndGateways.gateways.subtitle')}</p>
             </div>
+          </Card>
+        )
+      }
 
-            {/* Loading State */}
-            {(cinetpayLoading || campayLoading) ? (
+      {/* Checkout Settings Tab */}
+      {
+        activeTab === 'checkout' && (
+          <div className="space-y-6">
+            {checkoutLoading ? (
               <Card>
-                <div className="p-6 space-y-4">
-                  <div className="animate-pulse bg-gray-100 w-48 h-6 rounded mb-4"></div>
-                  <div className="space-y-3">
-                    <div className="animate-pulse bg-gray-100 w-full h-10 rounded"></div>
-                    <div className="animate-pulse bg-gray-100 w-3/4 h-10 rounded"></div>
-                    <div className="animate-pulse bg-gray-100 w-1/2 h-10 rounded"></div>
-                  </div>
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+                  <span className="ml-3 text-gray-600">{t('settingsPage.checkout.loading')}</span>
                 </div>
               </Card>
-            ) : (
+            ) : checkoutSettings ? (
               <>
-                {/* CinetPay Accordion */}
-                <Card className="overflow-hidden">
-                  <button
-                    onClick={() => setExpandedProvider(expandedProvider === 'cinetpay' ? null : 'cinetpay')}
-                    className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors duration-200"
-                    aria-expanded={expandedProvider === 'cinetpay'}
-                    aria-controls="cinetpay-content"
-                    disabled={cinetpayLoading}
-                  >
-                    <div className="flex items-center space-x-4 flex-1">
-                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <CreditCard className="h-6 w-6 text-blue-600" />
+                {/* General Sections */}
+                <Card>
+                  <div className="max-w-4xl mx-auto">
+                    <div className="space-y-6">
+                      <div className="text-center mb-8">
+                        <h3 className="text-2xl font-semibold text-gray-900 mb-2">{t('settingsPage.checkout.title')}</h3>
+                        <p className="text-gray-600">{t('settingsPage.checkout.subtitle')}</p>
                       </div>
-                      <div className="text-left">
-                        <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.paymentGateways.cinetpay.name')}</h3>
-                        <p className="text-sm text-gray-500">{t('settingsPage.paymentGateways.cinetpay.description')}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      {cinetpayLoading ? (
-                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
-                      ) : (
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${cinetpayConfig?.isActive
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-gray-100 text-gray-600'
-                          }`}>
-                          {cinetpayConfig?.isActive ? t('settingsPage.paymentGateways.cinetpay.enabled') : t('settingsPage.paymentGateways.cinetpay.disabled')}
-                        </span>
-                      )}
-                      {expandedProvider === 'cinetpay' ? (
-                        <ChevronUp className="h-5 w-5 text-gray-400" />
-                      ) : (
-                        <ChevronDown className="h-5 w-5 text-gray-400" />
-                      )}
-                    </div>
-                  </button>
 
-                  {expandedProvider === 'cinetpay' && (
-                    <div
-                      id="cinetpay-content"
-                      className="border-t border-gray-200 p-6 animate-slide-down"
-                    >
-                      {cinetpayLoading ? (
-                        <div className="flex items-center justify-center py-8">
-                          <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-200 border-t-blue-600"></div>
-                          <span className="ml-3 text-gray-600">Loading CinetPay settings...</span>
-                        </div>
-                      ) : !cinetpayConfig ? (
-                        <div className="text-center py-8">
-                          <p className="text-gray-600 mb-4">CinetPay configuration not found. Initializing...</p>
-                          <Button
-                            onClick={async () => {
-                              if (company?.id && user?.uid) {
-                                try {
-                                  setCinetpayLoading(true);
-                                  const config = await initializeCinetPayConfig(company.id, user.uid);
-                                  setCinetpayConfig(config);
-                                } catch (error) {
-                                  console.error('Error initializing CinetPay:', error);
-                                } finally {
-                                  setCinetpayLoading(false);
-                                }
-                              }
-                            }}
-                          >
-                            Initialize CinetPay Configuration
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                          {/* Left Column - Configuration */}
-                          <div className="space-y-6">
-                            {/* Enable/Disable Toggle */}
-                            <div className="bg-gray-50 rounded-lg p-4">
-                              <div className="flex items-center justify-between">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Settings Controls */}
+                        <div className="space-y-6">
+                          {/* Section-Level Controls */}
+                          <div className="bg-white rounded-lg shadow-sm border p-6">
+                            <div className="flex items-center space-x-2 mb-4">
+                              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                              <h2 className="text-xl font-semibold text-gray-900">{t('settingsPage.checkout.disableSections')}</h2>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-6">{t('settingsPage.checkout.disableSectionsDescription')}</p>
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                                 <div>
-                                  <label className="text-sm font-medium text-gray-900 block mb-1">
-                                    Enable CinetPay Payments
-                                  </label>
-                                  <p className="text-xs text-gray-600">Activate CinetPay payment processing</p>
+                                  <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.contactSection')}</label>
+                                  <p className="text-xs text-gray-500">{t('settingsPage.checkout.contactSectionDescription')}</p>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
                                     type="checkbox"
-                                    checked={cinetpayConfig.isActive}
-                                    onChange={(e) => handleCinetpayConfigUpdate({ isActive: e.target.checked })}
+                                    checked={checkoutSettings.showContactSection}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showContactSection: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.deliverySection')}</label>
+                                  <p className="text-xs text-gray-500">{t('settingsPage.checkout.deliverySectionDescription')}</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showDeliverySection}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showDeliverySection: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.paymentSection')}</label>
+                                  <p className="text-xs text-gray-500">{t('settingsPage.checkout.paymentSectionDescription')}</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showPaymentSection}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showPaymentSection: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.orderSummarySection')}</label>
+                                  <p className="text-xs text-gray-500">{t('settingsPage.checkout.orderSummarySectionDescription')}</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showOrderSummary}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showOrderSummary: e.target.checked })}
                                     className="sr-only peer"
                                   />
                                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
                                 </label>
                               </div>
                             </div>
+                          </div>
 
-                            {/* Test Mode Toggle */}
-                            <div className="bg-gray-50 rounded-lg p-4">
+                          {/* Contact Section Field Controls */}
+                          {checkoutSettings.showContactSection && (
+                            <div className="bg-white rounded-lg shadow-sm border p-6 ml-4 border-l-4 border-l-blue-200">
+                              <div className="flex items-center space-x-2 mb-4">
+                                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.checkout.contactFields')}</h3>
+                              </div>
+                              <p className="text-sm text-gray-600 mb-4">{t('settingsPage.checkout.contactFieldsDescription')}</p>
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.fullName', 'Full Name')}</label>
+                                    <p className="text-xs text-gray-500">{t('settingsPage.checkout.fullNameDescription', 'Show full name input field')}</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={checkoutSettings.showName ?? true}
+                                      onChange={(e) => handleCheckoutSettingsUpdate({ showName: e.target.checked })}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                  </label>
+                                </div>
+
+                                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.phoneField')}</label>
+                                    <p className="text-xs text-gray-500">{t('settingsPage.checkout.phoneFieldDescription')}</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={checkoutSettings.showPhone}
+                                      onChange={(e) => handleCheckoutSettingsUpdate({ showPhone: e.target.checked })}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                  </label>
+                                </div>
+
+                                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-700">Quartier/Résidence</label>
+                                    <p className="text-xs text-gray-500">Afficher le champ de saisie du quartier ou résidence</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={checkoutSettings.showQuarter ?? true}
+                                      onChange={(e) => handleCheckoutSettingsUpdate({ showQuarter: e.target.checked })}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                  </label>
+                                </div>
+
+                                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.emailField')}</label>
+                                    <p className="text-xs text-gray-500">{t('settingsPage.checkout.emailFieldDescription')}</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={checkoutSettings.showEmail}
+                                      onChange={(e) => handleCheckoutSettingsUpdate({ showEmail: e.target.checked })}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                  </label>
+                                </div>
+
+                                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.newsletterOptIn')}</label>
+                                    <p className="text-xs text-gray-500">{t('settingsPage.checkout.newsletterOptInDescription')}</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={checkoutSettings.showNewsletter}
+                                      onChange={(e) => handleCheckoutSettingsUpdate({ showNewsletter: e.target.checked })}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                  </label>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Delivery Section Field Controls */}
+                          {checkoutSettings.showDeliverySection && (
+                            <div className="bg-white rounded-lg shadow-sm border p-6 ml-4 border-l-4 border-l-green-200">
+                              <div className="flex items-center space-x-2 mb-4">
+                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.checkout.deliveryFields')}</h3>
+                              </div>
+                              <p className="text-sm text-gray-600 mb-4">{t('settingsPage.checkout.deliveryFieldsDescription')}</p>
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.deliveryName', 'Name for Delivery')}</label>
+                                    <p className="text-xs text-gray-500">{t('settingsPage.checkout.deliveryNameDescription', 'Show name for delivery field (pre-filled from Contact)')}</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={checkoutSettings.showDeliveryName ?? true}
+                                      onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryName: e.target.checked })}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                  </label>
+                                </div>
+
+                                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.deliveryPhone', 'Phone for Delivery')}</label>
+                                    <p className="text-xs text-gray-500">{t('settingsPage.checkout.deliveryPhoneDescription', 'Show phone for delivery field (pre-filled from Contact)')}</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={checkoutSettings.showDeliveryPhone ?? true}
+                                      onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryPhone: e.target.checked })}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                  </label>
+                                </div>
+
+                                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.addressLine1Label', 'Address Line 1 (Street + Number)')}</label>
+                                    <p className="text-xs text-gray-500">{t('settingsPage.checkout.addressLine1Description', 'Show primary address field (required)')}</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={checkoutSettings.showDeliveryAddressLine1 ?? true}
+                                      onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryAddressLine1: e.target.checked })}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                  </label>
+                                </div>
+
+                                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.addressLine2Label', 'Address Line 2 (Complement)')}</label>
+                                    <p className="text-xs text-gray-500">{t('settingsPage.checkout.addressLine2Description', 'Show address complement field (optional)')}</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={checkoutSettings.showDeliveryAddressLine2 ?? true}
+                                      onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryAddressLine2: e.target.checked })}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                  </label>
+                                </div>
+
+                                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.deliveryQuarter', 'Quarter/Delivery Zone')}</label>
+                                    <p className="text-xs text-gray-500">{t('settingsPage.checkout.deliveryQuarterDescription', 'Show delivery quarter/zone field (required)')}</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={checkoutSettings.showDeliveryQuarter ?? true}
+                                      onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryQuarter: e.target.checked })}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                  </label>
+                                </div>
+
+                                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.deliveryCity', 'Delivery City')}</label>
+                                    <p className="text-xs text-gray-500">{t('settingsPage.checkout.deliveryCityDescription', 'Show delivery city field (optional)')}</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={checkoutSettings.showDeliveryCity ?? true}
+                                      onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryCity: e.target.checked })}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                  </label>
+                                </div>
+
+                                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.deliveryInstructions') || 'Instructions de livraison'}</label>
+                                    <p className="text-xs text-gray-500">{t('settingsPage.checkout.deliveryInstructionsDescription') || 'Afficher le champ d\'instructions de livraison'}</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={checkoutSettings.showDeliveryInstructions}
+                                      onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryInstructions: e.target.checked })}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                  </label>
+                                </div>
+
+                                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.country')}</label>
+                                    <p className="text-xs text-gray-500">{t('settingsPage.checkout.countryDescription')}</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={checkoutSettings.showCountry}
+                                      onChange={(e) => handleCheckoutSettingsUpdate({ showCountry: e.target.checked })}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                  </label>
+                                </div>
+
+                                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.deliveryInstructions')}</label>
+                                    <p className="text-xs text-gray-500">{t('settingsPage.checkout.deliveryInstructionsDescription')}</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={checkoutSettings.showDeliveryInstructions}
+                                      onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryInstructions: e.target.checked })}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                  </label>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Payment Methods - Read Only */}
+                          <div className="bg-white rounded-lg shadow-sm border p-6">
+                            <h2 className="text-xl font-semibold text-gray-900 mb-2">{t('settingsPage.checkout.paymentMethods')}</h2>
+                            <p className="text-xs text-gray-500 mb-4">{t('settingsPage.checkout.paymentMethodsReadOnly')}</p>
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-6 h-6 bg-yellow-500 rounded flex items-center justify-center">
+                                    <span className="text-white font-bold text-xs">M</span>
+                                  </div>
+                                  <span className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.mtnMoney')}</span>
+                                </div>
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${checkoutSettings.enabledPaymentMethods.mtnMoney
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : 'bg-gray-100 text-gray-500'
+                                  }`}>
+                                  {checkoutSettings.enabledPaymentMethods.mtnMoney ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-6 h-6 bg-orange-500 rounded flex items-center justify-center">
+                                    <span className="text-white font-bold text-xs">O</span>
+                                  </div>
+                                  <span className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.orangeMoney')}</span>
+                                </div>
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${checkoutSettings.enabledPaymentMethods.orangeMoney
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : 'bg-gray-100 text-gray-500'
+                                  }`}>
+                                  {checkoutSettings.enabledPaymentMethods.orangeMoney ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2">
+                                  <CreditCard className="h-5 w-5 text-gray-600" />
+                                  <span className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.visaCard')}</span>
+                                </div>
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${checkoutSettings.enabledPaymentMethods.visaCard
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : 'bg-gray-100 text-gray-500'
+                                  }`}>
+                                  {checkoutSettings.enabledPaymentMethods.visaCard ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2">
+                                  <Truck className="h-5 w-5 text-emerald-600" />
+                                  <span className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.payOnsite')}</span>
+                                </div>
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${checkoutSettings.enabledPaymentMethods.payOnsite
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : 'bg-gray-100 text-gray-500'
+                                  }`}>
+                                  {checkoutSettings.enabledPaymentMethods.payOnsite ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
+                                </span>
+                              </div>
+
+                              {/* Active Custom Payment Methods */}
+                              {orderingSettings?.paymentMethods?.customMethods && orderingSettings.paymentMethods.customMethods.filter(m => m.isActive).length > 0 && (
+                                <>
+                                  {orderingSettings.paymentMethods.customMethods
+                                    .filter(m => m.isActive)
+                                    .map((method) => (
+                                      <div key={method.id} className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-2">
+                                          <div className="w-6 h-6 bg-purple-100 rounded flex items-center justify-center">
+                                            {method.type === 'phone' && <Phone className="h-4 w-4 text-purple-600" />}
+                                            {method.type === 'ussd' && <Hash className="h-4 w-4 text-purple-600" />}
+                                            {method.type === 'link' && <Link className="h-4 w-4 text-purple-600" />}
+                                          </div>
+                                          <div>
+                                            <span className="text-sm font-medium text-gray-700 block">{method.name}</span>
+                                            <span className="text-xs text-gray-500">
+                                              {method.type === 'phone' && '📞'}
+                                              {method.type === 'ussd' && '🔢'}
+                                              {method.type === 'link' && '🔗'}
+                                              {' '}{method.value}
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                                          {t('settingsPage.checkout.enabled')}
+                                        </span>
+                                      </div>
+                                    ))}
+                                </>
+                              )}
+
+                              {/* Payment Gateways Status */}
+                              <div className="pt-4 mt-4 border-t border-gray-200">
+                                <h3 className="text-sm font-semibold text-gray-700 mb-3">{t('settingsPage.checkout.paymentGateways')}</h3>
+                                <div className="space-y-3">
+                                  {/* CinetPay Status */}
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-2">
+                                      <div className="w-6 h-6 bg-blue-100 rounded flex items-center justify-center">
+                                        <CreditCard className="h-4 w-4 text-blue-600" />
+                                      </div>
+                                      <span className="text-sm font-medium text-gray-700">{t('settingsPage.paymentGateways.cinetpay.name')}</span>
+                                    </div>
+                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${cinetpayConfig?.isActive
+                                      ? 'bg-emerald-100 text-emerald-700'
+                                      : 'bg-gray-100 text-gray-500'
+                                      }`}>
+                                      {cinetpayConfig?.isActive ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
+                                    </span>
+                                  </div>
+
+                                  {/* Campay Status */}
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-2">
+                                      <div className="w-6 h-6 bg-emerald-100 rounded flex items-center justify-center">
+                                        <span className="text-emerald-600 font-bold text-xs">CP</span>
+                                      </div>
+                                      <span className="text-sm font-medium text-gray-700">{t('settingsPage.paymentGateways.campay.name')}</span>
+                                    </div>
+                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${campayConfig?.isActive
+                                      ? 'bg-emerald-100 text-emerald-700'
+                                      : 'bg-gray-100 text-gray-500'
+                                      }`}>
+                                      {campayConfig?.isActive ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Catalogue Display Settings */}
+                          <div className="bg-white rounded-lg shadow-sm border p-6">
+                            <div className="flex items-center space-x-2 mb-4">
+                              <ShoppingBag className="h-5 w-5 text-emerald-600" />
+                              <h2 className="text-xl font-semibold text-gray-900">{t('settingsPage.checkout.catalogueDisplay')}</h2>
+                            </div>
+
+                            <div className="space-y-4">
                               <div className="flex items-center justify-between">
                                 <div>
-                                  <label className="text-sm font-medium text-gray-900 block mb-1">
-                                    Test Mode
-                                  </label>
-                                  <p className="text-xs text-gray-600">Use sandbox environment for testing</p>
+                                  <label className="text-sm font-medium text-gray-700">{t('settingsPage.checkout.showCheckoutInCatalogue')}</label>
+                                  <p className="text-xs text-gray-500">{t('settingsPage.checkout.showCheckoutInCatalogueDescription')}</p>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
                                     type="checkbox"
-                                    checked={cinetpayConfig.testMode}
-                                    onChange={(e) => handleCinetpayConfigUpdate({ testMode: e.target.checked })}
+                                    checked={checkoutSettings.showCheckoutInCatalogue}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showCheckoutInCatalogue: e.target.checked })}
                                     className="sr-only peer"
                                   />
-                                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
                                 </label>
                               </div>
-                              {cinetpayConfig.testMode && (
-                                <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
-                                  ⚠️ All payments will be processed in sandbox mode
+
+                              {checkoutSettings.showCheckoutInCatalogue && (
+                                <div className="ml-4 space-y-4 border-l-2 border-gray-200 pl-4">
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                      {t('settingsPage.checkout.checkoutButtonText')}
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={checkoutSettings.checkoutButtonText}
+                                      onChange={(e) => handleCheckoutSettingsUpdate({ checkoutButtonText: e.target.value })}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                      placeholder="Checkout Now"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                      {t('settingsPage.checkout.checkoutButtonColor')}
+                                    </label>
+                                    <div className="flex items-center space-x-3">
+                                      <input
+                                        type="color"
+                                        value={checkoutSettings.checkoutButtonColor}
+                                        onChange={(e) => handleCheckoutSettingsUpdate({ checkoutButtonColor: e.target.value })}
+                                        className="w-12 h-8 border border-gray-300 rounded cursor-pointer"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={checkoutSettings.checkoutButtonColor}
+                                        onChange={(e) => handleCheckoutSettingsUpdate({ checkoutButtonColor: e.target.value })}
+                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                        placeholder="#10b981"
+                                      />
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      {t('settingsPage.checkout.checkoutButtonColorDescription')}
+                                    </p>
+                                  </div>
+
+                                  <div className="bg-gray-50 rounded-lg p-4">
+                                    <p className="text-sm font-medium text-gray-700 mb-2">{t('settingsPage.checkout.preview')}:</p>
+                                    <button
+                                      style={{ backgroundColor: checkoutSettings.checkoutButtonColor }}
+                                      className="px-4 py-2 text-white rounded-lg font-medium"
+                                    >
+                                      {checkoutSettings.checkoutButtonText}
+                                    </button>
+                                  </div>
                                 </div>
                               )}
                             </div>
+                          </div>
 
-                            {/* Credentials */}
-                            <div className="space-y-4">
-                              <h4 className="text-sm font-semibold text-gray-900">Credentials</h4>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Site ID</label>
-                                <Input
-                                  type="text"
-                                  value={cinetpayConfig.siteId}
-                                  onChange={(e) => handleCinetpayConfigUpdate({ siteId: e.target.value })}
-                                  placeholder="Enter your CinetPay Site ID"
-                                  className="w-full"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">API Key</label>
-                                <Input
-                                  type="password"
-                                  value={cinetpayConfig.apiKey}
-                                  onChange={(e) => handleCinetpayConfigUpdate({ apiKey: e.target.value })}
-                                  placeholder="Enter your CinetPay API Key"
-                                  className="w-full"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Currency</label>
-                                <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-600">
-                                  XAF (Cameroon Franc) - Fixed
-                                </div>
-                              </div>
-                              <div className="flex gap-3">
-                                <Button
-                                  onClick={handleTestCinetpayConnection}
-                                  disabled={cinetpayTesting || !cinetpayConfig.siteId || !cinetpayConfig.apiKey}
-                                  className="flex-1"
-                                >
-                                  {cinetpayTesting ? 'Testing...' : 'Test Connection'}
-                                </Button>
-                                <Button
-                                  onClick={handleClearCinetpayCredentials}
-                                  disabled={cinetpaySaving || !cinetpayConfig.siteId || !cinetpayConfig.apiKey}
-                                  variant="outline"
-                                  className="flex-1 bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
-                                >
-                                  <Trash2 className="w-4 h-4 mr-2" />
-                                  Clear
-                                </Button>
-                              </div>
+                          {/* Action Buttons */}
+                          <div className="flex justify-end space-x-4">
+                            <Button
+                              onClick={handleResetCheckoutSettings}
+                              disabled={checkoutSaving}
+                              variant="outline"
+                              className="flex items-center"
+                            >
+                              <RotateCcw size={20} className="mr-2" />
+                              {t('settingsPage.checkout.resetToDefault')}
+                            </Button>
+                            <Button
+                              onClick={handleSaveCheckoutSettings}
+                              disabled={checkoutSaving}
+                              className="flex items-center"
+                            >
+                              {checkoutSaving ? (
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                              ) : (
+                                <Save size={20} className="mr-2" />
+                              )}
+                              {t('settingsPage.checkout.saveSettings')}
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Preview Panel */}
+                        <div className="bg-white rounded-lg shadow-sm border p-6 h-fit">
+                          <div className="flex items-center space-x-2 mb-4">
+                            <Eye className="h-5 w-5 text-emerald-600" />
+                            <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.checkout.livePreview')}</h3>
+                          </div>
+
+                          <div className="space-y-3 text-sm">
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-600">{t('settingsPage.checkout.contactSection')}</span>
+                              <span className={`px-2 py-1 rounded text-xs ${checkoutSettings.showContactSection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                                }`}>
+                                {checkoutSettings.showContactSection ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
+                              </span>
                             </div>
 
-                            {/* Payment Methods */}
-                            <div className="space-y-4">
-                              <div>
-                                <h4 className="text-sm font-semibold text-gray-900">{t('settingsPage.paymentGateways.cinetpay.enabledChannels')}</h4>
-                                <p className="text-xs text-gray-500 mt-1">{t('settingsPage.paymentMethodsAndGateways.gateways.autoSyncNote')}</p>
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-600">{t('settingsPage.checkout.deliverySection')}</span>
+                              <span className={`px-2 py-1 rounded text-xs ${checkoutSettings.showDeliverySection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                                }`}>
+                                {checkoutSettings.showDeliverySection ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-600">{t('settingsPage.checkout.paymentSection')}</span>
+                              <span className={`px-2 py-1 rounded text-xs ${checkoutSettings.showPaymentSection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                                }`}>
+                                {checkoutSettings.showPaymentSection ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-600">{t('settingsPage.checkout.orderSummarySection')}</span>
+                              <span className={`px-2 py-1 rounded text-xs ${checkoutSettings.showOrderSummary ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                                }`}>
+                                {checkoutSettings.showOrderSummary ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
+                              </span>
+                            </div>
+
+                            {/* Individual Field Status */}
+                            {checkoutSettings.showContactSection && (
+                              <div className="border-t border-gray-200 pt-3">
+                                <div className="text-gray-600 mb-2">{t('settingsPage.checkout.contactFieldsLabel')}</div>
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">{t('settingsPage.checkout.fullName', 'Nom complet')}</span>
+                                    <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showName ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
+                                      }`}></span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">{t('settingsPage.checkout.phoneField')}</span>
+                                    <span className={`w-2 h-2 rounded-full ${checkoutSettings.showPhone ? 'bg-emerald-500' : 'bg-gray-300'
+                                      }`}></span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">{t('settingsPage.checkout.quarterResidence', 'Quarter/Residence')}</span>
+                                    <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showQuarter ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
+                                      }`}></span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">{t('settingsPage.checkout.emailField')}</span>
+                                    <span className={`w-2 h-2 rounded-full ${checkoutSettings.showEmail ? 'bg-emerald-500' : 'bg-gray-300'
+                                      }`}></span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">{t('settingsPage.checkout.newsletterOptIn')}</span>
+                                    <span className={`w-2 h-2 rounded-full ${checkoutSettings.showNewsletter ? 'bg-emerald-500' : 'bg-gray-300'
+                                      }`}></span>
+                                  </div>
+                                </div>
                               </div>
-                              <div className="space-y-3">
-                                {[
-                                  { key: 'mobileMoney', label: t('settingsPage.paymentGateways.cinetpay.mobileMoney'), desc: t('settingsPage.paymentMethodsAndGateways.gateways.mobileMoneyDesc') },
-                                  { key: 'creditCard', label: t('settingsPage.paymentGateways.cinetpay.creditCard'), desc: t('settingsPage.paymentMethodsAndGateways.gateways.creditCardDesc') },
-                                  { key: 'wallet', label: t('settingsPage.paymentGateways.cinetpay.wallet'), desc: t('settingsPage.paymentMethodsAndGateways.gateways.walletDesc') }
-                                ].map((method) => (
-                                  <div key={method.key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                    <div>
-                                      <label className="text-sm font-medium text-gray-700">{method.label}</label>
-                                      <p className="text-xs text-gray-500">{method.desc}</p>
-                                    </div>
-                                    <label className="relative inline-flex items-center cursor-pointer">
-                                      <input
-                                        type="checkbox"
-                                        checked={cinetpayConfig.enabledChannels[method.key as keyof typeof cinetpayConfig.enabledChannels]}
-                                        onChange={(e) => handleCinetpayConfigUpdate({
-                                          enabledChannels: {
-                                            ...cinetpayConfig.enabledChannels,
-                                            [method.key]: e.target.checked
-                                          }
-                                        })}
-                                        className="sr-only peer"
-                                      />
-                                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                                    </label>
+                            )}
+
+                            {checkoutSettings.showDeliverySection && (
+                              <div className="border-t border-gray-200 pt-3">
+                                <div className="text-gray-600 mb-2">{t('settingsPage.checkout.deliveryFieldsLabel')}</div>
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">{t('settingsPage.checkout.deliveryName', 'Nom pour livraison')}</span>
+                                    <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showDeliveryName ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
+                                      }`}></span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">{t('settingsPage.checkout.deliveryPhone', 'Téléphone pour livraison')}</span>
+                                    <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showDeliveryPhone ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
+                                      }`}></span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">{t('settingsPage.checkout.addressLine1', 'Adresse ligne 1')}</span>
+                                    <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showDeliveryAddressLine1 ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
+                                      }`}></span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">{t('settingsPage.checkout.addressLine2', 'Adresse ligne 2')}</span>
+                                    <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showDeliveryAddressLine2 ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
+                                      }`}></span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">{t('settingsPage.checkout.deliveryQuarter', 'Quartier/Zone de livraison')}</span>
+                                    <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showDeliveryQuarter ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
+                                      }`}></span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">{t('settingsPage.checkout.deliveryCity', 'Delivery City')}</span>
+                                    <span className={`w-2 h-2 rounded-full ${(checkoutSettings.showDeliveryCity ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
+                                      }`}></span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">{t('settingsPage.checkout.deliveryInstructions')}</span>
+                                    <span className={`w-2 h-2 rounded-full ${checkoutSettings.showDeliveryInstructions ? 'bg-emerald-500' : 'bg-gray-300'
+                                      }`}></span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">{t('settingsPage.checkout.country')}</span>
+                                    <span className={`w-2 h-2 rounded-full ${checkoutSettings.showCountry ? 'bg-emerald-500' : 'bg-gray-300'
+                                      }`}></span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="border-t border-gray-200 pt-3">
+                              <div className="text-gray-600 mb-2">{t('settingsPage.checkout.paymentMethodsLabel')}</div>
+                              <div className="space-y-1">
+                                {Object.entries(checkoutSettings.enabledPaymentMethods).map(([method, enabled]) => (
+                                  <div key={method} className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500 capitalize">
+                                      {method === 'mtnMoney' ? t('settingsPage.checkout.mtnMoney') :
+                                        method === 'orangeMoney' ? t('settingsPage.checkout.orangeMoney') :
+                                          method === 'visaCard' ? t('settingsPage.checkout.visaCard') :
+                                            method === 'payOnsite' ? t('settingsPage.checkout.payOnsite') :
+                                              method.replace(/([A-Z])/g, ' $1').trim()}
+                                    </span>
+                                    <span className={`w-2 h-2 rounded-full ${enabled ? 'bg-emerald-500' : 'bg-gray-300'
+                                      }`}></span>
                                   </div>
                                 ))}
                               </div>
                             </div>
 
-                            {/* Save Button */}
-                            <Button
-                              onClick={handleSaveCinetpayConfig}
-                              disabled={cinetpaySaving}
-                              className="w-full"
-                            >
-                              <Save className="h-4 w-4 mr-2" />
-                              {cinetpaySaving ? 'Saving...' : 'Save CinetPay Settings'}
-                            </Button>
-                          </div>
-
-                          {/* Right Column - Preview */}
-                          <div>
-                            <div className="bg-gray-50 rounded-lg p-6 sticky top-4">
-                              <h4 className="text-sm font-semibold text-gray-900 mb-4">Configuration Preview</h4>
-                              <div className="space-y-3 text-sm">
-                                <div className="flex justify-between">
-                                  <span className="text-gray-600">Status</span>
-                                  <span className={`px-2 py-1 rounded text-xs font-medium ${cinetpayConfig.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
-                                    }`}>
-                                    {cinetpayConfig.isActive ? 'Enabled' : 'Disabled'}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-600">Environment</span>
-                                  <span className={`px-2 py-1 rounded text-xs font-medium ${cinetpayConfig.testMode ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
-                                    }`}>
-                                    {cinetpayConfig.testMode ? 'Test Mode' : 'Live Mode'}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-600">Site ID</span>
-                                  <span className="text-gray-900 font-mono text-xs">
-                                    {cinetpayConfig.siteId ? `${cinetpayConfig.siteId.substring(0, 8)}...` : 'Not set'}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-600">API Key</span>
-                                  <span className="text-gray-900 text-xs">
-                                    {cinetpayConfig.apiKey ? '••••••••' : 'Not set'}
-                                  </span>
-                                </div>
-                                <div className="border-t border-gray-200 pt-3 mt-3">
-                                  <div className="text-gray-600 mb-2 text-xs font-medium">Enabled Methods:</div>
-                                  <div className="space-y-1">
-                                    {Object.entries(cinetpayConfig.enabledChannels).map(([channel, enabled]) => (
-                                      <div key={channel} className="flex items-center justify-between text-xs">
-                                        <span className="text-gray-600 capitalize">
-                                          {channel.replace(/([A-Z])/g, ' $1').trim()}
-                                        </span>
-                                        <span className={`w-2 h-2 rounded-full ${enabled ? 'bg-emerald-500' : 'bg-gray-300'
-                                          }`}></span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
+                            <div className="border-t border-gray-200 pt-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-gray-600">{t('settingsPage.checkout.catalogueCheckout')}</span>
+                                <span className={`px-2 py-1 rounded text-xs ${checkoutSettings.showCheckoutInCatalogue ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                                  }`}>
+                                  {checkoutSettings.showCheckoutInCatalogue ? t('settingsPage.checkout.enabled') : t('settingsPage.checkout.disabled')}
+                                </span>
                               </div>
+                              {checkoutSettings.showCheckoutInCatalogue && (
+                                <div className="mt-2">
+                                  <div className="text-xs text-gray-500 mb-1">{t('settingsPage.checkout.buttonPreview')}</div>
+                                  <button
+                                    style={{ backgroundColor: checkoutSettings.checkoutButtonColor }}
+                                    className="px-3 py-1 text-white rounded text-xs font-medium"
+                                  >
+                                    {checkoutSettings.checkoutButtonText}
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
-                      )}
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </Card>
+              </>
+            ) : (
+              <Card>
+                <div className="text-center py-8 text-gray-500">
+                  <p>{t('settingsPage.checkout.loadFailed')}</p>
+                </div>
+              </Card>
+            )}
+          </div>
+        )
+      }
 
-                {/* Campay Accordion */}
-                <Card className="overflow-hidden">
-                  <button
-                    onClick={() => setExpandedProvider(expandedProvider === 'campay' ? null : 'campay')}
-                    className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors duration-200"
-                    aria-expanded={expandedProvider === 'campay'}
-                    aria-controls="campay-content"
-                    disabled={campayLoading}
-                  >
-                    <div className="flex items-center space-x-4 flex-1">
-                      <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
-                        <span className="text-emerald-600 font-bold text-lg">CP</span>
-                      </div>
-                      <div className="text-left">
-                        <h3 className="text-lg font-semibold text-gray-900">Campay</h3>
-                        <p className="text-sm text-gray-500">MTN Mobile Money, Orange Money</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      {campayLoading ? (
-                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-emerald-600 border-t-transparent"></div>
-                      ) : (
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${campayConfig?.isActive
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-gray-100 text-gray-600'
-                          }`}>
-                          {campayConfig?.isActive ? 'Enabled' : 'Disabled'}
-                        </span>
-                      )}
-                      {expandedProvider === 'campay' ? (
-                        <ChevronUp className="h-5 w-5 text-gray-400" />
-                      ) : (
-                        <ChevronDown className="h-5 w-5 text-gray-400" />
-                      )}
-                    </div>
-                  </button>
+      {/* Payment Methods & Gateways Tab */}
+      {
+        activeTab === 'payment' && (
+          <div className="space-y-6 max-w-7xl mx-auto">
+            {/* Header */}
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('settingsPage.paymentMethodsAndGateways.title')}</h2>
+              <p className="text-gray-600">{t('settingsPage.paymentMethodsAndGateways.subtitle')}</p>
+            </div>
 
-                  {expandedProvider === 'campay' && (
-                    <div
-                      id="campay-content"
-                      className="border-t border-gray-200 p-6 animate-slide-down"
-                    >
-                      {campayLoading ? (
-                        <div className="flex items-center justify-center py-8">
-                          <div className="animate-spin rounded-full h-8 w-8 border-4 border-emerald-200 border-t-emerald-600"></div>
-                          <span className="ml-3 text-gray-600">Loading Campay settings...</span>
+            {/* Payment Methods Section - At the Top */}
+            {checkoutSettings && (
+              <Card>
+                <div className="p-6">
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.title')}</h3>
+                    <p className="text-sm text-gray-600">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.subtitle')}</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* MTN Money */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center">
+                            <span className="text-white font-bold text-sm">M</span>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-900 block">
+                              {t('settingsPage.checkout.mtnMoney')}
+                            </label>
+                            <p className="text-xs text-gray-600">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.mtnMoneyDesc')}</p>
+                          </div>
                         </div>
-                      ) : !campayConfig ? (
-                        <div className="text-center py-8">
-                          <p className="text-gray-600 mb-2">Campay configuration not found.</p>
-                          <p className="text-sm text-gray-500 mb-4">Click the button below to initialize with default settings.</p>
-                          <Button
-                            onClick={async () => {
-                              if (company?.id && user?.uid) {
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={checkoutSettings.enabledPaymentMethods.mtnMoney}
+                            onChange={async (e) => {
+                              handleCheckoutSettingsUpdate({
+                                enabledPaymentMethods: {
+                                  ...checkoutSettings.enabledPaymentMethods,
+                                  mtnMoney: e.target.checked
+                                }
+                              });
+                              if (company?.id) {
                                 try {
-                                  setCampayLoading(true);
-                                  const config = await initializeCampayConfig(company.id, user.uid);
-                                  setCampayConfig(config);
-                                  showSuccessToast('Campay configuration initialized successfully');
-                                } catch (error: any) {
-                                  console.error('Error initializing Campay:', error);
-                                  const errorMessage = error?.message || 'Failed to initialize Campay configuration';
-                                  if (errorMessage.includes('permission') || errorMessage.includes('Permission')) {
-                                    showErrorToast('Permission denied. Please check Firestore security rules.');
-                                  } else {
-                                    showErrorToast(`Error: ${errorMessage}`);
-                                  }
-                                } finally {
-                                  setCampayLoading(false);
+                                  const updated = {
+                                    ...checkoutSettings,
+                                    enabledPaymentMethods: {
+                                      ...checkoutSettings.enabledPaymentMethods,
+                                      mtnMoney: e.target.checked
+                                    }
+                                  };
+                                  await saveCheckoutSettings(company.id, updated, user?.uid);
+                                  showSuccessToast(t('settingsPage.paymentMethodsAndGateways.paymentMethods.updated'));
+                                } catch (error) {
+                                  console.error('Error saving payment method:', error);
+                                  showErrorToast(t('settingsPage.paymentMethodsAndGateways.paymentMethods.updateFailed'));
                                 }
                               }
                             }}
-                            disabled={campayLoading}
-                          >
-                            {campayLoading ? 'Initializing...' : 'Initialize Campay Configuration'}
-                          </Button>
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Orange Money */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+                            <span className="text-white font-bold text-sm">O</span>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-900 block">
+                              {t('settingsPage.checkout.orangeMoney')}
+                            </label>
+                            <p className="text-xs text-gray-600">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.orangeMoneyDesc')}</p>
+                          </div>
                         </div>
-                      ) : (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                          {/* Left Column - Configuration */}
-                          <div className="space-y-6">
-                            {/* Enable/Disable Toggle */}
-                            <div className="bg-gray-50 rounded-lg p-4">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={checkoutSettings.enabledPaymentMethods.orangeMoney}
+                            onChange={async (e) => {
+                              handleCheckoutSettingsUpdate({
+                                enabledPaymentMethods: {
+                                  ...checkoutSettings.enabledPaymentMethods,
+                                  orangeMoney: e.target.checked
+                                }
+                              });
+                              if (company?.id) {
+                                try {
+                                  const updated = {
+                                    ...checkoutSettings,
+                                    enabledPaymentMethods: {
+                                      ...checkoutSettings.enabledPaymentMethods,
+                                      orangeMoney: e.target.checked
+                                    }
+                                  };
+                                  await saveCheckoutSettings(company.id, updated, user?.uid);
+                                  showSuccessToast(t('settingsPage.paymentMethodsAndGateways.paymentMethods.updated'));
+                                } catch (error) {
+                                  console.error('Error saving payment method:', error);
+                                  showErrorToast(t('settingsPage.paymentMethodsAndGateways.paymentMethods.updateFailed'));
+                                }
+                              }
+                            }}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Visa Card */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <CreditCard className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-900 block">
+                              {t('settingsPage.checkout.visaCard')}
+                            </label>
+                            <p className="text-xs text-gray-600">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.visaCardDesc')}</p>
+                          </div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={checkoutSettings.enabledPaymentMethods.visaCard}
+                            onChange={async (e) => {
+                              handleCheckoutSettingsUpdate({
+                                enabledPaymentMethods: {
+                                  ...checkoutSettings.enabledPaymentMethods,
+                                  visaCard: e.target.checked
+                                }
+                              });
+                              if (company?.id) {
+                                try {
+                                  const updated = {
+                                    ...checkoutSettings,
+                                    enabledPaymentMethods: {
+                                      ...checkoutSettings.enabledPaymentMethods,
+                                      visaCard: e.target.checked
+                                    }
+                                  };
+                                  await saveCheckoutSettings(company.id, updated, user?.uid);
+                                  showSuccessToast(t('settingsPage.paymentMethodsAndGateways.paymentMethods.updated'));
+                                } catch (error) {
+                                  console.error('Error saving payment method:', error);
+                                  showErrorToast(t('settingsPage.paymentMethodsAndGateways.paymentMethods.updateFailed'));
+                                }
+                              }
+                            }}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Pay Onsite */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                            <Truck className="h-5 w-5 text-emerald-600" />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-900 block">
+                              {t('settingsPage.checkout.payOnsite')}
+                            </label>
+                            <p className="text-xs text-gray-600">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.payOnsiteDesc')}</p>
+                          </div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={checkoutSettings.enabledPaymentMethods.payOnsite}
+                            onChange={async (e) => {
+                              handleCheckoutSettingsUpdate({
+                                enabledPaymentMethods: {
+                                  ...checkoutSettings.enabledPaymentMethods,
+                                  payOnsite: e.target.checked
+                                }
+                              });
+                              if (company?.id) {
+                                try {
+                                  const updated = {
+                                    ...checkoutSettings,
+                                    enabledPaymentMethods: {
+                                      ...checkoutSettings.enabledPaymentMethods,
+                                      payOnsite: e.target.checked
+                                    }
+                                  };
+                                  await saveCheckoutSettings(company.id, updated, user?.uid);
+                                  showSuccessToast(t('settingsPage.paymentMethodsAndGateways.paymentMethods.updated'));
+                                } catch (error) {
+                                  console.error('Error saving payment method:', error);
+                                  showErrorToast(t('settingsPage.paymentMethodsAndGateways.paymentMethods.updateFailed'));
+                                }
+                              }
+                            }}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Active Custom Payment Methods - Show as toggles in main list */}
+                    {orderingSettings?.paymentMethods?.customMethods && orderingSettings.paymentMethods.customMethods.filter(m => m.isActive).length > 0 && (
+                      <>
+                        {orderingSettings.paymentMethods.customMethods
+                          .filter(m => m.isActive)
+                          .map((method) => (
+                            <div key={method.id} className="bg-gray-50 rounded-lg p-4">
                               <div className="flex items-center justify-between">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-900 block mb-1">
-                                    Enable Campay Payments
-                                  </label>
-                                  <p className="text-xs text-gray-600">Activate Campay payment processing</p>
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                    {method.type === 'phone' && <Phone className="h-5 w-5 text-purple-600" />}
+                                    {method.type === 'ussd' && <Hash className="h-5 w-5 text-purple-600" />}
+                                    {method.type === 'link' && <Link className="h-5 w-5 text-purple-600" />}
+                                  </div>
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-900 block">
+                                      {method.name}
+                                    </label>
+                                    <p className="text-xs text-gray-600">
+                                      {method.type === 'phone' && '📞'}
+                                      {method.type === 'ussd' && '🔢'}
+                                      {method.type === 'link' && '🔗'}
+                                      {' '}{method.value}
+                                    </p>
+                                  </div>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
                                     type="checkbox"
-                                    checked={campayConfig.isActive}
-                                    onChange={(e) => handleCampayConfigUpdate({ isActive: e.target.checked })}
+                                    checked={method.isActive}
+                                    onChange={async (e) => {
+                                      await handleUpdatePaymentMethod(method.id, { isActive: e.target.checked });
+                                    }}
                                     className="sr-only peer"
                                   />
                                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
                                 </label>
                               </div>
                             </div>
+                          ))}
+                      </>
+                    )}
 
-                            {/* Environment Mode */}
-                            <div className="bg-gray-50 rounded-lg p-4">
-                              <h4 className="text-sm font-semibold text-gray-900 mb-3">Environment Mode</h4>
-                              <div className="space-y-2">
-                                <label className="flex items-center space-x-3 p-3 bg-white rounded-lg cursor-pointer border-2 border-transparent hover:border-emerald-200 transition-colors">
-                                  <input
-                                    type="radio"
-                                    name="campay-environment"
-                                    value="demo"
-                                    checked={campayConfig.environment === 'demo'}
-                                    onChange={() => handleCampayConfigUpdate({ environment: 'demo' })}
-                                    className="h-4 w-4 text-emerald-600 focus:ring-emerald-500"
-                                  />
-                                  <div className="flex-1">
-                                    <div className="text-sm font-medium text-gray-700">Demo</div>
-                                    <div className="text-xs text-gray-500">Max 10 XAF per transaction</div>
-                                  </div>
-                                </label>
-                                <label className="flex items-center space-x-3 p-3 bg-white rounded-lg cursor-pointer border-2 border-transparent hover:border-emerald-200 transition-colors">
-                                  <input
-                                    type="radio"
-                                    name="campay-environment"
-                                    value="production"
-                                    checked={campayConfig.environment === 'production'}
-                                    onChange={() => handleCampayConfigUpdate({ environment: 'production' })}
-                                    className="h-4 w-4 text-emerald-600 focus:ring-emerald-500"
-                                  />
-                                  <div className="flex-1">
-                                    <div className="text-sm font-medium text-gray-700">Production</div>
-                                    <div className="text-xs text-gray-500">For live payments</div>
-                                  </div>
-                                </label>
-                              </div>
-                              {campayConfig.environment === 'demo' && (
-                                <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
-                                  ⚠️ Demo mode: Maximum 10 XAF per transaction
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Credentials */}
-                            <div className="space-y-4">
-                              <h4 className="text-sm font-semibold text-gray-900">Credentials</h4>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  App ID <span className="text-red-500">*</span>
-                                </label>
-                                <div className="relative">
-                                  <Input
-                                    type="password"
-                                    value={campayConfig.appId}
-                                    onChange={(e) => handleCampayConfigUpdate({ appId: e.target.value })}
-                                    placeholder="Enter your Campay App ID"
-                                    className="w-full pr-10"
-                                  />
-                                  {campayConfig.appId && campayConfig.appId.length >= 10 && (
-                                    <Check className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-emerald-500" />
-                                  )}
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  Get your App ID from{' '}
-                                  <a href="https://dashboard.campay.net" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">
-                                    Campay dashboard
-                                  </a>
-                                  {' '}(min 10 characters)
-                                </p>
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Currency</label>
-                                <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-600">
-                                  XAF (Cameroon Franc) - Fixed
-                                </div>
-                              </div>
-                              <div className="flex gap-3">
-                                <Button
-                                  onClick={handleTestCampayConnection}
-                                  disabled={campayTesting || !campayConfig.appId || campayConfig.appId.length < 10}
-                                  className="flex-1"
-                                >
-                                  {campayTesting ? 'Testing...' : 'Test Connection'}
-                                </Button>
-                                <Button
-                                  onClick={handleClearCampayCredentials}
-                                  disabled={campaySaving || !campayConfig.appId}
-                                  variant="outline"
-                                  className="flex-1 bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
-                                >
-                                  <Trash2 className="w-4 h-4 mr-2" />
-                                  Clear
-                                </Button>
-                              </div>
-                            </div>
-
-                            {/* Amount Limits */}
-                            <div className="space-y-4">
-                              <h4 className="text-sm font-semibold text-gray-900">Amount Limits</h4>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Amount (XAF)</label>
-                                <PriceInput
-                                  name="minAmount"
-                                  value={campayConfig.minAmount}
-                                  onChange={(e) => handleCampayConfigUpdate({ minAmount: Number(e.target.value.replace(/\s/g, '')) || 0 })}
-                                  placeholder="Enter minimum amount"
-                                  className="w-full"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Maximum Amount (XAF)</label>
-                                <PriceInput
-                                  name="maxAmount"
-                                  value={campayConfig.maxAmount}
-                                  onChange={(e) => handleCampayConfigUpdate({ maxAmount: Number(e.target.value.replace(/\s/g, '')) || 0 })}
-                                  placeholder="Enter maximum amount"
-                                  className="w-full"
-                                />
-                              </div>
-                            </div>
-
-                            {/* Save Button */}
-                            <Button
-                              onClick={handleSaveCampayConfig}
-                              disabled={campaySaving}
-                              className="w-full"
-                            >
-                              <Save className="h-4 w-4 mr-2" />
-                              {campaySaving ? 'Saving...' : 'Save Campay Settings'}
-                            </Button>
-                          </div>
-
-                          {/* Right Column - Preview */}
-                          <div>
-                            <div className="bg-gray-50 rounded-lg p-6 sticky top-4">
-                              <h4 className="text-sm font-semibold text-gray-900 mb-4">Configuration Preview</h4>
-                              <div className="space-y-3 text-sm">
-                                <div className="flex justify-between">
-                                  <span className="text-gray-600">Status</span>
-                                  <span className={`px-2 py-1 rounded text-xs font-medium ${campayConfig.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
-                                    }`}>
-                                    {campayConfig.isActive ? 'Enabled' : 'Disabled'}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-600">Environment</span>
-                                  <span className={`px-2 py-1 rounded text-xs font-medium ${campayConfig.environment === 'demo' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
-                                    }`}>
-                                    {campayConfig.environment === 'demo' ? 'Demo' : 'Production'}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-600">App ID</span>
-                                  <span className="text-gray-900 font-mono text-xs">
-                                    {campayConfig.appId ? `${campayConfig.appId.substring(0, 8)}...` : 'Not set'}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-600">Min Amount</span>
-                                  <span className="text-gray-900 text-xs">{campayConfig.minAmount} XAF</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-600">Max Amount</span>
-                                  <span className="text-gray-900 text-xs">{campayConfig.maxAmount.toLocaleString()} XAF</span>
-                                </div>
-                                <div className="border-t border-gray-200 pt-3 mt-3">
-                                  <div className="text-gray-600 mb-2 text-xs font-medium">Supported Methods:</div>
-                                  <div className="space-y-1">
-                                    {campayConfig.supportedMethods?.map((method) => (
-                                      <div key={method} className="flex items-center justify-between text-xs">
-                                        <span className="text-gray-600">{method}</span>
-                                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                      </div>
-                                    )) || (
-                                        <>
-                                          <div className="flex items-center justify-between text-xs">
-                                            <span className="text-gray-600">MTN Mobile Money</span>
-                                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                          </div>
-                                          <div className="flex items-center justify-between text-xs">
-                                            <span className="text-gray-600">Orange Money</span>
-                                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                          </div>
-                                        </>
-                                      )}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                    {/* Custom Payment Methods Management */}
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h4 className="text-sm font-semibold text-gray-900">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.customMethods')}</h4>
+                          <p className="text-xs text-gray-600 mt-1">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.customMethodsDesc')}</p>
                         </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingPaymentMethodId(null);
+                            setIsPaymentMethodModalOpen(true);
+                          }}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          {t('settingsPage.paymentMethodsAndGateways.paymentMethods.addCustom')}
+                        </Button>
+                      </div>
+                      {orderingSettings?.paymentMethods?.customMethods && orderingSettings.paymentMethods.customMethods.length > 0 ? (
+                        <div className="space-y-2">
+                          {orderingSettings.paymentMethods.customMethods.map((method) => (
+                            <div key={method.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                              <div className="flex items-center space-x-3 flex-1">
+                                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                                  {method.type === 'phone' && <Phone className="h-4 w-4 text-purple-600" />}
+                                  {method.type === 'ussd' && <Hash className="h-4 w-4 text-purple-600" />}
+                                  {method.type === 'link' && <Link className="h-4 w-4 text-purple-600" />}
+                                </div>
+                                <div className="flex-1">
+                                  <span className="text-sm font-medium text-gray-900 block">{method.name}</span>
+                                  <span className="text-xs text-gray-500">
+                                    {method.type === 'phone' && '📞'}
+                                    {method.type === 'ussd' && '🔢'}
+                                    {method.type === 'link' && '🔗'}
+                                    {' '}{method.value}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-3">
+                                {/* Toggle Switch */}
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={method.isActive}
+                                    onChange={async (e) => {
+                                      await handleUpdatePaymentMethod(method.id, { isActive: e.target.checked });
+                                    }}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                </label>
+                                {/* Edit Button */}
+                                <button
+                                  onClick={() => {
+                                    setEditingPaymentMethodId(method.id);
+                                    setIsPaymentMethodModalOpen(true);
+                                  }}
+                                  className="text-gray-500 hover:text-emerald-600 p-1"
+                                  title={t('settingsPage.paymentMethodsAndGateways.paymentMethods.edit')}
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </button>
+                                {/* Delete Button */}
+                                <button
+                                  onClick={async () => {
+                                    if (window.confirm(t('settingsPage.paymentMethodsAndGateways.paymentMethods.deleteConfirm'))) {
+                                      await handleDeletePaymentMethod(method.id);
+                                    }
+                                  }}
+                                  className="text-gray-500 hover:text-red-600 p-1"
+                                  title={t('settingsPage.paymentMethodsAndGateways.paymentMethods.delete')}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 text-center py-4">{t('settingsPage.paymentMethodsAndGateways.paymentMethods.noCustomMethods')}</p>
                       )}
                     </div>
-                  )}
-                </Card>
-
-                {/* Error State */}
-                {!cinetpayConfig && !campayConfig && !cinetpayLoading && !campayLoading && (
-                  <Card>
-                    <div className="text-center py-8 text-gray-500">
-                      <p>Failed to load payment integration settings. Please refresh the page.</p>
-                    </div>
-                  </Card>
-                )}
-              </>
-
+                  </div>
+                </div>
+              </Card>
             )}
+
+            {/* Payment Gateways Section */}
+            <div className="space-y-4">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('settingsPage.paymentMethodsAndGateways.gateways.title')}</h3>
+                <p className="text-sm text-gray-600">{t('settingsPage.paymentMethodsAndGateways.gateways.subtitle')}</p>
+              </div>
+
+              {/* Loading State */}
+              {(cinetpayLoading || campayLoading) ? (
+                <Card>
+                  <div className="p-6 space-y-4">
+                    <div className="animate-pulse bg-gray-100 w-48 h-6 rounded mb-4"></div>
+                    <div className="space-y-3">
+                      <div className="animate-pulse bg-gray-100 w-full h-10 rounded"></div>
+                      <div className="animate-pulse bg-gray-100 w-3/4 h-10 rounded"></div>
+                      <div className="animate-pulse bg-gray-100 w-1/2 h-10 rounded"></div>
+                    </div>
+                  </div>
+                </Card>
+              ) : (
+                <>
+                  {/* CinetPay Accordion */}
+                  <Card className="overflow-hidden">
+                    <button
+                      onClick={() => setExpandedProvider(expandedProvider === 'cinetpay' ? null : 'cinetpay')}
+                      className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors duration-200"
+                      aria-expanded={expandedProvider === 'cinetpay'}
+                      aria-controls="cinetpay-content"
+                      disabled={cinetpayLoading}
+                    >
+                      <div className="flex items-center space-x-4 flex-1">
+                        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <CreditCard className="h-6 w-6 text-blue-600" />
+                        </div>
+                        <div className="text-left">
+                          <h3 className="text-lg font-semibold text-gray-900">{t('settingsPage.paymentGateways.cinetpay.name')}</h3>
+                          <p className="text-sm text-gray-500">{t('settingsPage.paymentGateways.cinetpay.description')}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        {cinetpayLoading ? (
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+                        ) : (
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${cinetpayConfig?.isActive
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-gray-100 text-gray-600'
+                            }`}>
+                            {cinetpayConfig?.isActive ? t('settingsPage.paymentGateways.cinetpay.enabled') : t('settingsPage.paymentGateways.cinetpay.disabled')}
+                          </span>
+                        )}
+                        {expandedProvider === 'cinetpay' ? (
+                          <ChevronUp className="h-5 w-5 text-gray-400" />
+                        ) : (
+                          <ChevronDown className="h-5 w-5 text-gray-400" />
+                        )}
+                      </div>
+                    </button>
+
+                    {expandedProvider === 'cinetpay' && (
+                      <div
+                        id="cinetpay-content"
+                        className="border-t border-gray-200 p-6 animate-slide-down"
+                      >
+                        {cinetpayLoading ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-200 border-t-blue-600"></div>
+                            <span className="ml-3 text-gray-600">Loading CinetPay settings...</span>
+                          </div>
+                        ) : !cinetpayConfig ? (
+                          <div className="text-center py-8">
+                            <p className="text-gray-600 mb-4">CinetPay configuration not found. Initializing...</p>
+                            <Button
+                              onClick={async () => {
+                                if (company?.id && user?.uid) {
+                                  try {
+                                    setCinetpayLoading(true);
+                                    const config = await initializeCinetPayConfig(company.id, user.uid);
+                                    setCinetpayConfig(config);
+                                  } catch (error) {
+                                    console.error('Error initializing CinetPay:', error);
+                                  } finally {
+                                    setCinetpayLoading(false);
+                                  }
+                                }
+                              }}
+                            >
+                              {cinetpayLoading ? t('settingsPage.paymentGateways.initializing', 'Initializing...') : t('settingsPage.paymentGateways.initialize', 'Initialize CinetPay Configuration', { name: 'CinetPay' })}
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Left Column - Configuration */}
+                            <div className="space-y-6">
+                              {/* Enable/Disable Toggle */}
+                              <div className="bg-gray-50 rounded-lg p-4">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-900 block mb-1">
+                                      {t('settingsPage.paymentGateways.enablePayments', 'Enable CinetPay Payments', { name: 'CinetPay' })}
+                                    </label>
+                                    <p className="text-xs text-gray-600">{t('settingsPage.paymentGateways.activateDescription', 'Activate CinetPay payment processing', { name: 'CinetPay' })}</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={cinetpayConfig.isActive}
+                                      onChange={(e) => handleCinetpayConfigUpdate({ isActive: e.target.checked })}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                  </label>
+                                </div>
+                              </div>
+
+                              {/* Test Mode Toggle */}
+                              <div className="bg-gray-50 rounded-lg p-4">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-900 block mb-1">
+                                      {t('settingsPage.paymentGateways.testModeLabel', 'Test Mode')}
+                                    </label>
+                                    <p className="text-xs text-gray-600">{t('settingsPage.paymentGateways.useSandbox', 'Use sandbox environment for testing')}</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={cinetpayConfig.testMode}
+                                      onChange={(e) => handleCinetpayConfigUpdate({ testMode: e.target.checked })}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                  </label>
+                                </div>
+                                {cinetpayConfig.testMode && (
+                                  <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                                    {t('settingsPage.paymentGateways.sandboxWarning', '⚠️ All payments will be processed in sandbox mode')}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Credentials */}
+                              <div className="space-y-4">
+                                <h4 className="text-sm font-semibold text-gray-900">{t('settingsPage.paymentGateways.credentials', 'Credentials')}</h4>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('settingsPage.paymentGateways.cinetpay.siteId', 'Site ID')}</label>
+                                  <Input
+                                    type="text"
+                                    value={cinetpayConfig.siteId}
+                                    onChange={(e) => handleCinetpayConfigUpdate({ siteId: e.target.value })}
+                                    placeholder="Enter your CinetPay Site ID"
+                                    className="w-full"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('settingsPage.paymentGateways.cinetpay.apiKey', 'API Key')}</label>
+                                  <Input
+                                    type="password"
+                                    value={cinetpayConfig.apiKey}
+                                    onChange={(e) => handleCinetpayConfigUpdate({ apiKey: e.target.value })}
+                                    placeholder="Enter your CinetPay API Key"
+                                    className="w-full"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('settingsPage.paymentGateways.currency', 'Currency')}</label>
+                                  <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-600">
+                                    {t('settingsPage.paymentGateways.currencyFixed', 'XAF (Cameroon Franc) - Fixed', { code: 'XAF', name: 'Cameroon Franc' })}
+                                  </div>
+                                </div>
+                                <div className="flex gap-3">
+                                  <Button
+                                    onClick={handleTestCinetpayConnection}
+                                    disabled={cinetpayTesting || !cinetpayConfig.siteId || !cinetpayConfig.apiKey}
+                                    className="flex-1"
+                                  >
+                                    {cinetpayTesting ? t('settingsPage.paymentGateways.testing', 'Testing...') : t('settingsPage.paymentGateways.cinetpay.testConnection', 'Test Connection')}
+                                  </Button>
+                                  <Button
+                                    onClick={handleClearCinetpayCredentials}
+                                    disabled={cinetpaySaving || !cinetpayConfig.siteId || !cinetpayConfig.apiKey}
+                                    variant="outline"
+                                    className="flex-1 bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    {t('settingsPage.paymentGateways.cinetpay.clearCredentials', 'Clear')}
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {/* Payment Methods */}
+                              <div className="space-y-4">
+                                <div>
+                                  <h4 className="text-sm font-semibold text-gray-900">{t('settingsPage.paymentGateways.cinetpay.enabledChannels')}</h4>
+                                  <p className="text-xs text-gray-500 mt-1">{t('settingsPage.paymentMethodsAndGateways.gateways.autoSyncNote')}</p>
+                                </div>
+                                <div className="space-y-3">
+                                  {[
+                                    { key: 'mobileMoney', label: t('settingsPage.paymentGateways.cinetpay.mobileMoney'), desc: t('settingsPage.paymentMethodsAndGateways.gateways.mobileMoneyDesc') },
+                                    { key: 'creditCard', label: t('settingsPage.paymentGateways.cinetpay.creditCard'), desc: t('settingsPage.paymentMethodsAndGateways.gateways.creditCardDesc') },
+                                    { key: 'wallet', label: t('settingsPage.paymentGateways.cinetpay.wallet'), desc: t('settingsPage.paymentMethodsAndGateways.gateways.walletDesc') }
+                                  ].map((method) => (
+                                    <div key={method.key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                      <div>
+                                        <label className="text-sm font-medium text-gray-700">{method.label}</label>
+                                        <p className="text-xs text-gray-500">{method.desc}</p>
+                                      </div>
+                                      <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={cinetpayConfig.enabledChannels[method.key as keyof typeof cinetpayConfig.enabledChannels]}
+                                          onChange={(e) => handleCinetpayConfigUpdate({
+                                            enabledChannels: {
+                                              ...cinetpayConfig.enabledChannels,
+                                              [method.key]: e.target.checked
+                                            }
+                                          })}
+                                          className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Save Button */}
+                              <Button
+                                onClick={handleSaveCinetpayConfig}
+                                disabled={cinetpaySaving}
+                                className="w-full"
+                              >
+                                <Save className="h-4 w-4 mr-2" />
+                                {cinetpaySaving ? t('settingsPage.checkout.saving', 'Saving...') : t('settingsPage.paymentGateways.cinetpay.save', 'Save CinetPay Settings')}
+                              </Button>
+                            </div>
+
+                            {/* Right Column - Preview */}
+                            <div>
+                              <div className="bg-gray-50 rounded-lg p-6 sticky top-4">
+                                <h4 className="text-sm font-semibold text-gray-900 mb-4">{t('settingsPage.paymentGateways.configPreview', 'Configuration Preview')}</h4>
+                                <div className="space-y-3 text-sm">
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600">{t('settingsPage.paymentGateways.previewStatus', 'Status')}</span>
+                                    <span className={`px-2 py-1 rounded text-xs font-medium ${cinetpayConfig.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                                      }`}>
+                                      {cinetpayConfig.isActive ? t('settingsPage.paymentGateways.testModeLabel', 'Enabled') : t('settingsPage.paymentGateways.cinetpay.disabled', 'Disabled')}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600">{t('settingsPage.paymentGateways.previewEnvironment', 'Environment')}</span>
+                                    <span className={`px-2 py-1 rounded text-xs font-medium ${cinetpayConfig.testMode ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
+                                      }`}>
+                                      {cinetpayConfig.testMode ? t('settingsPage.paymentGateways.testMode', 'Test Mode') : t('settingsPage.paymentGateways.prodMode', 'Live Mode')}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600">{t('settingsPage.paymentGateways.cinetpay.siteId', 'Site ID')}</span>
+                                    <span className="text-gray-900 font-mono text-xs">
+                                      {cinetpayConfig.siteId ? `${cinetpayConfig.siteId.substring(0, 8)}...` : t('settingsPage.paymentGateways.notSet', 'Not set')}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600">{t('settingsPage.paymentGateways.cinetpay.apiKey', 'API Key')}</span>
+                                    <span className="text-gray-900 text-xs">
+                                      {cinetpayConfig.apiKey ? '••••••••' : t('settingsPage.paymentGateways.notSet', 'Not set')}
+                                    </span>
+                                  </div>
+                                  <div className="border-t border-gray-200 pt-3 mt-3">
+                                    <div className="text-gray-600 mb-2 text-xs font-medium">{t('settingsPage.paymentGateways.enabledMethods', 'Enabled Methods:')}</div>
+                                    <div className="space-y-1">
+                                      {Object.entries(cinetpayConfig.enabledChannels).map(([channel, enabled]) => (
+                                        <div key={channel} className="flex items-center justify-between text-xs">
+                                          <span className="text-gray-600 capitalize">
+                                            {channel.replace(/([A-Z])/g, ' $1').trim()}
+                                          </span>
+                                          <span className={`w-2 h-2 rounded-full ${enabled ? 'bg-emerald-500' : 'bg-gray-300'
+                                            }`}></span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </Card>
+
+                  {/* Campay Accordion */}
+                  <Card className="overflow-hidden">
+                    <button
+                      onClick={() => setExpandedProvider(expandedProvider === 'campay' ? null : 'campay')}
+                      className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors duration-200"
+                      aria-expanded={expandedProvider === 'campay'}
+                      aria-controls="campay-content"
+                      disabled={campayLoading}
+                    >
+                      <div className="flex items-center space-x-4 flex-1">
+                        <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
+                          <span className="text-emerald-600 font-bold text-lg">CP</span>
+                        </div>
+                        <div className="text-left">
+                          <h3 className="text-lg font-semibold text-gray-900">Campay</h3>
+                          <p className="text-sm text-gray-500">MTN Mobile Money, Orange Money</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        {campayLoading ? (
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-emerald-600 border-t-transparent"></div>
+                        ) : (
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${campayConfig?.isActive
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-gray-100 text-gray-600'
+                            }`}>
+                            {campayConfig?.isActive ? 'Enabled' : 'Disabled'}
+                          </span>
+                        )}
+                        {expandedProvider === 'campay' ? (
+                          <ChevronUp className="h-5 w-5 text-gray-400" />
+                        ) : (
+                          <ChevronDown className="h-5 w-5 text-gray-400" />
+                        )}
+                      </div>
+                    </button>
+
+                    {expandedProvider === 'campay' && (
+                      <div
+                        id="campay-content"
+                        className="border-t border-gray-200 p-6 animate-slide-down"
+                      >
+                        {campayLoading ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-4 border-emerald-200 border-t-emerald-600"></div>
+                            <span className="ml-3 text-gray-600">{t('settingsPage.paymentGateways.loading', 'Loading Campay settings...')}</span>
+                          </div>
+                        ) : !campayConfig ? (
+                          <div className="text-center py-8">
+                            <p className="text-gray-600 mb-2">{t('settingsPage.paymentGateways.notSet', 'Campay configuration not found.')}</p>
+                            <p className="text-sm text-gray-500 mb-4">{t('settingsPage.paymentGateways.useSandbox', 'Click the button below to initialize with default settings.')}</p>
+                            <Button
+                              onClick={async () => {
+                                if (company?.id && user?.uid) {
+                                  try {
+                                    setCampayLoading(true);
+                                    const config = await initializeCampayConfig(company.id, user.uid);
+                                    setCampayConfig(config);
+                                    showSuccessToast(t('settingsPage.paymentGateways.messages.testSuccess', 'Campay configuration initialized successfully'));
+                                  } catch (error: any) {
+                                    console.error('Error initializing Campay:', error);
+                                    const errorMessage = error?.message || 'Failed to initialize Campay configuration';
+                                    if (errorMessage.includes('permission') || errorMessage.includes('Permission')) {
+                                      showErrorToast(t('settingsPage.paymentGateways.messages.permissionDenied', 'Permission denied. Please check Firestore security rules.'));
+                                    } else {
+                                      showErrorToast(`Error: ${errorMessage}`);
+                                    }
+                                  } finally {
+                                    setCampayLoading(false);
+                                  }
+                                }
+                              }}
+                              disabled={campayLoading}
+                            >
+                              {campayLoading ? t('settingsPage.paymentGateways.initializing', 'Initializing...') : t('settingsPage.paymentGateways.initialize', 'Initialize Campay Configuration', { name: 'Campay' })}
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Left Column - Configuration */}
+                            <div className="space-y-6">
+                              {/* Enable/Disable Toggle */}
+                              <div className="bg-gray-50 rounded-lg p-4">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-900 block mb-1">
+                                      {t('settingsPage.paymentGateways.enablePayments', 'Enable Campay Payments', { name: 'Campay' })}
+                                    </label>
+                                    <p className="text-xs text-gray-600">{t('settingsPage.paymentGateways.activateDescription', 'Activate Campay payment processing', { name: 'Campay' })}</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={campayConfig.isActive}
+                                      onChange={(e) => handleCampayConfigUpdate({ isActive: e.target.checked })}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                  </label>
+                                </div>
+                              </div>
+
+                              {/* Environment Mode */}
+                              <div className="bg-gray-50 rounded-lg p-4">
+                                <h4 className="text-sm font-semibold text-gray-900 mb-3">{t('settingsPage.paymentGateways.envMode', 'Environment Mode')}</h4>
+                                <div className="space-y-2">
+                                  <label className="flex items-center space-x-3 p-3 bg-white rounded-lg cursor-pointer border-2 border-transparent hover:border-emerald-200 transition-colors">
+                                    <input
+                                      type="radio"
+                                      name="campay-environment"
+                                      value="demo"
+                                      checked={campayConfig.environment === 'demo'}
+                                      onChange={() => handleCampayConfigUpdate({ environment: 'demo' })}
+                                      className="h-4 w-4 text-emerald-600 focus:ring-emerald-500"
+                                    />
+                                    <div className="flex-1">
+                                      <div className="text-sm font-medium text-gray-700">{t('settingsPage.paymentGateways.testMode', 'Demo')}</div>
+                                      <div className="text-xs text-gray-500">{t('settingsPage.paymentGateways.demoDesc', 'Max 10 XAF per transaction')}</div>
+                                    </div>
+                                  </label>
+                                  <label className="flex items-center space-x-3 p-3 bg-white rounded-lg cursor-pointer border-2 border-transparent hover:border-emerald-200 transition-colors">
+                                    <input
+                                      type="radio"
+                                      name="campay-environment"
+                                      value="production"
+                                      checked={campayConfig.environment === 'production'}
+                                      onChange={() => handleCampayConfigUpdate({ environment: 'production' })}
+                                      className="h-4 w-4 text-emerald-600 focus:ring-emerald-500"
+                                    />
+                                    <div className="flex-1">
+                                      <div className="text-sm font-medium text-gray-700">{t('settingsPage.paymentGateways.prodMode', 'Production')}</div>
+                                      <div className="text-xs text-gray-500">{t('settingsPage.paymentGateways.prodDesc', 'For live payments')}</div>
+                                    </div>
+                                  </label>
+                                </div>
+                                {campayConfig.environment === 'demo' && (
+                                  <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                                    {t('settingsPage.paymentGateways.demoWarning', '⚠️ Demo mode: Maximum 10 XAF per transaction')}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Credentials */}
+                              <div className="space-y-4">
+                                <h4 className="text-sm font-semibold text-gray-900">{t('settingsPage.paymentGateways.credentials', 'Credentials')}</h4>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    {t('settingsPage.paymentGateways.campay.appId', 'App ID')} <span className="text-red-500">*</span>
+                                  </label>
+                                  <div className="relative">
+                                    <Input
+                                      type="password"
+                                      value={campayConfig.appId}
+                                      onChange={(e) => handleCampayConfigUpdate({ appId: e.target.value })}
+                                      placeholder="Enter your Campay App ID"
+                                      className="w-full pr-10"
+                                    />
+                                    {campayConfig.appId && campayConfig.appId.length >= 10 && (
+                                      <Check className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-emerald-500" />
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Get your App ID from{' '}
+                                    <a href="https://dashboard.campay.net" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">
+                                      Campay dashboard
+                                    </a>
+                                    {' '}(min 10 characters)
+                                  </p>
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('settingsPage.paymentGateways.currency', 'Currency')}</label>
+                                  <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-600">
+                                    {t('settingsPage.paymentGateways.currencyFixed', 'XAF (Cameroon Franc) - Fixed', { code: 'XAF', name: 'Cameroon Franc' })}
+                                  </div>
+                                </div>
+                                <div className="flex gap-3">
+                                  <Button
+                                    onClick={handleTestCampayConnection}
+                                    disabled={campayTesting || !campayConfig.appId || campayConfig.appId.length < 10}
+                                    className="flex-1"
+                                  >
+                                    {campayTesting ? t('settingsPage.paymentGateways.testing', 'Testing...') : t('settingsPage.paymentGateways.campay.testConnection', 'Test Connection')}
+                                  </Button>
+                                  <Button
+                                    onClick={handleClearCampayCredentials}
+                                    disabled={campaySaving || !campayConfig.appId}
+                                    variant="outline"
+                                    className="flex-1 bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    {t('settingsPage.paymentGateways.campay.clearCredentials', 'Clear')}
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {/* Amount Limits */}
+                              <div className="space-y-4">
+                                <h4 className="text-sm font-semibold text-gray-900">{t('settingsPage.paymentGateways.limits', 'Amount Limits')}</h4>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('settingsPage.paymentGateways.minAmount', 'Minimum Amount (XAF)')}</label>
+                                  <PriceInput
+                                    name="minAmount"
+                                    value={campayConfig.minAmount}
+                                    onChange={(e) => handleCampayConfigUpdate({ minAmount: Number(e.target.value.replace(/\s/g, '')) || 0 })}
+                                    placeholder="Enter minimum amount"
+                                    className="w-full"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('settingsPage.paymentGateways.maxAmount', 'Maximum Amount (XAF)')}</label>
+                                  <PriceInput
+                                    name="maxAmount"
+                                    value={campayConfig.maxAmount}
+                                    onChange={(e) => handleCampayConfigUpdate({ maxAmount: Number(e.target.value.replace(/\s/g, '')) || 0 })}
+                                    placeholder="Enter maximum amount"
+                                    className="w-full"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Save Button */}
+                              <Button
+                                onClick={handleSaveCampayConfig}
+                                disabled={campaySaving}
+                                className="w-full"
+                              >
+                                <Save className="h-4 w-4 mr-2" />
+                                {campaySaving ? t('settingsPage.checkout.saving', 'Saving...') : t('settingsPage.paymentGateways.campay.save', 'Save Campay Settings')}
+                              </Button>
+                            </div>
+
+                            {/* Right Column - Preview */}
+                            <div>
+                              <div className="bg-gray-50 rounded-lg p-6 sticky top-4">
+                                <h4 className="text-sm font-semibold text-gray-900 mb-4">{t('settingsPage.paymentGateways.configPreview', 'Configuration Preview')}</h4>
+                                <div className="space-y-3 text-sm">
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600">{t('settingsPage.paymentGateways.previewStatus', 'Status')}</span>
+                                    <span className={`px-2 py-1 rounded text-xs font-medium ${campayConfig.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                                      }`}>
+                                      {campayConfig.isActive ? t('settingsPage.paymentGateways.testModeLabel', 'Enabled') : t('settingsPage.paymentGateways.campay.disabled', 'Disabled')}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600">{t('settingsPage.paymentGateways.previewEnvironment', 'Environment')}</span>
+                                    <span className={`px-2 py-1 rounded text-xs font-medium ${campayConfig.environment === 'demo' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
+                                      }`}>
+                                      {campayConfig.environment === 'demo' ? t('settingsPage.paymentGateways.testMode', 'Demo') : t('settingsPage.paymentGateways.prodMode', 'Production')}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600">{t('settingsPage.paymentGateways.campay.appId', 'App ID')}</span>
+                                    <span className="text-gray-900 font-mono text-xs">
+                                      {campayConfig.appId ? `${campayConfig.appId.substring(0, 8)}...` : t('settingsPage.paymentGateways.notSet', 'Not set')}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600">{t('settingsPage.paymentGateways.minAmount', 'Min Amount')}</span>
+                                    <span className="text-gray-900 text-xs">{campayConfig.minAmount} XAF</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600">{t('settingsPage.paymentGateways.maxAmount', 'Max Amount')}</span>
+                                    <span className="text-gray-900 text-xs">{campayConfig.maxAmount.toLocaleString()} XAF</span>
+                                  </div>
+                                  <div className="border-t border-gray-200 pt-3 mt-3">
+                                    <div className="text-gray-600 mb-2 text-xs font-medium">{t('settingsPage.paymentGateways.supportedMethods', 'Supported Methods:')}</div>
+                                    <div className="space-y-1">
+                                      {campayConfig.supportedMethods?.map((method) => (
+                                        <div key={method} className="flex items-center justify-between text-xs">
+                                          <span className="text-gray-600">{method}</span>
+                                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                        </div>
+                                      )) || (
+                                          <>
+                                            <div className="flex items-center justify-between text-xs">
+                                              <span className="text-gray-600">{t('settingsPage.checkout.mtnMoney', 'MTN Mobile Money')}</span>
+                                              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs">
+                                              <span className="text-gray-600">{t('settingsPage.checkout.orangeMoney', 'Orange Money')}</span>
+                                              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                            </div>
+                                          </>
+                                        )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </Card>
+
+                  {/* Error State */}
+                  {!cinetpayConfig && !campayConfig && !cinetpayLoading && !campayLoading && (
+                    <Card>
+                      <div className="text-center py-8 text-gray-500">
+                        <p>Failed to load payment integration settings. Please refresh the page.</p>
+                      </div>
+                    </Card>
+                  )}
+                </>
+
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Sales & POS Tab */}
-      {activeTab === 'sales-pos' && (
-        <SalesAndPOSTab
-          settings={checkoutSettings}
-          onUpdateSettings={handleCheckoutSettingsUpdate}
-          onSaveSettings={handleSaveCheckoutSettings}
-          onResetSettings={handleResetCheckoutSettings}
-          isLoading={checkoutLoading}
-          isSaving={checkoutSaving}
-          company={company}
-          onUpdateCompany={updateCompany}
-        />
-      )}
+      {
+        activeTab === 'sales-pos' && (
+          <SalesAndPOSTab
+            settings={checkoutSettings}
+            onUpdateSettings={handleCheckoutSettingsUpdate}
+            onSaveSettings={handleSaveCheckoutSettings}
+            onResetSettings={handleResetCheckoutSettings}
+            isLoading={checkoutLoading}
+            isSaving={checkoutSaving}
+            company={company}
+            onUpdateCompany={updateCompany}
+          />
+        )
+      }
 
       {/* Payment Method Modal */}
       <PaymentMethodModal
@@ -3822,66 +3849,68 @@ const Settings = () => {
       />
 
       {/* Add Password Dialog - Rendered outside of any form to avoid nesting issues */}
-      {showAddPasswordDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {t('settingsPage.account.addPasswordTitle', 'Ajouter un mot de passe')}
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              {t('settingsPage.account.addPasswordDescription',
-                'Ajoutez un mot de passe pour pouvoir vous connecter avec votre email en plus de Google.')}
-            </p>
+      {
+        showAddPasswordDialog && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                {t('settingsPage.account.addPasswordTitle', 'Ajouter un mot de passe')}
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                {t('settingsPage.account.addPasswordDescription',
+                  'Ajoutez un mot de passe pour pouvoir vous connecter avec votre email en plus de Google.')}
+              </p>
 
-            {addPasswordError && (
-              <div className="mb-4 bg-red-50 text-red-800 p-3 rounded-md text-sm">
-                {addPasswordError}
+              {addPasswordError && (
+                <div className="mb-4 bg-red-50 text-red-800 p-3 rounded-md text-sm">
+                  {addPasswordError}
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <Input
+                  label={t('settingsPage.account.newPassword')}
+                  name="addNewPassword"
+                  type="password"
+                  value={addPasswordForm.newPassword}
+                  onChange={(e) => setAddPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                  helpText={t('settingsPage.account.passwordRequirements', 'Minimum 6 caractères, incluant une majuscule, une minuscule et un chiffre')}
+                />
+                <Input
+                  label={t('settingsPage.account.confirmNewPassword')}
+                  name="addConfirmPassword"
+                  type="password"
+                  value={addPasswordForm.confirmPassword}
+                  onChange={(e) => setAddPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                />
               </div>
-            )}
-
-            <div className="space-y-4">
-              <Input
-                label={t('settingsPage.account.newPassword')}
-                name="addNewPassword"
-                type="password"
-                value={addPasswordForm.newPassword}
-                onChange={(e) => setAddPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                helpText={t('settingsPage.account.passwordRequirements', 'Minimum 6 caractères, incluant une majuscule, une minuscule et un chiffre')}
-              />
-              <Input
-                label={t('settingsPage.account.confirmNewPassword')}
-                name="addConfirmPassword"
-                type="password"
-                value={addPasswordForm.confirmPassword}
-                onChange={(e) => setAddPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-              />
-            </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setShowAddPasswordDialog(false);
-                  setAddPasswordForm({ newPassword: '', confirmPassword: '' });
-                  setAddPasswordError(null);
-                }}
-                disabled={addPasswordLoading}
-              >
-                {t('common.cancel', 'Annuler')}
-              </Button>
-              <Button
-                type="button"
-                onClick={handleAddPassword}
-                isLoading={addPasswordLoading}
-                disabled={addPasswordLoading}
-              >
-                {t('settingsPage.account.addPasswordButton', 'Ajouter le mot de passe')}
-              </Button>
+              <div className="flex justify-end gap-3 mt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowAddPasswordDialog(false);
+                    setAddPasswordForm({ newPassword: '', confirmPassword: '' });
+                    setAddPasswordError(null);
+                  }}
+                  disabled={addPasswordLoading}
+                >
+                  {t('common.cancel', 'Annuler')}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleAddPassword}
+                  isLoading={addPasswordLoading}
+                  disabled={addPasswordLoading}
+                >
+                  {t('settingsPage.account.addPasswordButton', 'Ajouter le mot de passe')}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 };
 
