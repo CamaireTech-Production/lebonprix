@@ -1,20 +1,21 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { SkeletonFinance, Button, DateRangePicker, Modal, ModalFooter, CreatableSelect, PriceInput } from "@components/common";
-import { useFinanceEntries, useProducts, useSales, useExpenses, useCustomers, useStockChanges, useSuppliers } from '@hooks/data/useFirestore';
+import { useFinanceEntries, useProducts, useSales, useExpenses, useStockChanges, useSuppliers } from '@hooks/data/useFirestore';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 // Removed useFinancialData import - back to direct calculations
-import { useObjectives } from '@hooks/business/useObjectives';
+// Removed useFinancialData import - back to direct calculations
 import { format } from 'date-fns';
 import { getFinanceEntryTypes, createFinanceEntryType, createFinanceEntry, updateFinanceEntry, softDeleteFinanceEntry, softDeleteFinanceEntryWithCascade } from '@services/firestore/finance/financeService';
 import { useAuth } from '@contexts/AuthContext';
 import { Timestamp } from 'firebase/firestore';
-import { Edit2, Trash2, BarChart2, Receipt, DollarSign, ShoppingCart, Info, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Loader2} from 'lucide-react';
+import { Edit2, Trash2, BarChart2, Receipt, DollarSign, ShoppingCart, Info, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import ObjectivesBar from '@components/objectives/ObjectivesBar';
 import ObjectivesModal from '@components/objectives/ObjectivesModal';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { devLog } from '@utils/core/logger';
 import { formatPrice } from '@utils/formatting/formatPrice';
+import { useCurrency } from '@hooks/useCurrency';
 import type { FinanceEntry } from '../../types/models';
 import {
   calculateTotalProfit,
@@ -34,7 +35,7 @@ import { RESOURCES } from '@constants/resources';
 const Finance: React.FC = () => {
   const { t } = useTranslation();
   const { entries, loading, refresh } = useFinanceEntries();
-  
+
   // Debug: Log when entries change to verify real-time updates
   const prevEntriesLengthRef = React.useRef(entries.length);
   const { sales, loading: salesLoading } = useSales();
@@ -43,20 +44,21 @@ const Finance: React.FC = () => {
   const { stockChanges } = useStockChanges();
   const { suppliers } = useSuppliers();
   const { batches: allBatches } = useAllStockBatches('product');
-  
+
   // Date range filter (default: from beginning of 2025 to current date) - MOVED UP
   const [dateRange, setDateRange] = useState({
     from: new Date(2025, 0, 1), // January 1st, 2025
     to: new Date(), // Current date
   });
-  
+
   // 🚀 REVERTED: Back to direct calculations without localStorage
 
   // OPTIMIZATION: Removed unused hooks (useCustomers, useObjectives) to reduce Firebase reads
   // These hooks were creating subscriptions but their data was never used
   const { user, company } = useAuth();
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.FINANCE);
-  
+  const { format: formatCurrency } = useCurrency();
+
   // Add Entry Form (for deposits, loans, refunds, etc.)
   const [modalOpen, setModalOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
@@ -70,7 +72,7 @@ const Finance: React.FC = () => {
     isEdit: false,
     refundedDebtId: '',
   });
-  
+
   // Remove Money Form (dedicated form for withdrawals)
   const [removeMoneyModalOpen, setRemoveMoneyModalOpen] = useState(false);
   const [removeMoneyModalLoading, setRemoveMoneyModalLoading] = useState(false);
@@ -162,7 +164,7 @@ const Finance: React.FC = () => {
     const filtered = effectiveEntries.filter(entry => {
       // Skip deleted entries
       if (entry.isDeleted === true) return false;
-      
+
       // Handle createdAt timestamp - support multiple formats
       let entryDate: Date | null = null;
       if (entry.createdAt) {
@@ -180,17 +182,17 @@ const Finance: React.FC = () => {
           entryDate = entry.createdAt;
         }
       }
-      
+
       // If no date found, include entry anyway (don't filter out entries without dates)
       if (!entryDate) {
         return true;
       }
-      
+
       // Check date range
       const inRange = entryDate >= dateRange.from && entryDate <= dateRange.to;
       return inRange;
     });
-    
+
     return filtered;
   }, [effectiveEntries, dateRange]);
 
@@ -278,12 +280,12 @@ const Finance: React.FC = () => {
   useEffect(() => {
     const prevLength = prevEntriesLengthRef.current;
     const currentLength = entries.length;
-    
+
     // Reset to page 1 when new entries are added
     if (currentLength > prevLength && currentPage !== 1) {
       setCurrentPage(1);
     }
-    
+
     prevEntriesLengthRef.current = currentLength;
   }, [entries, currentPage]);
 
@@ -313,46 +315,46 @@ const Finance: React.FC = () => {
 
   // Stat cards with direct calculations
   const statCards = [
-    { 
-      title: t('dashboard.stats.profit'), 
-      value: `${formatPrice(profit)} XAF`, 
-      icon: <BarChart2 size={20} />, 
-      tooltipKey: 'profit', 
+    {
+      title: t('dashboard.stats.profit'),
+      value: formatCurrency(profit),
+      icon: <BarChart2 size={20} />,
+      tooltipKey: 'profit',
       type: 'profit'
     },
-    { 
-      title: t('dashboard.stats.totalExpenses'), 
-      value: `${formatPrice(totalExpenses)} XAF`, 
-      icon: <Receipt size={20} />, 
-      tooltipKey: 'totalExpenses', 
+    {
+      title: t('dashboard.stats.totalExpenses'),
+      value: formatCurrency(totalExpenses),
+      icon: <Receipt size={20} />,
+      tooltipKey: 'totalExpenses',
       type: 'expenses'
     },
-    { 
-      title: t('dashboard.stats.deliveryFee'), 
-      value: `${formatPrice(totalDeliveryFee)} XAF`, 
-      icon: <DollarSign size={20} />, 
-      tooltipKey: 'deliveryFee', 
+    {
+      title: t('dashboard.stats.deliveryFee'),
+      value: formatCurrency(totalDeliveryFee),
+      icon: <DollarSign size={20} />,
+      tooltipKey: 'deliveryFee',
       type: 'delivery'
     },
-    { 
-      title: t('dashboard.stats.totalSalesAmount'), 
-      value: `${formatPrice(totalSalesAmount)} XAF`, 
-      icon: <ShoppingCart size={20} />, 
-      tooltipKey: 'totalSalesAmount', 
+    {
+      title: t('dashboard.stats.totalSalesAmount'),
+      value: formatCurrency(totalSalesAmount),
+      icon: <ShoppingCart size={20} />,
+      tooltipKey: 'totalSalesAmount',
       type: 'sales'
     },
-    { 
-      title: t('dashboard.stats.totalSalesCount'), 
-      value: totalOrders, 
-      icon: <ShoppingCart size={20} />, 
-      tooltipKey: 'totalSalesCount', 
+    {
+      title: t('dashboard.stats.totalSalesCount'),
+      value: totalOrders,
+      icon: <ShoppingCart size={20} />,
+      tooltipKey: 'totalSalesCount',
       type: 'sales'
     },
-    { 
-      title: t('dashboard.stats.totalPurchasePrice'), 
-      value: `${formatPrice(totalPurchasePrice)} XAF`, 
-      icon: <DollarSign size={20} />, 
-      tooltipKey: 'totalPurchasePrice', 
+    {
+      title: t('dashboard.stats.totalPurchasePrice'),
+      value: formatCurrency(totalPurchasePrice),
+      icon: <DollarSign size={20} />,
+      tooltipKey: 'totalPurchasePrice',
       type: 'products'
     },
   ];
@@ -386,10 +388,10 @@ const Finance: React.FC = () => {
     if (!user) return;
     setModalOpen(true);
     setModalLoading(true);
-    
+
     // 🚀 REVERTED: Back to direct fetch of entry types
     const types = await getFinanceEntryTypes(user.uid);
-    
+
     // Deduplicate entry types by name to avoid duplicate keys in React
     const uniqueTypesMap = new Map<string, { label: string; value: string; id?: string }>();
     types.forEach(typeObj => {
@@ -402,7 +404,7 @@ const Finance: React.FC = () => {
         });
       }
     });
-    
+
     // Convert map to array and filter out 'sortie' (handled by separate Remove Money form)
     const uniqueEntryTypes = Array.from(uniqueTypesMap.values()).filter(opt => opt.value !== 'sortie');
     setEntryTypes(uniqueEntryTypes);
@@ -415,15 +417,15 @@ const Finance: React.FC = () => {
           handleOpenRemoveMoneyModal(editEntry);
           return;
         }
-        
+
         // Editing existing entry (non-sortie)
-      setForm({
-        id: editEntry.id,
-        type: { label: editEntry.type, value: editEntry.type },
-        amount: editEntry.amount.toString(),
-        description: editEntry.description || '',
-        date: editEntry.date?.seconds ? format(new Date(editEntry.date.seconds * 1000), 'yyyy-MM-dd') : '',
-        isEdit: true,
+        setForm({
+          id: editEntry.id,
+          type: { label: editEntry.type, value: editEntry.type },
+          amount: editEntry.amount.toString(),
+          description: editEntry.description || '',
+          date: editEntry.date?.seconds ? format(new Date(editEntry.date.seconds * 1000), 'yyyy-MM-dd') : '',
+          isEdit: true,
           refundedDebtId: editEntry.refundedDebtId || '',
         });
       } else {
@@ -454,7 +456,7 @@ const Finance: React.FC = () => {
     if (!user) return;
     setRemoveMoneyModalOpen(true);
     setRemoveMoneyModalLoading(true);
-    
+
     // Load entry types for the dropdown
     const types = await getFinanceEntryTypes(user.uid);
     const uniqueTypesMap = new Map<string, { label: string; value: string; id?: string }>();
@@ -468,14 +470,14 @@ const Finance: React.FC = () => {
         });
       }
     });
-    
+
     // Set all entry types for Remove Money form (user can choose any type)
     const allEntryTypes = Array.from(uniqueTypesMap.values());
     setRemoveMoneyEntryTypes(allEntryTypes);
-    
+
     // Default to sortie type for Remove Money form
     const sortieType = allEntryTypes.find(opt => opt.value === 'sortie') || { label: t(`finance.types.sortie`, 'sortie'), value: 'sortie' };
-    
+
     if (editEntry?.id) {
       // Editing existing sortie entry
       const entryType = allEntryTypes.find(opt => opt.value === editEntry.type) || { label: editEntry.type, value: editEntry.type };
@@ -527,13 +529,13 @@ const Finance: React.FC = () => {
   const handleSubmitRemoveMoney = async () => {
     if (!user || !company || !removeMoneyForm.type || !removeMoneyForm.amount || !removeMoneyForm.description.trim()) return;
     setRemoveMoneyModalLoading(true);
-    
+
     const rawAmount = parseFloat(removeMoneyForm.amount);
-    
+
     // ALWAYS store as negative value in Firebase
     // If user enters 1000, it MUST be saved as -1000
     const normalizedAmount = -Math.abs(rawAmount);
-    
+
     const entryData = {
       userId: user.uid,
       companyId: company.id,
@@ -546,7 +548,7 @@ const Finance: React.FC = () => {
       // createdAt will be set by createFinanceEntry using serverTimestamp
       // updatedAt will be set by createFinanceEntry using serverTimestamp
     };
-    
+
     try {
       if (removeMoneyForm.isEdit && removeMoneyForm.id) {
         await updateFinanceEntry(removeMoneyForm.id, entryData);
@@ -571,7 +573,7 @@ const Finance: React.FC = () => {
     setModalLoading(true);
     const rawAmount = parseFloat(form.amount);
     const normalizedAmount = rawAmount; // No negative conversion for add entry
-    
+
     const entryData = {
       userId: user.uid,
       companyId: company.id, // Ensure companyId is set so entry is visible in query
@@ -592,12 +594,12 @@ const Finance: React.FC = () => {
       } else {
         // Create the entry in database
         await createFinanceEntry(entryData);
-        
+
         // Simple solution: Manually refresh the table data after create
         setTimeout(() => {
           refresh();
         }, 500); // Small delay to ensure Firestore has processed the write
-        
+
         showSuccessToast(t('finance.messages.addSuccess'));
       }
       handleCloseModal();
@@ -673,12 +675,12 @@ const Finance: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <div className="text-2xl md:text-3xl font-bold text-green-900">
-                    {formatPrice(solde)} XAF
+                    {formatCurrency(solde)}
                   </div>
                 </div>
               </div>
             </div>
-            
+
             {/* Debt - second most important */}
             <div className="bg-gradient-to-r from-red-50 to-red-100 border-2 border-red-200 rounded-xl p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
@@ -688,13 +690,13 @@ const Finance: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <div className="text-2xl md:text-3xl font-bold text-red-900">
-                    {formatPrice(totalDebt)} XAF
+                    {formatCurrency(totalDebt)}
                   </div>
                 </div>
               </div>
-              <Button 
-                variant="outline" 
-                onClick={() => setShowDebtHistoryModal(true)} 
+              <Button
+                variant="outline"
+                onClick={() => setShowDebtHistoryModal(true)}
                 className="w-full text-xs px-3 py-1 mt-2 border-red-300 text-red-700 hover:bg-red-50"
               >
                 {t('finance.viewHistory', 'View History')}
@@ -746,7 +748,7 @@ const Finance: React.FC = () => {
               {t('dashboard.howCalculated')}
             </Button>
           </div>
-          
+
           {/* Removed Sync Indicator - back to original approach */}
         </div>
         {/* Additional stats - collapsible on mobile */}
@@ -787,43 +789,43 @@ const Finance: React.FC = () => {
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
             />
             <div className="grid grid-cols-2 gap-2">
-            <select
-              value={filterType}
-              onChange={e => setFilterType(e.target.value)}
+              <select
+                value={filterType}
+                onChange={e => setFilterType(e.target.value)}
                 className="border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
-            >
-              <option value="">{t('common.allTypes')}</option>
-              {entryTypes.map((opt, index) => (
-                <option key={opt.id || `${opt.value}-${index}`} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-            <select
-              value={filterSource}
-              onChange={e => setFilterSource(e.target.value)}
+              >
+                <option value="">{t('common.allTypes')}</option>
+                {entryTypes.map((opt, index) => (
+                  <option key={opt.id || `${opt.value}-${index}`} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+              <select
+                value={filterSource}
+                onChange={e => setFilterSource(e.target.value)}
                 className="border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
-            >
-              <option value="">{t('common.allSources')}</option>
-              <option value="manual">{t('finance.sourceType.manual')}</option>
-              <option value="sale">{t('finance.sourceType.sale')}</option>
-              <option value="expense">{t('finance.sourceType.expense')}</option>
-              <option value="supplier">{t('finance.sourceType.supplier')}</option>
-            </select>
+              >
+                <option value="">{t('common.allSources')}</option>
+                <option value="manual">{t('finance.sourceType.manual')}</option>
+                <option value="sale">{t('finance.sourceType.sale')}</option>
+                <option value="expense">{t('finance.sourceType.expense')}</option>
+                <option value="supplier">{t('finance.sourceType.supplier')}</option>
+              </select>
+            </div>
           </div>
-          </div>
-          
+
           {/* Actions row */}
           <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between">
             <div className="flex items-center gap-2">
               <label className="text-sm text-gray-600">{t('common.itemsPerPage')}</label>
-            <select
-              value={itemsPerPage}
-              onChange={e => setItemsPerPage(Number(e.target.value))}
+              <select
+                value={itemsPerPage}
+                onChange={e => setItemsPerPage(Number(e.target.value))}
                 className="border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
-            >
-              {[10, 25, 50, 100].map(n => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
+              >
+                {[10, 25, 50, 100].map(n => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
               <Button
@@ -833,15 +835,15 @@ const Finance: React.FC = () => {
               >
                 {t('finance.removeMoney', 'Remove Money')}
               </Button>
-            <Button
-              variant="primary"
-              onClick={() => handleOpenModal()}
+              <Button
+                variant="primary"
+                onClick={() => handleOpenModal()}
                 className="flex-1 sm:flex-none"
-            >
-              {t('finance.addEntry')}
-            </Button>
+              >
+                {t('finance.addEntry')}
+              </Button>
+            </div>
           </div>
-        </div>
         </div>
         {/* Finance entries - mobile card layout, desktop table */}
         {paginatedEntries.length === 0 ? (
@@ -851,247 +853,245 @@ const Finance: React.FC = () => {
         ) : (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             {/* Desktop table view */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-sm">
-              <thead>
-                    <tr className="text-left border-b bg-gray-50">
-                      <th className="py-3 px-4 cursor-pointer select-none" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
-                    {t('common.date')}
-                    <span className="ml-1 align-middle inline-block">
-                      {sortOrder === 'asc' ? <ChevronUp size={16} className="inline" /> : <ChevronDown size={16} className="inline" />}
-                    </span>
-                  </th>
-                      <th className="py-3 px-4">{t('common.type')}</th>
-                      <th className="py-3 px-4">{t('common.description')}</th>
-                      <th className="py-3 px-4">{t('common.amount')}</th>
-                      <th className="py-3 px-4">{t('common.source')}</th>
-                      <th className="py-3 px-4">{t('suppliers.title')}</th>
-                      <th className="py-3 px-4">{t('common.actions')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedEntries.map(entry => (
-                  <tr key={entry.id} className="border-b hover:bg-gray-50">
-                        <td className="py-3 px-4">{entry.createdAt?.seconds ? format(new Date(entry.createdAt.seconds * 1000), 'dd/MM/yyyy') : ''}</td>
-                        <td className="py-3 px-4 capitalize">{t(`finance.types.${entry.type}`, entry.type)}</td>
-                        <td className="py-3 px-4">{entry.description || '-'}</td>
-                        <td className={`py-3 px-4 font-semibold ${ entry.amount < 0 ? 'text-red-500' : 'text-green-600' }`}>
-                      {formatPrice(entry.amount)} XAF
-                    </td>
-                        <td className="py-3 px-4 capitalize">{t(`finance.sourceType.${entry.sourceType}`)}</td>
-                        <td className="py-3 px-4">
-                      {entry.supplierId ? getSupplierName(entry.supplierId) : '-'}
-                    </td>
-                        <td className="py-3 px-4 flex gap-2">
-                      {entry.sourceType === 'manual' && canEdit && (
-                        <button
-                          onClick={() => entry.type === 'sortie' ? handleOpenRemoveMoneyModal(entry) : handleOpenModal(entry)}
-                          className="text-indigo-600 hover:text-indigo-900"
-                          title={t('common.edit')}
-                          aria-label={t('common.edit')}
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button
-                          onClick={() => handleDeleteClick(entry)}
-                          className="text-red-600 hover:text-red-900 flex items-center"
-                          title={t('common.delete')}
-                          aria-label={t('common.delete')}
-                          disabled={deleteLoading && deleteConfirm?.entryId === entry.id}
-                        >
-                          {deleteLoading && deleteConfirm?.entryId === entry.id ? (
-                            <Loader2 size={16} className="animate-spin mr-1" />
-                          ) : null}
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                    </td>
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b bg-gray-50">
+                    <th className="py-3 px-4 cursor-pointer select-none" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
+                      {t('common.date')}
+                      <span className="ml-1 align-middle inline-block">
+                        {sortOrder === 'asc' ? <ChevronUp size={16} className="inline" /> : <ChevronDown size={16} className="inline" />}
+                      </span>
+                    </th>
+                    <th className="py-3 px-4">{t('common.type')}</th>
+                    <th className="py-3 px-4">{t('common.description')}</th>
+                    <th className="py-3 px-4">{t('common.amount')}</th>
+                    <th className="py-3 px-4">{t('common.source')}</th>
+                    <th className="py-3 px-4">{t('suppliers.title')}</th>
+                    <th className="py-3 px-4">{t('common.actions')}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-              </div>
-
-              {/* Mobile card view */}
-              <div className="md:hidden">
-                {paginatedEntries.map(entry => (
-                  <div key={entry.id} className="border-b border-gray-100 p-4 hover:bg-gray-50">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-medium text-gray-900">
-                            {entry.createdAt?.seconds ? format(new Date(entry.createdAt.seconds * 1000), 'dd/MM/yyyy') : ''}
-                          </span>
-                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
-                            {t(`finance.sourceType.${entry.sourceType}`)}
-                          </span>
-                        </div>
-                        <div className="text-sm text-gray-600 capitalize mb-1">
-                          {t(`finance.types.${entry.type}`, entry.type)}
-                        </div>
-                        {entry.description && (
-                          <div className="text-sm text-gray-700 mb-2">
-                            {entry.description}
-                          </div>
-                        )}
-                        {entry.supplierId && (
-                          <div className="text-xs text-gray-500">
-                            {t('suppliers.title')}: {getSupplierName(entry.supplierId)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-right ml-4">
-                        <div className={`text-lg font-bold ${ entry.amount < 0 ? 'text-red-500' : 'text-green-600' }`}>
-                          {formatPrice(entry.amount)} XAF
-                        </div>
-                        <div className="flex gap-2 mt-2">
-                          {entry.sourceType === 'manual' && canEdit && (
-                            <button
+                </thead>
+                <tbody>
+                  {paginatedEntries.map(entry => (
+                    <tr key={entry.id} className="border-b hover:bg-gray-50">
+                      <td className="py-3 px-4">{entry.createdAt?.seconds ? format(new Date(entry.createdAt.seconds * 1000), 'dd/MM/yyyy') : ''}</td>
+                      <td className="py-3 px-4 capitalize">{t(`finance.types.${entry.type}`, entry.type)}</td>
+                      <td className="py-3 px-4">{entry.description || '-'}</td>
+                      <td className={`py-3 px-4 font-semibold ${entry.amount < 0 ? 'text-red-500' : 'text-green-600'}`}>
+                        {formatCurrency(entry.amount)}
+                      </td>
+                      <td className="py-3 px-4 capitalize">{t(`finance.sourceType.${entry.sourceType}`)}</td>
+                      <td className="py-3 px-4">
+                        {entry.supplierId ? getSupplierName(entry.supplierId) : '-'}
+                      </td>
+                      <td className="py-3 px-4 flex gap-2">
+                        {entry.sourceType === 'manual' && canEdit && (
+                          <button
                             onClick={() => entry.type === 'sortie' ? handleOpenRemoveMoneyModal(entry) : handleOpenModal(entry)}
-                              className="text-indigo-600 hover:text-indigo-900 p-1"
-                              title={t('common.edit')}
-                              aria-label={t('common.edit')}
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                          )}
-                          {canDelete && (
-                            <button
-                              onClick={() => handleDeleteClick(entry)}
-                              className="text-red-600 hover:text-red-900 p-1"
-                              title={t('common.delete')}
-                              aria-label={t('common.delete')}
-                              disabled={deleteLoading && deleteConfirm?.entryId === entry.id}
-                            >
-                              {deleteLoading && deleteConfirm?.entryId === entry.id ? (
-                                <Loader2 size={16} className="animate-spin" />
-                              ) : (
-                                <Trash2 size={16} />
-                              )}
-                            </button>
-                          )}
+                            className="text-indigo-600 hover:text-indigo-900"
+                            title={t('common.edit')}
+                            aria-label={t('common.edit')}
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDeleteClick(entry)}
+                            className="text-red-600 hover:text-red-900 flex items-center"
+                            title={t('common.delete')}
+                            aria-label={t('common.delete')}
+                            disabled={deleteLoading && deleteConfirm?.entryId === entry.id}
+                          >
+                            {deleteLoading && deleteConfirm?.entryId === entry.id ? (
+                              <Loader2 size={16} className="animate-spin mr-1" />
+                            ) : null}
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile card view */}
+            <div className="md:hidden">
+              {paginatedEntries.map(entry => (
+                <div key={entry.id} className="border-b border-gray-100 p-4 hover:bg-gray-50">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-medium text-gray-900">
+                          {entry.createdAt?.seconds ? format(new Date(entry.createdAt.seconds * 1000), 'dd/MM/yyyy') : ''}
+                        </span>
+                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                          {t(`finance.sourceType.${entry.sourceType}`)}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-600 capitalize mb-1">
+                        {t(`finance.types.${entry.type}`, entry.type)}
+                      </div>
+                      {entry.description && (
+                        <div className="text-sm text-gray-700 mb-2">
+                          {entry.description}
                         </div>
+                      )}
+                      {entry.supplierId && (
+                        <div className="text-xs text-gray-500">
+                          {t('suppliers.title')}: {getSupplierName(entry.supplierId)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-right ml-4">
+                      <div className={`text-lg font-bold ${entry.amount < 0 ? 'text-red-500' : 'text-green-600'}`}>
+                        {formatCurrency(entry.amount)}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        {entry.sourceType === 'manual' && canEdit && (
+                          <button
+                            onClick={() => entry.type === 'sortie' ? handleOpenRemoveMoneyModal(entry) : handleOpenModal(entry)}
+                            className="text-indigo-600 hover:text-indigo-900 p-1"
+                            title={t('common.edit')}
+                            aria-label={t('common.edit')}
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDeleteClick(entry)}
+                            className="text-red-600 hover:text-red-900 p-1"
+                            title={t('common.delete')}
+                            aria-label={t('common.delete')}
+                            disabled={deleteLoading && deleteConfirm?.entryId === entry.id}
+                          >
+                            {deleteLoading && deleteConfirm?.entryId === entry.id ? (
+                              <Loader2 size={16} className="animate-spin" />
+                            ) : (
+                              <Trash2 size={16} />
+                            )}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
         {/* Mobile-optimized pagination */}
-          {totalPages > 1 && (
-            <div className="border-t border-gray-100 p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="text-sm text-gray-600 text-center sm:text-left">
+        {totalPages > 1 && (
+          <div className="border-t border-gray-100 p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="text-sm text-gray-600 text-center sm:text-left">
                 {t('common.page')} {currentPage} {t('common.of')} {totalPages}
               </div>
-                <div className="flex gap-1 items-center justify-center">
+              <div className="flex gap-1 items-center justify-center">
                 <button
-                    className="px-3 py-2 border rounded-lg disabled:opacity-50 flex items-center text-sm hover:bg-gray-50"
+                  className="px-3 py-2 border rounded-lg disabled:opacity-50 flex items-center text-sm hover:bg-gray-50"
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                   aria-label={t('common.prev')}
                 >
                   <ChevronLeft size={16} />
-                    <span className="ml-1 hidden sm:inline">{t('common.prev')}</span>
+                  <span className="ml-1 hidden sm:inline">{t('common.prev')}</span>
                 </button>
-                  
-                  {/* Show page numbers with ellipsis for mobile */}
-                  <div className="flex gap-1">
-                    {totalPages <= 5 ? (
-                      Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <button
-                    key={page}
-                          className={`px-3 py-2 border rounded-lg text-sm ${
-                            page === currentPage 
-                              ? 'bg-indigo-100 border-indigo-400 text-indigo-700' 
-                              : 'hover:bg-gray-50'
+
+                {/* Show page numbers with ellipsis for mobile */}
+                <div className="flex gap-1">
+                  {totalPages <= 5 ? (
+                    Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                      <button
+                        key={page}
+                        className={`px-3 py-2 border rounded-lg text-sm ${page === currentPage
+                          ? 'bg-indigo-100 border-indigo-400 text-indigo-700'
+                          : 'hover:bg-gray-50'
                           }`}
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </button>
+                    ))
+                  ) : (
+                    <>
+                      {currentPage > 2 && (
+                        <>
+                          <button
+                            className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50"
+                            onClick={() => setCurrentPage(1)}
+                          >
+                            1
+                          </button>
+                          {currentPage > 3 && <span className="px-2 py-2 text-gray-500">...</span>}
+                        </>
+                      )}
+
+                      {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
+                        const start = Math.max(1, Math.min(currentPage - 1, totalPages - 2));
+                        return start + i;
+                      }).map(page => (
+                        <button
+                          key={page}
+                          className={`px-3 py-2 border rounded-lg text-sm ${page === currentPage
+                            ? 'bg-indigo-100 border-indigo-400 text-indigo-700'
+                            : 'hover:bg-gray-50'
+                            }`}
                           onClick={() => setCurrentPage(page)}
                         >
                           {page}
                         </button>
-                      ))
-                    ) : (
-                      <>
-                        {currentPage > 2 && (
-                          <>
-                            <button
-                              className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50"
-                              onClick={() => setCurrentPage(1)}
-                            >
-                              1
-                            </button>
-                            {currentPage > 3 && <span className="px-2 py-2 text-gray-500">...</span>}
-                          </>
-                        )}
-                        
-                        {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
-                          const start = Math.max(1, Math.min(currentPage - 1, totalPages - 2));
-                          return start + i;
-                        }).map(page => (
+                      ))}
+
+                      {currentPage < totalPages - 1 && (
+                        <>
+                          {currentPage < totalPages - 2 && <span className="px-2 py-2 text-gray-500">...</span>}
                           <button
-                            key={page}
-                            className={`px-3 py-2 border rounded-lg text-sm ${
-                              page === currentPage 
-                                ? 'bg-indigo-100 border-indigo-400 text-indigo-700' 
-                                : 'hover:bg-gray-50'
-                            }`}
-                    onClick={() => setCurrentPage(page)}
-                  >
-                    {page}
-                  </button>
-                ))}
-                        
-                        {currentPage < totalPages - 1 && (
-                          <>
-                            {currentPage < totalPages - 2 && <span className="px-2 py-2 text-gray-500">...</span>}
+                            className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50"
+                            onClick={() => setCurrentPage(totalPages)}
+                          >
+                            {totalPages}
+                          </button>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+
                 <button
-                              className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50"
-                              onClick={() => setCurrentPage(totalPages)}
-                            >
-                              {totalPages}
-                            </button>
-                          </>
-                        )}
-                      </>
-                    )}
-                  </div>
-                  
-                  <button
-                    className="px-3 py-2 border rounded-lg disabled:opacity-50 flex items-center text-sm hover:bg-gray-50"
+                  className="px-3 py-2 border rounded-lg disabled:opacity-50 flex items-center text-sm hover:bg-gray-50"
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
                   aria-label={t('common.next')}
                 >
-                    <span className="mr-1 hidden sm:inline">{t('common.next')}</span>
+                  <span className="mr-1 hidden sm:inline">{t('common.next')}</span>
                   <ChevronRight size={16} />
                 </button>
-                </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+      </div>
       {/* Mobile spacing for floating action button */}
       <div className="h-20 md:hidden"></div>
       {/* Add/Edit Finance Entry Modal, Delete Confirmation Modal, Calculations Modal (unchanged) */}
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={form.isEdit ? t('finance.editEntry') : t('finance.addEntry')} size="md"
         footer={<ModalFooter onCancel={handleCloseModal} onConfirm={handleSubmit} isLoading={modalLoading} confirmText={t('common.save')} disabled={!!refundExceeds} />}
       >
-          <form className="space-y-4 pt-12" onSubmit={e => { e.preventDefault(); handleSubmit(); }}>
-            <div>
-              <label className="block text-sm font-medium mb-1">{t('common.type')}</label>
-              <CreatableSelect
-                value={form.type}
-                onChange={handleTypeChange}
-                options={entryTypes}
-                onCreate={handleTypeCreate}
-                placeholder={t('common.type')}
-              />
-            </div>
+        <form className="space-y-4 pt-12" onSubmit={e => { e.preventDefault(); handleSubmit(); }}>
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('common.type')}</label>
+            <CreatableSelect
+              value={form.type}
+              onChange={handleTypeChange}
+              options={entryTypes}
+              onCreate={handleTypeCreate}
+              placeholder={t('common.type')}
+            />
+          </div>
           {form.type?.value === 'refund' && (
             <div>
               <label className="block text-sm font-medium mb-1">{t('finance.selectDebtToRefund', 'Select Debt to Refund')}</label>
@@ -1124,48 +1124,48 @@ const Finance: React.FC = () => {
               )}
             </div>
           )}
-            <div>
-              <PriceInput
-                label={t('common.amount')}
-                name="amount"
-                value={form.amount}
-                onChange={handleFormChange}
-                placeholder={t('common.amount')}
-                required
-                {...(form.type?.value === 'refund' && form.refundedDebtId ? {
-                  max: remainingDebt || undefined
-                } : {})}
-                disabled={form.type?.value === 'refund' && userDebt.debtEntries.length === 0}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">{t('common.description')}</label>
-              <textarea
-                name="description"
-                value={form.description}
-                onChange={handleFormChange}
-                className="w-full border rounded px-3 py-2"
-                placeholder={t('common.description')}
-                rows={2}
+          <div>
+            <PriceInput
+              label={t('common.amount')}
+              name="amount"
+              value={form.amount}
+              onChange={handleFormChange}
+              placeholder={t('common.amount')}
+              required
+              {...(form.type?.value === 'refund' && form.refundedDebtId ? {
+                max: remainingDebt || undefined
+              } : {})}
               disabled={form.type?.value === 'refund' && userDebt.debtEntries.length === 0}
-              />
-                </div>
-          </form>
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('common.description')}</label>
+            <textarea
+              name="description"
+              value={form.description}
+              onChange={handleFormChange}
+              className="w-full border rounded px-3 py-2"
+              placeholder={t('common.description')}
+              rows={2}
+              disabled={form.type?.value === 'refund' && userDebt.debtEntries.length === 0}
+            />
+          </div>
+        </form>
       </Modal>
-      
+
       {/* Remove Money Modal (dedicated form for withdrawals) */}
-      <Modal 
-        isOpen={removeMoneyModalOpen} 
-        onClose={handleCloseRemoveMoneyModal} 
-        title={removeMoneyForm.isEdit ? t('finance.editEntry') : t('finance.removeMoney', 'Remove Money')} 
+      <Modal
+        isOpen={removeMoneyModalOpen}
+        onClose={handleCloseRemoveMoneyModal}
+        title={removeMoneyForm.isEdit ? t('finance.editEntry') : t('finance.removeMoney', 'Remove Money')}
         size="md"
         footer={
-          <ModalFooter 
-            onCancel={handleCloseRemoveMoneyModal} 
-            onConfirm={handleSubmitRemoveMoney} 
-            isLoading={removeMoneyModalLoading} 
-            confirmText={t('common.save')} 
-            disabled={!removeMoneyForm.amount || !removeMoneyForm.description.trim()} 
+          <ModalFooter
+            onCancel={handleCloseRemoveMoneyModal}
+            onConfirm={handleSubmitRemoveMoney}
+            isLoading={removeMoneyModalLoading}
+            confirmText={t('common.save')}
+            disabled={!removeMoneyForm.amount || !removeMoneyForm.description.trim()}
           />
         }
       >
@@ -1174,8 +1174,8 @@ const Finance: React.FC = () => {
             <p className="text-sm text-red-800">
               {t('finance.youAreAboutToRemoveMoney', 'You are about to remove money from your balance.')}
             </p>
-            </div>
-          
+          </div>
+
           <div>
             <label className="block text-sm font-medium mb-1">{t('common.type')}</label>
             <CreatableSelect
@@ -1186,7 +1186,7 @@ const Finance: React.FC = () => {
               placeholder={t('common.type')}
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium mb-1">{t('common.amount')} <span className="text-gray-500">({t('finance.enterPositive', 'Enter positive amount')})</span></label>
             <PriceInput
@@ -1202,7 +1202,7 @@ const Finance: React.FC = () => {
               {t('finance.willBeStoredAsNegative', 'This will be stored as a negative amount automatically')}
             </p>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium mb-1">{t('common.description')} <span className="text-red-500">*</span></label>
             <textarea
@@ -1218,7 +1218,7 @@ const Finance: React.FC = () => {
               {t('finance.descriptionRequiredForSortie', 'Description is required for remove money entries')}
             </p>
           </div>
-          
+
           {removeMoneyForm.isEdit && (
             <div>
               <label className="block text-sm font-medium mb-1">{t('common.date')}</label>
@@ -1231,7 +1231,7 @@ const Finance: React.FC = () => {
               />
             </div>
           )}
-          </form>
+        </form>
       </Modal>
       <Modal isOpen={!!deleteConfirm?.open} onClose={handleDeleteCancel} title={t('common.delete')} size="sm"
         footer={<ModalFooter onCancel={handleDeleteCancel} onConfirm={handleDeleteConfirm} confirmText={t('common.delete')} isDanger isLoading={deleteLoading} />}

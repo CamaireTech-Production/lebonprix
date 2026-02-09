@@ -15,10 +15,12 @@ export const formatPrice = (amount: number | null | undefined, currencySymbol: s
     return `0 ${currencySymbol}`;
   }
 
+  // toLocaleString uses non-breaking spaces (U+00A0) which can cause rendering issues
+  // Replace them with regular spaces for better compatibility
   const formattedAmount = Math.round(amount).toLocaleString('fr-FR', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
-  });
+  }).replace(/\u00A0/g, ' ');
 
   return `${formattedAmount} ${currencySymbol}`;
 };

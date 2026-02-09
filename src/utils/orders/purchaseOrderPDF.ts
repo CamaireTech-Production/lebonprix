@@ -2,13 +2,14 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Order } from '../../types/order';
 import type { Product } from '../../types/models';
+import { CURRENCIES } from '@constants/currencies';
 
 // Helper function to format numbers for PDF (replaces non-breaking spaces with regular spaces)
 const formatNumberForPDF = (num: number): string => {
   // Format with locale but replace non-breaking spaces (U+00A0) and other problematic characters
-  return num.toLocaleString('fr-FR', { 
+  return num.toLocaleString('fr-FR', {
     minimumFractionDigits: 0,
-    maximumFractionDigits: 0 
+    maximumFractionDigits: 0
   }).replace(/\u00A0/g, ' ').replace(/[\u2000-\u200B\u202F]/g, ' ');
 };
 
@@ -34,7 +35,7 @@ const getImageBase64AndSize = (
 ): Promise<{ base64?: string; width?: number; height?: number }> => {
   return new Promise(async (resolve) => {
     if (!url) return resolve({});
-    
+
     try {
       // Try using fetch API first (better CORS handling)
       let blob: Blob;
@@ -51,9 +52,9 @@ const getImageBase64AndSize = (
         const timeout = setTimeout(() => {
           resolve({});
         }, 5000);
-        
+
         img.crossOrigin = 'Anonymous';
-        
+
         img.onload = function () {
           clearTimeout(timeout);
           try {
@@ -80,25 +81,25 @@ const getImageBase64AndSize = (
             resolve({});
           }
         };
-        
+
         img.onerror = () => {
           clearTimeout(timeout);
           resolve({});
         };
-        
+
         img.src = url;
         return;
       }
-      
+
       // Convert blob to image and process
       const img = new window.Image();
       const objectUrl = URL.createObjectURL(blob);
-      
+
       const timeout = setTimeout(() => {
         URL.revokeObjectURL(objectUrl);
         resolve({});
       }, 5000);
-      
+
       img.onload = function () {
         clearTimeout(timeout);
         try {
@@ -130,13 +131,13 @@ const getImageBase64AndSize = (
           resolve({});
         }
       };
-      
+
       img.onerror = () => {
         clearTimeout(timeout);
         URL.revokeObjectURL(objectUrl);
         resolve({});
       };
-      
+
       img.src = objectUrl;
     } catch (error) {
       // Silently fail - logo is optional
@@ -156,17 +157,17 @@ export const generatePurchaseOrderNumber = (
 ): string => {
   const now = new Date();
   const year = now.getFullYear();
-  
+
   if (sequenceNumber !== undefined) {
     return `BC-${year}-${String(sequenceNumber).padStart(4, '0')}`;
   }
-  
+
   // Extract sequence from order number if it follows ORD-YYYYMMDD-NNN format
   const match = orderNumber.match(/ORD-\d{8}-(\d{3})/);
   if (match) {
     return `BC-${year}-${match[1]}${String(Math.floor(Math.random() * 10)).padStart(1, '0')}`;
   }
-  
+
   // Fallback: generate random sequence
   const sequence = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
   return `BC-${year}-${sequence}`;
@@ -189,6 +190,9 @@ export const generatePurchaseOrderPDF = async (
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const margin = 15;
     let y = margin;
+
+    const currencyCode = company?.currency || 'XAF';
+    const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || 'XAF';
 
     // Logo (left), Business info (left), Purchase Order info (right)
     let logoHeight = 0;
@@ -233,18 +237,18 @@ export const generatePurchaseOrderPDF = async (
     doc.text('Bon de Commande', rightX, y + 8, { align: 'right' });
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    
+
     // Generate purchase order number if not exists
     const purchaseOrderNumber = order.purchaseOrderNumber || generatePurchaseOrderNumber(order.orderNumber);
     doc.text(`N°: ${purchaseOrderNumber}`, rightX, y + 16, { align: 'right' });
-    
+
     const orderDateStr = order.createdAt instanceof Date
       ? order.createdAt.toLocaleDateString('fr-FR')
       : order.createdAt && typeof order.createdAt === 'object' && 'seconds' in order.createdAt
-      ? new Date((order.createdAt as any).seconds * 1000).toLocaleDateString('fr-FR')
-      : new Date().toLocaleDateString('fr-FR');
+        ? new Date((order.createdAt as any).seconds * 1000).toLocaleDateString('fr-FR')
+        : new Date().toLocaleDateString('fr-FR');
     doc.text(`Date: ${sanitizeTextForPDF(orderDateStr)}`, rightX, y + 22, { align: 'right' });
-    
+
     // Order number reference
     doc.setFontSize(10);
     doc.setTextColor(100);
@@ -275,20 +279,20 @@ export const generatePurchaseOrderPDF = async (
       doc.text(`Email: ${sanitizeTextForPDF(order.customerInfo.email)}`, margin, y);
       y += 6;
     }
-    
+
     // Delivery info if available
     if (order.deliveryInfo?.scheduledDate) {
       const deliveryDate = order.deliveryInfo.scheduledDate instanceof Date
         ? order.deliveryInfo.scheduledDate.toLocaleDateString('fr-FR')
         : order.deliveryInfo.scheduledDate && typeof order.deliveryInfo.scheduledDate === 'object' && 'seconds' in order.deliveryInfo.scheduledDate
-        ? new Date((order.deliveryInfo.scheduledDate as any).seconds * 1000).toLocaleDateString('fr-FR')
-        : '';
+          ? new Date((order.deliveryInfo.scheduledDate as any).seconds * 1000).toLocaleDateString('fr-FR')
+          : '';
       if (deliveryDate) {
         doc.text(`Date de livraison prévue: ${sanitizeTextForPDF(deliveryDate)}`, margin, y);
         y += 6;
       }
     }
-    
+
     if (order.deliveryInfo?.instructions) {
       doc.setFontSize(10);
       doc.setTextColor(100);
@@ -307,8 +311,8 @@ export const generatePurchaseOrderPDF = async (
       return [
         sanitizeTextForPDF(product?.name || orderItem.name || 'Produit inconnu'),
         orderItem.quantity.toString(),
-        `${formatNumberForPDF(unitPrice)} XAF`,
-        `${formatNumberForPDF(total)} XAF`,
+        `${formatNumberForPDF(unitPrice)} ${currencySymbol}`,
+        `${formatNumberForPDF(total)} ${currencySymbol}`,
       ];
     });
 
@@ -319,7 +323,7 @@ export const generatePurchaseOrderPDF = async (
       body: tableBody,
       margin: { left: margin, right: margin },
       styles: { fontSize: 11 },
-      headStyles: { 
+      headStyles: {
         fillColor: [24, 53, 36], // Geskap primary green
         textColor: [255, 255, 255],
         fontStyle: 'bold'
@@ -352,14 +356,14 @@ export const generatePurchaseOrderPDF = async (
     doc.setFontSize(12);
     doc.text('Sous-total:', rightLabelX, y, { align: 'left' });
     doc.setFont('courier', 'normal');
-    doc.text(`${formatNumberForPDF(subtotal)} XAF`, rightValueX, y, { align: 'right' });
+    doc.text(`${formatNumberForPDF(subtotal)} ${currencySymbol}`, rightValueX, y, { align: 'right' });
     y += lineSpacing;
 
     if (discount > 0) {
       doc.setFont('helvetica', 'normal');
       doc.text('Remise:', rightLabelX, y, { align: 'left' });
       doc.setFont('courier', 'normal');
-      doc.text(`-${formatNumberForPDF(discount)} XAF`, rightValueX, y, { align: 'right' });
+      doc.text(`-${formatNumberForPDF(discount)} ${currencySymbol}`, rightValueX, y, { align: 'right' });
       y += lineSpacing;
     }
 
@@ -367,7 +371,7 @@ export const generatePurchaseOrderPDF = async (
       doc.setFont('helvetica', 'normal');
       doc.text('Taxe:', rightLabelX, y, { align: 'left' });
       doc.setFont('courier', 'normal');
-      doc.text(`${formatNumberForPDF(tax)} XAF`, rightValueX, y, { align: 'right' });
+      doc.text(`${formatNumberForPDF(tax)} ${currencySymbol}`, rightValueX, y, { align: 'right' });
       y += lineSpacing;
     }
 
@@ -375,7 +379,7 @@ export const generatePurchaseOrderPDF = async (
       doc.setFont('helvetica', 'normal');
       doc.text('Frais de livraison:', rightLabelX, y, { align: 'left' });
       doc.setFont('courier', 'normal');
-      doc.text(`${formatNumberForPDF(deliveryFee)} XAF`, rightValueX, y, { align: 'right' });
+      doc.text(`${formatNumberForPDF(deliveryFee)} ${currencySymbol}`, rightValueX, y, { align: 'right' });
       y += lineSpacing;
     }
 
@@ -384,7 +388,7 @@ export const generatePurchaseOrderPDF = async (
     doc.setFontSize(14);
     doc.text('Total:', rightLabelX, y, { align: 'left' });
     doc.setFont('courier', 'bold');
-    doc.text(`${formatNumberForPDF(total)} XAF`, rightValueX, y, { align: 'right' });
+    doc.text(`${formatNumberForPDF(total)} ${currencySymbol}`, rightValueX, y, { align: 'right' });
     doc.setFont('helvetica', 'normal');
     y += lineSpacing + 8;
 
@@ -393,21 +397,21 @@ export const generatePurchaseOrderPDF = async (
     doc.setFont('helvetica', 'bold');
     doc.text('Statut du paiement:', margin, y);
     doc.setFont('helvetica', 'normal');
-    const paymentStatusText = order.paymentStatus === 'paid' 
-      ? 'Payé' 
+    const paymentStatusText = order.paymentStatus === 'paid'
+      ? 'Payé'
       : order.paymentStatus === 'pending'
-      ? 'En attente'
-      : order.paymentStatus === 'awaiting_payment'
-      ? 'En attente de paiement'
-      : 'Non payé';
+        ? 'En attente'
+        : order.paymentStatus === 'awaiting_payment'
+          ? 'En attente de paiement'
+          : 'Non payé';
     doc.text(sanitizeTextForPDF(paymentStatusText), margin + 45, y);
-    
+
     if (order.paymentMethod) {
       const paymentMethodText = order.paymentMethod === 'onsite'
         ? 'Sur place'
         : order.paymentMethod === 'online'
-        ? 'En ligne'
-        : 'WhatsApp';
+          ? 'En ligne'
+          : 'WhatsApp';
       doc.text(`Méthode: ${sanitizeTextForPDF(paymentMethodText)}`, margin + 100, y);
     }
     y += 10;
@@ -419,18 +423,18 @@ export const generatePurchaseOrderPDF = async (
     const statusText = order.status === 'commande'
       ? 'Commande'
       : order.status === 'confirmed'
-      ? 'Confirmée'
-      : order.status === 'preparing'
-      ? 'En préparation'
-      : order.status === 'ready'
-      ? 'Prête'
-      : order.status === 'delivered'
-      ? 'Livrée'
-      : order.status === 'converted'
-      ? 'Convertie en vente'
-      : order.status === 'cancelled'
-      ? 'Annulée'
-      : 'En attente';
+        ? 'Confirmée'
+        : order.status === 'preparing'
+          ? 'En préparation'
+          : order.status === 'ready'
+            ? 'Prête'
+            : order.status === 'delivered'
+              ? 'Livrée'
+              : order.status === 'converted'
+                ? 'Convertie en vente'
+                : order.status === 'cancelled'
+                  ? 'Annulée'
+                  : 'En attente';
     doc.text(sanitizeTextForPDF(statusText), margin + 45, y);
     y += 10;
 
@@ -464,13 +468,15 @@ export const generatePurchaseOrderPDF = async (
 export const generatePurchaseOrderPDFBlob = async (
   order: Order,
   products: Product[],
-  company: any,
-  filename: string
+  company: any
 ): Promise<Blob> => {
   try {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const margin = 15;
     let y = margin;
+
+    const currencyCode = company?.currency || 'XAF';
+    const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || 'XAF';
 
     // Logo (left), Business info (left), Purchase Order info (right)
     let logoHeight = 0;
@@ -515,17 +521,17 @@ export const generatePurchaseOrderPDFBlob = async (
     doc.text('Bon de Commande', rightX, y + 8, { align: 'right' });
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    
+
     const purchaseOrderNumber = order.purchaseOrderNumber || generatePurchaseOrderNumber(order.orderNumber);
     doc.text(`N°: ${purchaseOrderNumber}`, rightX, y + 16, { align: 'right' });
-    
+
     const orderDateStr = order.createdAt instanceof Date
       ? order.createdAt.toLocaleDateString('fr-FR')
       : order.createdAt && typeof order.createdAt === 'object' && 'seconds' in order.createdAt
-      ? new Date((order.createdAt as any).seconds * 1000).toLocaleDateString('fr-FR')
-      : new Date().toLocaleDateString('fr-FR');
+        ? new Date((order.createdAt as any).seconds * 1000).toLocaleDateString('fr-FR')
+        : new Date().toLocaleDateString('fr-FR');
     doc.text(`Date: ${sanitizeTextForPDF(orderDateStr)}`, rightX, y + 22, { align: 'right' });
-    
+
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Réf. Commande: ${sanitizeTextForPDF(order.orderNumber)}`, rightX, y + 28, { align: 'right' });
@@ -555,19 +561,19 @@ export const generatePurchaseOrderPDFBlob = async (
       doc.text(`Email: ${sanitizeTextForPDF(order.customerInfo.email)}`, margin, y);
       y += 6;
     }
-    
+
     if (order.deliveryInfo?.scheduledDate) {
       const deliveryDate = order.deliveryInfo.scheduledDate instanceof Date
         ? order.deliveryInfo.scheduledDate.toLocaleDateString('fr-FR')
         : order.deliveryInfo.scheduledDate && typeof order.deliveryInfo.scheduledDate === 'object' && 'seconds' in order.deliveryInfo.scheduledDate
-        ? new Date((order.deliveryInfo.scheduledDate as any).seconds * 1000).toLocaleDateString('fr-FR')
-        : '';
+          ? new Date((order.deliveryInfo.scheduledDate as any).seconds * 1000).toLocaleDateString('fr-FR')
+          : '';
       if (deliveryDate) {
         doc.text(`Date de livraison prévue: ${sanitizeTextForPDF(deliveryDate)}`, margin, y);
         y += 6;
       }
     }
-    
+
     if (order.deliveryInfo?.instructions) {
       doc.setFontSize(10);
       doc.setTextColor(100);
@@ -586,8 +592,8 @@ export const generatePurchaseOrderPDFBlob = async (
       return [
         sanitizeTextForPDF(product?.name || orderItem.name || 'Produit inconnu'),
         orderItem.quantity.toString(),
-        `${formatNumberForPDF(unitPrice)} XAF`,
-        `${formatNumberForPDF(total)} XAF`,
+        `${formatNumberForPDF(unitPrice)} ${currencySymbol}`,
+        `${formatNumberForPDF(total)} ${currencySymbol}`,
       ];
     });
 
@@ -598,7 +604,7 @@ export const generatePurchaseOrderPDFBlob = async (
       body: tableBody,
       margin: { left: margin, right: margin },
       styles: { fontSize: 11 },
-      headStyles: { 
+      headStyles: {
         fillColor: [24, 53, 36],
         textColor: [255, 255, 255],
         fontStyle: 'bold'
@@ -631,14 +637,14 @@ export const generatePurchaseOrderPDFBlob = async (
     doc.setFontSize(12);
     doc.text('Sous-total:', rightLabelX, y, { align: 'left' });
     doc.setFont('courier', 'normal');
-    doc.text(`${formatNumberForPDF(subtotal)} XAF`, rightValueX, y, { align: 'right' });
+    doc.text(`${formatNumberForPDF(subtotal)} ${currencySymbol}`, rightValueX, y, { align: 'right' });
     y += lineSpacing;
 
     if (discount > 0) {
       doc.setFont('helvetica', 'normal');
       doc.text('Remise:', rightLabelX, y, { align: 'left' });
       doc.setFont('courier', 'normal');
-      doc.text(`-${formatNumberForPDF(discount)} XAF`, rightValueX, y, { align: 'right' });
+      doc.text(`-${formatNumberForPDF(discount)} ${currencySymbol}`, rightValueX, y, { align: 'right' });
       y += lineSpacing;
     }
 
@@ -646,7 +652,7 @@ export const generatePurchaseOrderPDFBlob = async (
       doc.setFont('helvetica', 'normal');
       doc.text('Taxe:', rightLabelX, y, { align: 'left' });
       doc.setFont('courier', 'normal');
-      doc.text(`${formatNumberForPDF(tax)} XAF`, rightValueX, y, { align: 'right' });
+      doc.text(`${formatNumberForPDF(tax)} ${currencySymbol}`, rightValueX, y, { align: 'right' });
       y += lineSpacing;
     }
 
@@ -654,7 +660,7 @@ export const generatePurchaseOrderPDFBlob = async (
       doc.setFont('helvetica', 'normal');
       doc.text('Frais de livraison:', rightLabelX, y, { align: 'left' });
       doc.setFont('courier', 'normal');
-      doc.text(`${formatNumberForPDF(deliveryFee)} XAF`, rightValueX, y, { align: 'right' });
+      doc.text(`${formatNumberForPDF(deliveryFee)} ${currencySymbol}`, rightValueX, y, { align: 'right' });
       y += lineSpacing;
     }
 
@@ -663,7 +669,7 @@ export const generatePurchaseOrderPDFBlob = async (
     doc.setFontSize(14);
     doc.text('Total:', rightLabelX, y, { align: 'left' });
     doc.setFont('courier', 'bold');
-    doc.text(`${formatNumberForPDF(total)} XAF`, rightValueX, y, { align: 'right' });
+    doc.text(`${formatNumberForPDF(total)} ${currencySymbol}`, rightValueX, y, { align: 'right' });
     doc.setFont('helvetica', 'normal');
     y += lineSpacing + 8;
 
@@ -672,21 +678,21 @@ export const generatePurchaseOrderPDFBlob = async (
     doc.setFont('helvetica', 'bold');
     doc.text('Statut du paiement:', margin, y);
     doc.setFont('helvetica', 'normal');
-    const paymentStatusText = order.paymentStatus === 'paid' 
-      ? 'Payé' 
+    const paymentStatusText = order.paymentStatus === 'paid'
+      ? 'Payé'
       : order.paymentStatus === 'pending'
-      ? 'En attente'
-      : order.paymentStatus === 'awaiting_payment'
-      ? 'En attente de paiement'
-      : 'Non payé';
+        ? 'En attente'
+        : order.paymentStatus === 'awaiting_payment'
+          ? 'En attente de paiement'
+          : 'Non payé';
     doc.text(sanitizeTextForPDF(paymentStatusText), margin + 45, y);
-    
+
     if (order.paymentMethod) {
       const paymentMethodText = order.paymentMethod === 'onsite'
         ? 'Sur place'
         : order.paymentMethod === 'online'
-        ? 'En ligne'
-        : 'WhatsApp';
+          ? 'En ligne'
+          : 'WhatsApp';
       doc.text(`Méthode: ${sanitizeTextForPDF(paymentMethodText)}`, margin + 100, y);
     }
     y += 10;
@@ -698,18 +704,18 @@ export const generatePurchaseOrderPDFBlob = async (
     const statusText = order.status === 'commande'
       ? 'Commande'
       : order.status === 'confirmed'
-      ? 'Confirmée'
-      : order.status === 'preparing'
-      ? 'En préparation'
-      : order.status === 'ready'
-      ? 'Prête'
-      : order.status === 'delivered'
-      ? 'Livrée'
-      : order.status === 'converted'
-      ? 'Convertie en vente'
-      : order.status === 'cancelled'
-      ? 'Annulée'
-      : 'En attente';
+        ? 'Confirmée'
+        : order.status === 'preparing'
+          ? 'En préparation'
+          : order.status === 'ready'
+            ? 'Prête'
+            : order.status === 'delivered'
+              ? 'Livrée'
+              : order.status === 'converted'
+                ? 'Convertie en vente'
+                : order.status === 'cancelled'
+                  ? 'Annulée'
+                  : 'En attente';
     doc.text(sanitizeTextForPDF(statusText), margin + 45, y);
 
     // Footer

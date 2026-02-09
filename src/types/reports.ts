@@ -196,6 +196,7 @@ export interface ExportOptions {
   filename: string;
   companyName?: string;
   companyLogo?: string;
+  currencyCode?: string; // Currency code (e.g., 'EUR', 'USD', 'XAF')
   includeTimestamp?: boolean;
   includeFooter?: boolean;
   orientation?: 'portrait' | 'landscape';

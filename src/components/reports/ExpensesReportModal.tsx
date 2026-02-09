@@ -17,6 +17,7 @@ import {
   filterExpenseReportData,
   generateExpenseReport
 } from '../../services/reports/expenseReportService';
+import { useAuth } from '@contexts/AuthContext';
 
 interface ExpensesReportModalProps {
   isOpen: boolean;
@@ -35,6 +36,9 @@ const ExpensesReportModal: React.FC<ExpensesReportModalProps> = ({
   companyName = '',
   companyLogo = ''
 }) => {
+  const { company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+
   // Report configuration state
   const [reportFormat, setReportFormat] = useState<ReportFormat>('csv');
   const [periodType, setPeriodType] = useState<'all' | 'today' | 'week' | 'month' | 'year' | 'custom'>('all');
@@ -119,6 +123,7 @@ const ExpensesReportModal: React.FC<ExpensesReportModalProps> = ({
           filename: `rapport_depenses_${new Date().toISOString().split('T')[0]}`,
           companyName,
           companyLogo,
+          currencyCode: currencyCode, // Use currency code for PDF compatibility
           includeTimestamp: true
         }
       );
@@ -202,21 +207,19 @@ const ExpensesReportModal: React.FC<ExpensesReportModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => setReportFormat('csv')}
-              className={`px-4 py-2.5 rounded-md border text-sm font-medium transition-colors ${
-                reportFormat === 'csv'
-                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-              }`}
+              className={`px-4 py-2.5 rounded-md border text-sm font-medium transition-colors ${reportFormat === 'csv'
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
             >
               CSV
             </button>
             <button
               onClick={() => setReportFormat('pdf')}
-              className={`px-4 py-2.5 rounded-md border text-sm font-medium transition-colors ${
-                reportFormat === 'pdf'
-                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-              }`}
+              className={`px-4 py-2.5 rounded-md border text-sm font-medium transition-colors ${reportFormat === 'pdf'
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
             >
               PDF
             </button>
@@ -240,11 +243,10 @@ const ExpensesReportModal: React.FC<ExpensesReportModalProps> = ({
               <button
                 key={period.value}
                 onClick={() => handlePeriodChange(period.value as any)}
-                className={`px-3 py-2 rounded-md text-xs font-medium transition-colors ${
-                  periodType === period.value
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
+                className={`px-3 py-2 rounded-md text-xs font-medium transition-colors ${periodType === period.value
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
               >
                 {period.label}
               </button>
@@ -271,9 +273,8 @@ const ExpensesReportModal: React.FC<ExpensesReportModalProps> = ({
               Filtres avancés
             </h4>
             <svg
-              className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${
-                showAdvancedFilters ? 'rotate-180' : ''
-              }`}
+              className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${showAdvancedFilters ? 'rotate-180' : ''
+                }`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -293,67 +294,66 @@ const ExpensesReportModal: React.FC<ExpensesReportModalProps> = ({
                 </button>
               </div>
 
-          {/* Category Filter */}
-          {categoryNames.length > 0 && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-2">
-                Catégories
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {categoryNames.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => {
-                      setSelectedCategories(prev =>
-                        prev.includes(cat)
-                          ? prev.filter(c => c !== cat)
-                          : [...prev, cat]
-                      );
-                    }}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                      selectedCategories.includes(cat)
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+              {/* Category Filter */}
+              {categoryNames.length > 0 && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-2">
+                    Catégories
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {categoryNames.map(cat => (
+                      <button
+                        key={cat}
+                        onClick={() => {
+                          setSelectedCategories(prev =>
+                            prev.includes(cat)
+                              ? prev.filter(c => c !== cat)
+                              : [...prev, cat]
+                          );
+                        }}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedCategories.includes(cat)
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-          {/* Amount Range Filter */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Montant minimum
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={amountMin ?? ''}
-                onChange={e => setAmountMin(e.target.value ? Number(e.target.value) : undefined)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white
+              {/* Amount Range Filter */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Montant minimum
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={amountMin ?? ''}
+                    onChange={e => setAmountMin(e.target.value ? Number(e.target.value) : undefined)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white
                          focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Montant maximum
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={amountMax ?? ''}
-                onChange={e => setAmountMax(e.target.value ? Number(e.target.value) : undefined)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Montant maximum
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={amountMax ?? ''}
+                    onChange={e => setAmountMax(e.target.value ? Number(e.target.value) : undefined)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white
                          focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
-                placeholder="∞"
-              />
-            </div>
-          </div>
+                    placeholder="∞"
+                  />
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -386,10 +386,10 @@ const ExpensesReportModal: React.FC<ExpensesReportModalProps> = ({
                       {EXPENSE_REPORT_FIELDS.filter(f => selectedFields.includes(f.key)).map(field => (
                         <td key={field.key} className="px-3 py-2 text-gray-600">
                           {field.type === 'currency'
-                            ? `${Number(item[field.key as keyof ExpenseReportData]).toLocaleString('fr-FR')} F`
+                            ? `${Number(item[field.key as keyof ExpenseReportData]).toLocaleString('fr-FR')} ${currencyCode}`
                             : field.type === 'date' && item[field.key as keyof ExpenseReportData]
-                            ? new Date(item[field.key as keyof ExpenseReportData] as Date).toLocaleDateString('fr-FR')
-                            : String(item[field.key as keyof ExpenseReportData] ?? '-')}
+                              ? new Date(item[field.key as keyof ExpenseReportData] as Date).toLocaleDateString('fr-FR')
+                              : String(item[field.key as keyof ExpenseReportData] ?? '-')}
                         </td>
                       ))}
                     </tr>

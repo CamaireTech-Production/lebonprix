@@ -25,8 +25,12 @@ export const formatNumberForPDF = (value: number): string => {
 
 /**
  * Format a value based on its field type
+ * @param value - Value to format
+ * @param field - Field configuration
+ * @param forPDF - Whether formatting for PDF (uses currency code instead of symbol)
+ * @param currencyCode - Currency code (e.g., 'EUR', 'USD', 'XAF')
  */
-export const formatFieldValue = (value: any, field: ReportField, forPDF: boolean = false): string => {
+export const formatFieldValue = (value: any, field: ReportField, forPDF: boolean = false, currencyCode: string = 'XAF'): string => {
   if (value === null || value === undefined) return '-';
 
   // Use custom formatter if provided
@@ -37,11 +41,11 @@ export const formatFieldValue = (value: any, field: ReportField, forPDF: boolean
   switch (field.type) {
     case 'currency':
       if (forPDF) {
-        // For PDF: use ASCII spaces only to avoid encoding issues
-        return formatNumberForPDF(Number(value)) + ' FCFA';
+        // For PDF: use currency code for compatibility (e.g., "1 000 EUR")
+        return formatNumberForPDF(Number(value)) + ' ' + currencyCode;
       }
       // For CSV/display: use proper French locale with non-breaking spaces
-      return `${Number(value).toLocaleString('fr-FR')} FCFA`;
+      return `${Number(value).toLocaleString('fr-FR')} ${currencyCode}`;
 
     case 'number':
       if (forPDF) {
@@ -190,7 +194,7 @@ export const generateReportPDF = <T extends Record<string, any>>(
   // Prepare table data with PDF-safe formatting
   const headers = fields.map(field => field.label);
   const rows = data.map(row =>
-    fields.map(field => formatFieldValue(row[field.key], field, true))
+    fields.map(field => formatFieldValue(row[field.key], field, true, options.currencyCode))
   );
 
   // Add table

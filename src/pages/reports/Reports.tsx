@@ -67,29 +67,29 @@ const Reports = () => {
     const saved = localStorage.getItem('reports_showTrend');
     return saved === 'true';
   });
-  
+
   // Pagination state for product profitability table
   const [profitabilityPage, setProfitabilityPage] = useState(1);
   const [profitabilityRowsPerPage, setProfitabilityRowsPerPage] = useState(10);
-  
+
   // 🚀 PROGRESSIVE LOADING: Tier 1 - Essential data (immediate)
   const { sales, loading: salesLoading } = useSales();
   const { products, loading: productsLoading } = useProducts();
   const { company } = useAuth();
-  
+
   // 🚀 PROGRESSIVE LOADING: Tier 2 - Secondary data (background)
   const { expenses, loading: expensesLoading } = useExpenses();
   const { categories, loading: categoriesLoading } = useCategories();
   const { suppliers, loading: suppliersLoading } = useSuppliers();
   const { sources, loading: sourcesLoading } = useCustomerSources();
-  
+
   // 🚀 PROGRESSIVE LOADING: Tier 3 - Heavy data (always load, but defer usage)
   const { matieres } = useMatieres();
   const { batches: allStockBatches } = useAllStockBatches();
   const { batches: matiereStockBatches } = useAllStockBatches('matiere');
 
   const [showConsolidatedModal, setShowConsolidatedModal] = useState(false);
-  
+
   // 🚀 PROGRESSIVE LOADING: Defer heavy calculations
   const [shouldCalculateHeavy, setShouldCalculateHeavy] = useState(false);
 
@@ -301,7 +301,7 @@ const Reports = () => {
     if (!shouldCalculateHeavy) {
       return { salesData: [], expensesData: [], costOfGoodsSoldData: [], profitData: [] };
     }
-    
+
     const salesByDay: Record<string, number> = Object.fromEntries(dateKeys.map(k => [k, 0]));
     const expensesByDay: Record<string, number> = Object.fromEntries(dateKeys.map(k => [k, 0]));
     const costOfGoodsSoldByDay: Record<string, number> = Object.fromEntries(dateKeys.map(k => [k, 0]));
@@ -313,15 +313,15 @@ const Reports = () => {
       const key = formatKey(normalizeToBucketStart(d));
       if (key in salesByDay) {
         salesByDay[key] += s.totalAmount || 0;
-        
+
         // Calculate cost of goods sold for this sale
         const costOfGoodsSold = s.products.reduce((sum: number, saleProduct: { costPrice?: number; quantity: number; productId: string }) => {
           // Use costPrice from saleProduct (historical price at time of sale)
-          const costPrice = saleProduct.costPrice ?? 
+          const costPrice = saleProduct.costPrice ??
             products.find(p => p.id === saleProduct.productId)?.costPrice ?? 0;
           return sum + (costPrice * saleProduct.quantity);
         }, 0);
-        
+
         costOfGoodsSoldByDay[key] += costOfGoodsSold;
       }
     }
@@ -426,7 +426,7 @@ const Reports = () => {
 
     return { labels, datasets };
   }, [labels, series, showTrend, trendData, t]);
-  
+
   const chartOptions: ChartOptions<'line'> = {
     responsive: true,
     maintainAspectRatio: false,
@@ -439,15 +439,17 @@ const Reports = () => {
         mode: 'index',
         intersect: false,
         callbacks: {
-          label: function(context) {
+          label: function (context) {
             let label = context.dataset.label || '';
             if (label) {
               label += ': ';
             }
             if (context.parsed.y !== null) {
-              label += new Intl.NumberFormat('en-US', { 
-                style: 'currency', 
-                currency: 'XAF' 
+              const currencyCode = company?.currency || 'XAF';
+              label += new Intl.NumberFormat('fr-FR', {
+                style: 'currency',
+                currency: currencyCode,
+                maximumFractionDigits: 0
               }).format(context.parsed.y);
             }
             return label;
@@ -467,11 +469,13 @@ const Reports = () => {
           color: 'rgba(0, 0, 0, 0.06)',
         },
         ticks: {
-          callback: function(value) {
-            return new Intl.NumberFormat('en-US', { 
-              style: 'currency', 
-              currency: 'XAF',
-              maximumSignificantDigits: 3
+          callback: function (value) {
+            const currencyCode = company?.currency || 'XAF';
+            return new Intl.NumberFormat('fr-FR', {
+              style: 'currency',
+              currency: currencyCode,
+              maximumSignificantDigits: 3,
+              maximumFractionDigits: 0
             }).format(Number(value));
           }
         }
@@ -482,29 +486,29 @@ const Reports = () => {
       mode: 'index',
     },
   };
-  
+
   // Aggregates and rankings
   const totalSales = useMemo(() => filteredSalesForProfit.reduce((sum, s) => sum + (s.totalAmount || 0), 0), [filteredSalesForProfit]);
   const totalExpenses = useMemo(() => filteredExpenses.reduce((sum, e) => sum + (e.amount || 0), 0), [filteredExpenses]);
-  
+
   // Calculate total cost of goods sold (excluding credit sales)
   const totalCostOfGoodsSold = useMemo(() => {
     return filteredSalesForProfit.reduce((sum, sale) => {
       return sum + sale.products.reduce((productSum: number, saleProduct: { costPrice?: number; quantity: number; productId: string }) => {
         // Use costPrice from saleProduct (historical price at time of sale)
-        const costPrice = saleProduct.costPrice ?? 
+        const costPrice = saleProduct.costPrice ??
           products.find(p => p.id === saleProduct.productId)?.costPrice ?? 0;
         return productSum + (costPrice * saleProduct.quantity);
       }, 0);
     }, 0);
   }, [filteredSalesForProfit, products]);
-  
+
   const netProfit = useMemo(() => totalSales - totalCostOfGoodsSold - totalExpenses, [totalSales, totalCostOfGoodsSold, totalExpenses]);
 
   // Calculate sales by status breakdown
   const salesByStatus = useMemo(() => {
     const statusMap: Record<string, { count: number; amount: number }> = {};
-    
+
     filteredSales.forEach(sale => {
       const status = sale.status || 'unknown';
       if (!statusMap[status]) {
@@ -513,7 +517,7 @@ const Reports = () => {
       statusMap[status].count += 1;
       statusMap[status].amount += sale.totalAmount || 0;
     });
-    
+
     return statusMap;
   }, [filteredSales]);
 
@@ -523,7 +527,7 @@ const Reports = () => {
     const totalCreditOutstanding = creditSales.reduce((sum, sale) => {
       return sum + (sale.remainingAmount ?? sale.totalAmount ?? 0);
     }, 0);
-    
+
     return {
       count: creditSales.length,
       totalAmount: creditSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0),
@@ -547,11 +551,11 @@ const Reports = () => {
   // Calculate previous period data
   const previousPeriodData = useMemo(() => {
     const previousSales = sales.filter(s => s.isAvailable !== false && previousInRange(toDate(s.createdAt)));
-    
+
     // Apply same filters as current period
     let filteredPreviousSales = previousSales;
     if (selectedCategory !== 'all') {
-      filteredPreviousSales = filteredPreviousSales.filter(sale => 
+      filteredPreviousSales = filteredPreviousSales.filter(sale =>
         sale.products.some((sp: { productId: string }) => {
           const product = products.find(p => p.id === sp.productId);
           return product?.category === selectedCategory;
@@ -566,10 +570,10 @@ const Reports = () => {
 
     const prevTotalSales = filteredPreviousSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
     const prevTotalExpenses = previousExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-    
+
     const prevTotalCostOfGoodsSold = filteredPreviousSales.reduce((sum, sale) => {
       return sum + sale.products.reduce((productSum: number, saleProduct: { costPrice?: number; quantity: number; productId: string }) => {
-        const costPrice = saleProduct.costPrice ?? 
+        const costPrice = saleProduct.costPrice ??
           products.find(p => p.id === saleProduct.productId)?.costPrice ?? 0;
         return productSum + (costPrice * saleProduct.quantity);
       }, 0);
@@ -587,22 +591,22 @@ const Reports = () => {
 
   // Calculate KPI metrics
   const kpiMetrics = useMemo(() => {
-    const grossMarginRate = totalSales > 0 
-      ? ((totalSales - totalCostOfGoodsSold) / totalSales) * 100 
+    const grossMarginRate = totalSales > 0
+      ? ((totalSales - totalCostOfGoodsSold) / totalSales) * 100
       : 0;
-    
-    const netMarginRate = totalSales > 0 
-      ? (netProfit / totalSales) * 100 
+
+    const netMarginRate = totalSales > 0
+      ? (netProfit / totalSales) * 100
       : 0;
-    
-    const expenseRatio = totalSales > 0 
-      ? (totalExpenses / totalSales) * 100 
+
+    const expenseRatio = totalSales > 0
+      ? (totalExpenses / totalSales) * 100
       : 0;
-    
+
     const growthRate = previousPeriodData.totalSales > 0
       ? ((totalSales - previousPeriodData.totalSales) / previousPeriodData.totalSales) * 100
       : 0;
-    
+
     const roi = totalCostOfGoodsSold > 0
       ? (netProfit / totalCostOfGoodsSold) * 100
       : 0;
@@ -773,7 +777,7 @@ const Reports = () => {
   // Product profitability analysis - DEFERRED (heavy calculation)
   const productProfitability = useMemo(() => {
     if (!shouldCalculateHeavy) return [];
-    
+
     const profitabilityMap = new Map<string, {
       name: string;
       quantitySold: number;
@@ -818,8 +822,8 @@ const Reports = () => {
     // Calculate profit and margin
     const results = Array.from(profitabilityMap.values()).map(entry => {
       entry.grossProfit = entry.totalSales - entry.totalCOGS;
-      entry.profitMargin = entry.totalSales > 0 
-        ? (entry.grossProfit / entry.totalSales) * 100 
+      entry.profitMargin = entry.totalSales > 0
+        ? (entry.grossProfit / entry.totalSales) * 100
         : 0;
       return entry;
     });
@@ -904,7 +908,7 @@ const Reports = () => {
       map.set(name, entry);
     }
     const sorted = Array.from(map.values()).sort((a, b) => b.sales - a.sales).slice(0, 5);
-    
+
     // Calculate cumulative sales
     let cumulative = 0;
     return sorted.map(item => {
@@ -925,10 +929,10 @@ const Reports = () => {
           <h1 className="text-2xl font-semibold text-gray-900">{t('reports.title')}</h1>
           <p className="text-gray-600">{t('reports.subtitle')}</p>
         </div>
-        
+
         <div className="mt-4 md:mt-0">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             icon={<FileDown size={16} />}
             onClick={handleExport}
           >
@@ -936,7 +940,7 @@ const Reports = () => {
           </Button>
         </div>
       </div>
-      
+
       {/* Date Range Picker - Same as Dashboard */}
       <Card className="mb-6">
         <DateRangePicker
@@ -1069,7 +1073,7 @@ const Reports = () => {
           <div></div>
         </div>
       </Card>
-      
+
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card className="bg-emerald-50 border border-emerald-100">
@@ -1079,14 +1083,14 @@ const Reports = () => {
             <p className="mt-1 text-sm text-emerald-600">
               <span className="font-medium">{filteredSales.length}</span> {t('reports.summary.orders')}
             </p>
-            <ComparisonIndicator 
-              current={totalSales} 
+            <ComparisonIndicator
+              current={totalSales}
               previous={previousPeriodData.totalSales}
               formatValue={(v) => `${formatPrice(v)} XAF`}
             />
           </div>
         </Card>
-        
+
         <Card className="bg-amber-50 border border-amber-100">
           <div className="text-center">
             <p className="text-sm font-medium text-amber-700">{t('reports.summary.costOfGoodsSold')}</p>
@@ -1094,14 +1098,14 @@ const Reports = () => {
             <p className="mt-1 text-sm text-amber-600">
               <span className="font-medium">{(totalSales > 0 ? Math.round(((totalCostOfGoodsSold) / totalSales) * 100) : 0)}%</span> {t('reports.summary.ofSales')}
             </p>
-            <ComparisonIndicator 
-              current={totalCostOfGoodsSold} 
+            <ComparisonIndicator
+              current={totalCostOfGoodsSold}
               previous={previousPeriodData.totalCostOfGoodsSold}
               formatValue={(v) => `${formatPrice(v)} XAF`}
             />
           </div>
         </Card>
-        
+
         <Card className="bg-red-50 border border-red-100">
           <div className="text-center">
             <p className="text-sm font-medium text-red-700">{t('reports.summary.totalExpenses')}</p>
@@ -1109,14 +1113,14 @@ const Reports = () => {
             <p className="mt-1 text-sm text-red-600">
               <span className="font-medium">{filteredExpenses.length}</span> {t('reports.summary.entries')}
             </p>
-            <ComparisonIndicator 
-              current={totalExpenses} 
+            <ComparisonIndicator
+              current={totalExpenses}
               previous={previousPeriodData.totalExpenses}
               formatValue={(v) => `${formatPrice(v)} XAF`}
             />
           </div>
         </Card>
-        
+
         <Card className="bg-indigo-50 border border-indigo-100">
           <div className="text-center">
             <p className="text-sm font-medium text-indigo-700">{t('reports.summary.netProfit')}</p>
@@ -1124,8 +1128,8 @@ const Reports = () => {
             <p className="mt-1 text-sm text-indigo-600">
               <span className="font-medium">{(totalSales > 0 ? Math.round(((netProfit) / totalSales) * 100) : 0)}%</span> {t('reports.summary.margin')}
             </p>
-            <ComparisonIndicator 
-              current={netProfit} 
+            <ComparisonIndicator
+              current={netProfit}
               previous={previousPeriodData.netProfit}
               formatValue={(v) => `${formatPrice(v)} XAF`}
             />
@@ -1208,7 +1212,7 @@ const Reports = () => {
                 </p>
               </div>
             </div>
-            
+
             <div className="mt-4">
               <h4 className="text-sm font-semibold text-gray-700 mb-2">
                 {t('reports.creditSales.outstandingCredits') || 'Outstanding Credits'}
@@ -1271,7 +1275,7 @@ const Reports = () => {
               </div>
               {creditSalesMetrics.sales.length > 10 && (
                 <p className="mt-2 text-sm text-gray-500 text-center">
-                  {t('reports.creditSales.showingFirst', { count: 10, total: creditSalesMetrics.sales.length }) || 
+                  {t('reports.creditSales.showingFirst', { count: 10, total: creditSalesMetrics.sales.length }) ||
                     `Showing first 10 of ${creditSalesMetrics.sales.length} credit sales`}
                 </p>
               )}
@@ -1279,7 +1283,7 @@ const Reports = () => {
           </div>
         </Card>
       )}
-      
+
       {/* KPI Dashboard */}
       <Card className="mb-6" title={t('reports.kpi.title')}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -1324,17 +1328,16 @@ const Reports = () => {
           />
         </div>
       </Card>
-      
+
       {/* Chart */}
       <Card className="mb-6" title={t('reports.chart.title')}>
         <div className="flex justify-end mb-2">
           <button
             onClick={() => setShowTrend(!showTrend)}
-            className={`px-3 py-1 text-sm rounded-md border ${
-              showTrend 
-                ? 'bg-gray-100 border-gray-300 text-gray-700' 
+            className={`px-3 py-1 text-sm rounded-md border ${showTrend
+                ? 'bg-gray-100 border-gray-300 text-gray-700'
                 : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
-            }`}
+              }`}
           >
             {showTrend ? t('reports.chart.hideTrendLine') : t('reports.chart.showTrendLine')}
           </button>
@@ -1351,7 +1354,7 @@ const Reports = () => {
           )}
         </div>
       </Card>
-      
+
       {/* Top Products & Customers */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <Card title={t('reports.tables.topProducts.title')}>
@@ -1400,7 +1403,7 @@ const Reports = () => {
             </table>
           </div>
         </Card>
-        
+
         <Card title={t('reports.tables.topCustomers.title')}>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -1472,7 +1475,7 @@ const Reports = () => {
                     const dateB = b.createdAt?.seconds || 0;
                     return dateA - dateB;
                   });
-                  
+
                   let cumulative = 0;
                   return sortedExpenses.map((ex, idx) => {
                     cumulative += ex.amount || 0;
@@ -1535,19 +1538,19 @@ const Reports = () => {
               </tbody>
             </table>
           </div>
-          
+
           {/* Pagination Controls */}
           {productProfitability.length > 0 && (
             <div className="px-4 py-3 border-t border-gray-200">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-sm text-gray-700">
-                  {t('common.showing', { 
-                    from: productProfitability.length > 0 ? profitabilityStartIndex : 0, 
-                    to: profitabilityEndIndex, 
-                    total: productProfitability.length 
+                  {t('common.showing', {
+                    from: productProfitability.length > 0 ? profitabilityStartIndex : 0,
+                    to: profitabilityEndIndex,
+                    total: productProfitability.length
                   })}
                 </div>
-                
+
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-2 text-sm">
                     <label>{t('common.rowsPerPage')}:</label>
@@ -1566,7 +1569,7 @@ const Reports = () => {
                       <option value={100}>100</option>
                     </select>
                   </div>
-                  
+
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => setProfitabilityPage(1)}

@@ -1,9 +1,10 @@
-import { generatePDF, generatePDFBlob } from '@utils/core/pdf';
+import { PDFReceiptGenerator } from '@utils/pdf/PDFReceiptGenerator';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import type { Sale, Product, Company } from '../../types/models';
+import { CURRENCIES } from '@constants/currencies';
 
 /**
- * Print POS bill as PDF
+ * Print POS bill as PDF (80mm thermal format)
  * @param sale - Sale object (can be temporary if not yet saved)
  * @param products - Array of products
  * @param company - Company information
@@ -16,7 +17,11 @@ export const printPOSBill = async (
   filename: string = `bill-${Date.now()}`
 ): Promise<void> => {
   try {
-    await generatePDF(sale as any, products, company, filename);
+    const generator = new PDFReceiptGenerator();
+    await generator.generatePOSReceipt(sale, products, company, {
+      download: true,
+      filename,
+    });
     showSuccessToast('Bill printed successfully');
   } catch (error) {
     console.error('Error printing bill:', error);
@@ -26,7 +31,7 @@ export const printPOSBill = async (
 };
 
 /**
- * Share POS bill as PDF blob
+ * Share POS bill as PDF blob (80mm thermal format)
  * @param sale - Sale object (can be temporary if not yet saved)
  * @param products - Array of products
  * @param company - Company information
@@ -40,7 +45,11 @@ export const sharePOSBill = async (
   filename: string = `bill-${Date.now()}`
 ): Promise<Blob> => {
   try {
-    const blob = await generatePDFBlob(sale as any, products, company, filename);
+    const generator = new PDFReceiptGenerator();
+    const blob = await generator.generatePOSReceipt(sale, products, company, {
+      download: false,
+      filename,
+    });
     return blob;
   } catch (error) {
     console.error('Error sharing bill:', error);
@@ -62,22 +71,25 @@ export const printPOSBillDirect = (
   company: Company,
   paymentMethod?: 'cash' | 'mobile_money' | 'card'
 ): void => {
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || 'XAF';
+
   try {
     // Calculate totals
     const subtotal = sale.products?.reduce((total: number, p: any) => {
       const price = p.negotiatedPrice || p.basePrice;
       return total + price * p.quantity;
     }, 0) || 0;
-    
+
     // Get discount amount (can be from discountValue field or calculated)
     const discountAmount = (sale as any).discountValue || 0;
-    
+
     // Get TVA amount
     const tvaAmount = (sale as any).tvaApplied ? (sale as any).tax || 0 : 0;
-    
+
     // Get other tax amount
     const taxAmount = (sale as any).tvaApplied ? 0 : ((sale as any).tax || 0);
-    
+
     // Calculate total: subtotal + deliveryFee - discount + TVA + other tax
     // If totalAmount is already set, use it (it should already include discount and taxes)
     const total = sale.totalAmount || (subtotal + (sale.deliveryFee || 0) - discountAmount + tvaAmount + taxAmount);
@@ -85,7 +97,7 @@ export const printPOSBillDirect = (
     // Get payment method and amount received for change calculation
     const salePaymentMethod = paymentMethod || (sale as any).paymentMethod || 'cash';
     const amountReceived = (sale as any).amountReceived || total;
-    
+
     // Calculate change for cash payments
     const change = salePaymentMethod === 'cash' && amountReceived > total
       ? Math.max(0, amountReceived - total)
@@ -128,29 +140,29 @@ export const printPOSBillDirect = (
 
     // Load logo and create print window
     loadLogo().then((logoBase64) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      showErrorToast('Please allow pop-ups to print the bill');
-      return;
-    }
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        showErrorToast('Please allow pop-ups to print the bill');
+        return;
+      }
 
-    // Build products table HTML
-    const productsTable = sale.products?.map((saleProduct: any) => {
-      const product = products.find((p: Product) => p.id === saleProduct.productId);
-      const unitPrice = saleProduct.negotiatedPrice || saleProduct.basePrice;
-      const totalPrice = unitPrice * saleProduct.quantity;
-      return `
+      // Build products table HTML
+      const productsTable = sale.products?.map((saleProduct: any) => {
+        const product = products.find((p: Product) => p.id === saleProduct.productId);
+        const unitPrice = saleProduct.negotiatedPrice || saleProduct.basePrice;
+        const totalPrice = unitPrice * saleProduct.quantity;
+        return `
         <tr>
           <td>${product?.name || 'Unknown'}</td>
           <td style="text-align: center;">${saleProduct.quantity}</td>
-          <td style="text-align: right;">${unitPrice.toLocaleString()} XAF</td>
-          <td style="text-align: right;">${totalPrice.toLocaleString()} XAF</td>
+          <td style="text-align: right;">${unitPrice.toLocaleString()} ${currencySymbol}</td>
+          <td style="text-align: right;">${totalPrice.toLocaleString()} ${currencySymbol}</td>
         </tr>
       `;
-    }).join('') || '';
+      }).join('') || '';
 
-    // Create print-friendly HTML
-    const printHTML = `
+      // Create print-friendly HTML
+      const printHTML = `
       <!DOCTYPE html>
       <html>
         <head>
@@ -299,46 +311,46 @@ export const printPOSBillDirect = (
           <div class="totals">
             <div class="total-row">
               <span>Subtotal:</span>
-              <span>${subtotal.toLocaleString()} XAF</span>
+              <span>${subtotal.toLocaleString()} ${currencySymbol}</span>
             </div>
             ${(sale as any).tvaApplied && tvaAmount > 0 ? `
             <div class="total-row">
               <span>TVA (${((sale as any).tvaRate || 19.24)}%):</span>
-              <span>${tvaAmount.toLocaleString()} XAF</span>
+              <span>${tvaAmount.toLocaleString()} ${currencySymbol}</span>
             </div>
             ` : ''}
             ${sale.deliveryFee && sale.deliveryFee > 0 ? `
             <div class="total-row">
               <span>Delivery Fee:</span>
-              <span>${sale.deliveryFee.toLocaleString()} XAF</span>
+              <span>${sale.deliveryFee.toLocaleString()} ${currencySymbol}</span>
             </div>
             ` : ''}
             ${discountAmount > 0 ? `
             <div class="total-row" style="color: #dc2626;">
               <span>Remise ${(sale as any).discountType === 'percentage' ? `(${(sale as any).discountOriginalValue || (sale as any).discountValue}%)` : ''}:</span>
-              <span>-${discountAmount.toLocaleString()} XAF</span>
+              <span>-${discountAmount.toLocaleString()} ${currencySymbol}</span>
             </div>
             ` : ''}
             ${taxAmount > 0 ? `
             <div class="total-row">
               <span>Tax:</span>
-              <span>${taxAmount.toLocaleString()} XAF</span>
+              <span>${taxAmount.toLocaleString()} ${currencySymbol}</span>
             </div>
             ` : ''}
             <div class="total-row total-final">
               <span>Total:</span>
-              <span>${total.toLocaleString()} XAF</span>
+              <span>${total.toLocaleString()} ${currencySymbol}</span>
             </div>
             ${salePaymentMethod === 'cash' && amountReceived !== total ? `
             <div class="total-row">
               <span>Montant reçu:</span>
-              <span>${amountReceived.toLocaleString()} XAF</span>
+              <span>${amountReceived.toLocaleString()} ${currencySymbol}</span>
             </div>
             ` : ''}
             ${change > 0 ? `
             <div class="total-row" style="color: #16a34a; font-weight: bold;">
               <span>Monnaie:</span>
-              <span>${change.toLocaleString()} XAF</span>
+              <span>${change.toLocaleString()} ${currencySymbol}</span>
             </div>
             ` : ''}
           </div>
@@ -350,18 +362,18 @@ export const printPOSBillDirect = (
       </html>
     `;
 
-    printWindow.document.write(printHTML);
-    printWindow.document.close();
-    
-    // Wait for content to load, then print
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.onafterprint = () => {
-          printWindow.close();
-        };
-      }, 250);
-    };
+      printWindow.document.write(printHTML);
+      printWindow.document.close();
+
+      // Wait for content to load, then print
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+          printWindow.onafterprint = () => {
+            printWindow.close();
+          };
+        }, 250);
+      };
     }).catch((error) => {
       console.error('Error loading logo for printing:', error);
       showErrorToast('Failed to print bill. Please try again.');

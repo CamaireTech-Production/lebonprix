@@ -83,8 +83,11 @@ const Settings = () => {
   const { auditLogs } = useAuditLogs();
   const { products } = useProducts();
 
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
+
   // Combine and sort recent activities using the new activity system
-  const activities = user ? combineActivities(sales, expenses, auditLogs, t) : [];
+  const activities = user ? combineActivities(sales, expenses, auditLogs, t, currencySymbol) : [];
 
   // Form state for company settings
   const [formData, setFormData] = useState({

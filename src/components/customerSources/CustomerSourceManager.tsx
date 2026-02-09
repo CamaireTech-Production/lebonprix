@@ -4,6 +4,7 @@ import { useCustomers, useSales } from '@hooks/data/useFirestore';
 import { Card, Button, Table, SkeletonLoader, Badge } from '@components/common';
 import { Plus, Edit2, Trash2, Power, PowerOff } from 'lucide-react';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
+import { useCurrency } from '@hooks/useCurrency';
 import CustomerSourceForm from './CustomerSourceForm';
 import type { CustomerSource } from '../../types/models';
 
@@ -11,22 +12,23 @@ const CustomerSourceManager = () => {
   const { sources, loading, addSource, updateSource, deleteSource } = useCustomerSources();
   const { customers } = useCustomers();
   const { sales } = useSales();
+  const { format } = useCurrency();
   const [showForm, setShowForm] = useState(false);
   const [editingSource, setEditingSource] = useState<CustomerSource | null>(null);
 
   // Calculate statistics for each source
   const sourcesWithStats = useMemo(() => {
     return sources.map(source => {
-      const customerCount = customers.filter(c => 
+      const customerCount = customers.filter(c =>
         c.customerSourceId === source.id || c.firstSourceId === source.id
       ).length;
-      
+
       const saleCount = sales.filter(s => s.customerSourceId === source.id).length;
-      
+
       const totalRevenue = sales
         .filter(s => s.customerSourceId === source.id)
         .reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
-      
+
       return {
         ...source,
         customerCount,
@@ -48,7 +50,7 @@ const CustomerSourceManager = () => {
 
   const handleUpdateSource = async (sourceData: Omit<CustomerSource, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'companyId'>) => {
     if (!editingSource) return;
-    
+
     try {
       await updateSource(editingSource.id, sourceData);
       setShowForm(false);
@@ -68,7 +70,7 @@ const CustomerSourceManager = () => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer cette source ? Cette action la désactivera.')) {
       return;
     }
-    
+
     try {
       await deleteSource(sourceId);
       showSuccessToast('Source supprimée avec succès');
@@ -145,11 +147,7 @@ const CustomerSourceManager = () => {
     ),
     customers: source.customerCount,
     sales: source.saleCount,
-    revenue: new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'XAF',
-      minimumFractionDigits: 0
-    }).format(source.totalRevenue),
+    revenue: format(source.totalRevenue),
     actions: (
       <div className="flex items-center gap-2">
         <button

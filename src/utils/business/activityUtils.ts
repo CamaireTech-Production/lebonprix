@@ -6,9 +6,9 @@ export interface Activity {
   type: 'sale' | 'expense' | 'product' | 'user' | 'objective' | 'finance' | 'supplier';
 }
 
-export const convertAuditLogToActivity = (auditLog: any): Activity => {
+export const convertAuditLogToActivity = (auditLog: any, currencySymbol: string = 'XAF'): Activity => {
   const { action, entityType, changes, timestamp } = auditLog;
-  
+
   let title = '';
   let description = '';
   let type: Activity['type'] = 'user';
@@ -27,7 +27,7 @@ export const convertAuditLogToActivity = (auditLog: any): Activity => {
         description = `Deleted objective: ${changes?.title || 'Objective'}`;
       }
       break;
-    
+
     case 'product':
       type = 'product';
       if (action === 'create') {
@@ -41,49 +41,49 @@ export const convertAuditLogToActivity = (auditLog: any): Activity => {
         description = `Deleted product: ${changes?.name || 'Product'}`;
       }
       break;
-    
+
     case 'sale':
       type = 'sale';
       if (action === 'create') {
         title = 'New sale recorded';
-        description = `Sale recorded for ${changes?.totalAmount?.toLocaleString() || 0} XAF`;
+        description = `Sale recorded for ${changes?.totalAmount?.toLocaleString() || 0} ${currencySymbol}`;
       } else if (action === 'update') {
         title = 'Sale updated';
-        description = `Updated sale: ${changes?.newValue?.totalAmount?.toLocaleString() || 0} XAF`;
+        description = `Updated sale: ${changes?.newValue?.totalAmount?.toLocaleString() || 0} ${currencySymbol}`;
       } else if (action === 'delete') {
         title = 'Sale deleted';
-        description = `Deleted sale: ${changes?.totalAmount?.toLocaleString() || 0} XAF`;
+        description = `Deleted sale: ${changes?.totalAmount?.toLocaleString() || 0} ${currencySymbol}`;
       }
       break;
-    
+
     case 'expense':
       type = 'expense';
       if (action === 'create') {
         title = 'Expense added';
-        description = `${changes?.description || 'Expense'}: ${changes?.amount?.toLocaleString() || 0} XAF`;
+        description = `${changes?.description || 'Expense'}: ${changes?.amount?.toLocaleString() || 0} ${currencySymbol}`;
       } else if (action === 'update') {
         title = 'Expense updated';
-        description = `${changes?.newValue?.description || 'Expense'}: ${changes?.newValue?.amount?.toLocaleString() || 0} XAF`;
+        description = `${changes?.newValue?.description || 'Expense'}: ${changes?.newValue?.amount?.toLocaleString() || 0} ${currencySymbol}`;
       } else if (action === 'delete') {
         title = 'Expense deleted';
-        description = `${changes?.description || 'Expense'}: ${changes?.amount?.toLocaleString() || 0} XAF`;
+        description = `${changes?.description || 'Expense'}: ${changes?.amount?.toLocaleString() || 0} ${currencySymbol}`;
       }
       break;
-    
+
     case 'finance':
       type = 'finance';
       if (action === 'create') {
         title = 'Finance entry added';
-        description = `${changes?.description || 'Entry'}: ${changes?.amount?.toLocaleString() || 0} XAF`;
+        description = `${changes?.description || 'Entry'}: ${changes?.amount?.toLocaleString() || 0} ${currencySymbol}`;
       } else if (action === 'update') {
         title = 'Finance entry updated';
-        description = `${changes?.newValue?.description || 'Entry'}: ${changes?.newValue?.amount?.toLocaleString() || 0} XAF`;
+        description = `${changes?.newValue?.description || 'Entry'}: ${changes?.newValue?.amount?.toLocaleString() || 0} ${currencySymbol}`;
       } else if (action === 'delete') {
         title = 'Finance entry deleted';
-        description = `${changes?.description || 'Entry'}: ${changes?.amount?.toLocaleString() || 0} XAF`;
+        description = `${changes?.description || 'Entry'}: ${changes?.amount?.toLocaleString() || 0} ${currencySymbol}`;
       }
       break;
-    
+
     case 'supplier':
       type = 'supplier';
       if (action === 'create') {
@@ -97,7 +97,7 @@ export const convertAuditLogToActivity = (auditLog: any): Activity => {
         description = `Deleted supplier: ${changes?.name || 'Supplier'}`;
       }
       break;
-    
+
     default:
       type = 'user';
       title = `${action.charAt(0).toUpperCase() + action.slice(1)} ${entityType}`;
@@ -117,7 +117,8 @@ export const combineActivities = (
   sales: any[] = [],
   expenses: any[] = [],
   auditLogs: any[] = [],
-  t: any
+  t: any,
+  currencySymbol: string = 'XAF'
 ): Activity[] => {
   const activities: Activity[] = [];
 
@@ -125,7 +126,7 @@ export const combineActivities = (
   activities.push(...sales.slice(0, 3).map(sale => ({
     id: sale.id,
     title: t('dashboard.activity.titles.newSale'),
-    description: `${sale.customerInfo?.name || 'Customer'} purchased items for ${sale.totalAmount?.toLocaleString() || 0} XAF`,
+    description: `${sale.customerInfo?.name || 'Customer'} purchased items for ${sale.totalAmount?.toLocaleString() || 0} ${currencySymbol}`,
     timestamp: sale.createdAt?.seconds ? new Date(sale.createdAt.seconds * 1000) : new Date(),
     type: 'sale' as const,
   })));
@@ -134,13 +135,13 @@ export const combineActivities = (
   activities.push(...expenses.slice(0, 3).map(expense => ({
     id: expense.id,
     title: t('dashboard.activity.titles.expenseAdded'),
-    description: `${expense.description || 'Expense'}: ${expense.amount?.toLocaleString() || 0} XAF`,
+    description: `${expense.description || 'Expense'}: ${expense.amount?.toLocaleString() || 0} ${currencySymbol}`,
     timestamp: expense.createdAt?.seconds ? new Date(expense.createdAt.seconds * 1000) : new Date(),
     type: 'expense' as const,
   })));
 
   // Add audit log activities
-  activities.push(...auditLogs.slice(0, 10).map(log => convertAuditLogToActivity(log)));
+  activities.push(...auditLogs.slice(0, 10).map(log => convertAuditLogToActivity(log, currencySymbol)));
 
   // Sort by timestamp (newest first)
   return activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());

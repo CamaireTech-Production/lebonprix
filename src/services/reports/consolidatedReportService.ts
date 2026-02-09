@@ -49,17 +49,18 @@ interface ConsolidatedReportConfig {
   };
   companyName?: string;
   companyLogo?: string;
+  currencyCode?: string; // Currency code (e.g., 'EUR', 'USD', 'XAF')
 }
 
 /**
- * Format field value for PDF (using ASCII-safe formatting)
+ * Format field value for PDF (using currency code for compatibility)
  */
-const formatValueForPDF = (value: any, type: string): string => {
+const formatValueForPDF = (value: any, type: string, currencyCode: string = 'XAF'): string => {
   if (value === null || value === undefined) return '-';
 
   switch (type) {
     case 'currency':
-      return `${formatNumberForPDF(Number(value))} FCFA`;
+      return `${formatNumberForPDF(Number(value))} ${currencyCode}`;
     case 'number':
       return formatNumberForPDF(Number(value));
     case 'date':
@@ -127,7 +128,7 @@ const generateConsolidatedPDF = (config: ConsolidatedReportConfig): ReportResult
 
           const productFields = PRODUCT_REPORT_FIELDS.filter(f => f.defaultSelected);
           const productRows = filteredData.map(item =>
-            productFields.map(field => formatValueForPDF(item[field.key as keyof typeof item], field.type))
+            productFields.map(field => formatValueForPDF(item[field.key as keyof typeof item], field.type, config.currencyCode || 'XAF'))
           );
 
           autoTable(doc, {
@@ -167,7 +168,7 @@ const generateConsolidatedPDF = (config: ConsolidatedReportConfig): ReportResult
 
           const matiereFields = MATIERE_REPORT_FIELDS.filter(f => f.defaultSelected);
           const matiereRows = filteredData.map(item =>
-            matiereFields.map(field => formatValueForPDF(item[field.key as keyof typeof item], field.type))
+            matiereFields.map(field => formatValueForPDF(item[field.key as keyof typeof item], field.type, config.currencyCode || 'XAF'))
           );
 
           autoTable(doc, {
@@ -213,7 +214,7 @@ const generateConsolidatedPDF = (config: ConsolidatedReportConfig): ReportResult
                 row[field.key] = item[field.key as keyof typeof item];
               }
             });
-            return salesFields.map(field => formatValueForPDF(row[field.key], field.type));
+            return salesFields.map(field => formatValueForPDF(row[field.key], field.type, config.currencyCode || 'XAF'));
           });
 
           autoTable(doc, {
@@ -228,7 +229,7 @@ const generateConsolidatedPDF = (config: ConsolidatedReportConfig): ReportResult
           const totalAmount = filteredData.reduce((sum, s) => sum + s.totalAmount, 0);
           const totalProfit = filteredData.reduce((sum, s) => sum + (s.totalProfit || 0), 0);
           doc.setFontSize(10);
-          doc.text(`Total: ${filteredData.length} ventes | CA: ${formatNumberForPDF(totalAmount)} FCFA | Benefice: ${formatNumberForPDF(totalProfit)} FCFA`,
+          doc.text(`Total: ${filteredData.length} ventes | CA: ${formatNumberForPDF(totalAmount)} ${config.currencyCode || 'XAF'} | Benefice: ${formatNumberForPDF(totalProfit)} ${config.currencyCode || 'XAF'}`,
             15, (doc as any).lastAutoTable.finalY + 8);
           break;
         }
@@ -254,7 +255,7 @@ const generateConsolidatedPDF = (config: ConsolidatedReportConfig): ReportResult
 
           const expenseFields = EXPENSE_REPORT_FIELDS.filter(f => f.defaultSelected);
           const expenseRows = filteredData.map(item =>
-            expenseFields.map(field => formatValueForPDF(item[field.key as keyof typeof item], field.type))
+            expenseFields.map(field => formatValueForPDF(item[field.key as keyof typeof item], field.type, config.currencyCode || 'XAF'))
           );
 
           autoTable(doc, {
@@ -268,7 +269,7 @@ const generateConsolidatedPDF = (config: ConsolidatedReportConfig): ReportResult
 
           const totalExpenses = filteredData.reduce((sum, e) => sum + e.amount, 0);
           doc.setFontSize(10);
-          doc.text(`Total: ${filteredData.length} depenses | Montant: ${formatNumberForPDF(totalExpenses)} FCFA`,
+          doc.text(`Total: ${filteredData.length} depenses | Montant: ${formatNumberForPDF(totalExpenses)} ${config.currencyCode || 'XAF'}`,
             15, (doc as any).lastAutoTable.finalY + 8);
           break;
         }
@@ -302,7 +303,7 @@ const generateConsolidatedCSV = (config: ConsolidatedReportConfig): ReportResult
     // This is a simplified implementation
     alert('Export CSV: Un fichier sera généré pour chaque section sélectionnée.');
 
-    config.sections.forEach(section => {
+    config.sections.forEach(() => {
       // Generate individual CSV for each section
       // (Using existing individual report services)
     });
