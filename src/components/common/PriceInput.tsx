@@ -9,6 +9,8 @@ interface PriceInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 't
   onChange: (e: { target: { name: string; value: string } }) => void;
   allowDecimals?: boolean; // Default: false for prices (integers only)
   name: string;
+  prefix?: string;
+  suffix?: string;
 }
 
 /**
@@ -19,27 +21,27 @@ interface PriceInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 't
  */
 const formatPriceForInput = (value: string, allowDecimals: boolean = false): string => {
   if (!value || value === '') return '';
-  
+
   // Remove all non-numeric characters except decimal point if allowed
-  const numericValue = allowDecimals 
+  const numericValue = allowDecimals
     ? value.replace(/[^\d.,]/g, '').replace(',', '.') // Support both comma and dot
     : value.replace(/[^\d]/g, '');
-  
+
   if (!numericValue) return '';
-  
+
   // Split into integer and decimal parts
   const parts = numericValue.split('.');
   const integerPart = parts[0] || '';
   const decimalPart = parts[1] || '';
-  
+
   // Format integer part with thousand separators (French format: spaces)
   const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  
+
   // Combine with decimal part if exists
   if (allowDecimals && decimalPart) {
     return `${formattedInteger}.${decimalPart}`;
   }
-  
+
   return formattedInteger;
 };
 
@@ -51,7 +53,7 @@ const formatPriceForInput = (value: string, allowDecimals: boolean = false): str
  */
 const parsePriceFromInput = (value: string, allowDecimals: boolean = false): string => {
   if (!value || value === '') return '';
-  
+
   if (allowDecimals) {
     // Remove all spaces, keep digits and one decimal point
     const cleaned = value.replace(/\s/g, '').replace(',', '.');
@@ -62,7 +64,7 @@ const parsePriceFromInput = (value: string, allowDecimals: boolean = false): str
     }
     return cleaned;
   }
-  
+
   // Remove all non-numeric characters
   return value.replace(/\s/g, '').replace(/[^\d]/g, '');
 };
@@ -78,38 +80,40 @@ const getCaretPosition = (oldValue: string, newValue: string, oldCursor: number)
   // Count spaces before cursor in old value
   const beforeCursor = oldValue.substring(0, oldCursor);
   const spacesBefore = (beforeCursor.match(/\s/g) || []).length;
-  
+
   // Count spaces before cursor in new value
   const newBeforeCursor = newValue.substring(0, Math.min(oldCursor + (newValue.length - oldValue.length), newValue.length));
   const newSpacesBefore = (newBeforeCursor.match(/\s/g) || []).length;
-  
+
   // Adjust cursor position based on space difference
   const spaceDiff = newSpacesBefore - spacesBefore;
   const newCursor = oldCursor + spaceDiff;
-  
+
   return Math.max(0, Math.min(newCursor, newValue.length));
 };
 
 const PriceInput = forwardRef<HTMLInputElement, PriceInputProps>(
-  ({ 
-    label, 
-    error, 
-    helpText, 
-    className = '', 
-    value, 
-    onChange, 
+  ({
+    label,
+    error,
+    helpText,
+    className = '',
+    value,
+    onChange,
     allowDecimals = false,
     name,
-    ...props 
+    prefix,
+    suffix,
+    ...props
   }, ref) => {
     const [displayValue, setDisplayValue] = useState<string>('');
     const [showPassword, setShowPassword] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
     const caretPositionRef = useRef<number>(0);
-    
+
     // Use forwarded ref or internal ref
     const actualRef = ref || inputRef;
-    
+
     // Convert value to string and format for display
     useEffect(() => {
       const stringValue = value === null || value === undefined ? '' : String(value);
@@ -117,23 +121,23 @@ const PriceInput = forwardRef<HTMLInputElement, PriceInputProps>(
       const formatted = formatPriceForInput(numericValue, allowDecimals);
       setDisplayValue(formatted);
     }, [value, allowDecimals]);
-    
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const inputValue = e.target.value;
       const cursorPosition = e.target.selectionStart || 0;
-      
+
       // Store cursor position
       caretPositionRef.current = cursorPosition;
-      
+
       // Parse to get numeric value
       const numericValue = parsePriceFromInput(inputValue, allowDecimals);
-      
+
       // Format for display
       const formatted = formatPriceForInput(numericValue, allowDecimals);
-      
+
       // Update display
       setDisplayValue(formatted);
-      
+
       // Call parent onChange with numeric value
       onChange({
         target: {
@@ -141,43 +145,43 @@ const PriceInput = forwardRef<HTMLInputElement, PriceInputProps>(
           value: numericValue
         }
       });
-      
+
       // Restore cursor position after formatting
       setTimeout(() => {
-        const input = typeof actualRef === 'object' && actualRef?.current 
-          ? actualRef.current 
+        const input = typeof actualRef === 'object' && actualRef?.current
+          ? actualRef.current
           : (e.target as HTMLInputElement);
-        
+
         if (input) {
           const newCursor = getCaretPosition(inputValue, formatted, cursorPosition);
           input.setSelectionRange(newCursor, newCursor);
         }
       }, 0);
     };
-    
+
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
       // Select all on focus for easier editing
       if (props.onFocus) {
         props.onFocus(e);
       }
     };
-    
+
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
       // Ensure value is properly formatted on blur
       const numericValue = parsePriceFromInput(displayValue, allowDecimals);
       const formatted = formatPriceForInput(numericValue, allowDecimals);
       setDisplayValue(formatted);
-      
+
       if (props.onBlur) {
         props.onBlur(e);
       }
     };
-    
+
     // Password type handling (if needed, though unlikely for price inputs)
     // Note: type is omitted from props, so we default to 'text' for price inputs
     const isPassword = false; // Price inputs don't use password type
     const inputType = 'text';
-    
+
     return (
       <div className="w-full">
         {label && (
@@ -186,6 +190,11 @@ const PriceInput = forwardRef<HTMLInputElement, PriceInputProps>(
           </label>
         )}
         <div className="relative">
+          {prefix && (
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <span className="text-gray-500 sm:text-sm">{prefix}</span>
+            </div>
+          )}
           <input
             ref={actualRef}
             type={inputType}
@@ -194,15 +203,18 @@ const PriceInput = forwardRef<HTMLInputElement, PriceInputProps>(
             onChange={handleChange}
             onFocus={handleFocus}
             onBlur={handleBlur}
-            className={`w-full rounded-md border ${
-              error ? 'border-red-500 bg-red-50' : 'border-gray-300'
-            } shadow-sm px-3 py-2 focus:outline-none focus:ring-2 ${
-              error ? 'focus:ring-red-500 focus:border-red-500' : 'focus:ring-indigo-500 focus:border-indigo-500'
-            } ${isPassword ? 'pr-10' : ''} ${className}`}
+            className={`w-full rounded-md border ${error ? 'border-red-500 bg-red-50' : 'border-gray-300'
+              } shadow-sm px-3 py-2 focus:outline-none focus:ring-2 ${error ? 'focus:ring-red-500 focus:border-red-500' : 'focus:ring-indigo-500 focus:border-indigo-500'
+              } ${isPassword ? 'pr-10' : ''} ${prefix ? 'pl-10' : ''} ${suffix ? 'pr-10' : ''} ${className}`}
             inputMode="numeric"
             {...props}
           />
-          {isPassword && (
+          {suffix && (
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+              <span className="text-gray-500 sm:text-sm">{suffix}</span>
+            </div>
+          )}
+          {isPassword && !suffix && (
             <button
               type="button"
               className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500"

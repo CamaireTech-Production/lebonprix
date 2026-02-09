@@ -27,7 +27,7 @@ import LazyAllProductsSold from '../../components/reports/LazyAllProductsSold';
 import ConsolidatedReportModal from '../../components/reports/ConsolidatedReportModal';
 import { useAuth } from '@contexts/AuthContext';
 import { logWarning } from '@utils/core/logger';
-import { formatPrice } from '@utils/formatting/formatPrice';
+import { useCurrency } from '@hooks/useCurrency';
 
 // Register Chart.js components
 ChartJS.register(
@@ -43,6 +43,7 @@ ChartJS.register(
 
 const Reports = () => {
   const { t } = useTranslation();
+  const { format: formatCurrency } = useCurrency();
   const [searchParams] = useSearchParams();
 
   // Date range state - default to all time (same as DateRangePicker default)
@@ -67,29 +68,29 @@ const Reports = () => {
     const saved = localStorage.getItem('reports_showTrend');
     return saved === 'true';
   });
-  
+
   // Pagination state for product profitability table
   const [profitabilityPage, setProfitabilityPage] = useState(1);
   const [profitabilityRowsPerPage, setProfitabilityRowsPerPage] = useState(10);
-  
+
   // 🚀 PROGRESSIVE LOADING: Tier 1 - Essential data (immediate)
-  const { sales, loading: salesLoading } = useSales();
-  const { products, loading: productsLoading } = useProducts();
+  const { sales } = useSales();
+  const { products } = useProducts();
   const { company } = useAuth();
-  
+
   // 🚀 PROGRESSIVE LOADING: Tier 2 - Secondary data (background)
-  const { expenses, loading: expensesLoading } = useExpenses();
-  const { categories, loading: categoriesLoading } = useCategories();
-  const { suppliers, loading: suppliersLoading } = useSuppliers();
-  const { sources, loading: sourcesLoading } = useCustomerSources();
-  
+  const { expenses } = useExpenses();
+  const { categories } = useCategories();
+  const { suppliers } = useSuppliers();
+  const { sources } = useCustomerSources();
+
   // 🚀 PROGRESSIVE LOADING: Tier 3 - Heavy data (always load, but defer usage)
   const { matieres } = useMatieres();
   const { batches: allStockBatches } = useAllStockBatches();
   const { batches: matiereStockBatches } = useAllStockBatches('matiere');
 
   const [showConsolidatedModal, setShowConsolidatedModal] = useState(false);
-  
+
   // 🚀 PROGRESSIVE LOADING: Defer heavy calculations
   const [shouldCalculateHeavy, setShouldCalculateHeavy] = useState(false);
 
@@ -197,6 +198,19 @@ const Reports = () => {
   const startOfMonthLocal = useCallback((d: Date) => new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0), []);
   const startOfYearLocal = useCallback((d: Date) => new Date(d.getFullYear(), 0, 1, 0, 0, 0, 0), []);
 
+  const calculateSaleProfit = useCallback((sale: Sale) => {
+    return sale.products.reduce((productSum, sp) => {
+      const unitSalePrice = sp.negotiatedPrice ?? sp.basePrice;
+      if (sp.batchLevelProfits && sp.batchLevelProfits.length > 0) {
+        return productSum + sp.batchLevelProfits.reduce(
+          (batchSum, batch) => batchSum + (unitSalePrice - batch.costPrice) * batch.consumedQuantity,
+          0
+        );
+      }
+      return productSum + (unitSalePrice - sp.costPrice) * sp.quantity;
+    }, 0);
+  }, []);
+
   const filteredSales: Sale[] = useMemo(() => {
     let filtered = sales.filter(s => s.isAvailable !== false && inRange(toDate(s.createdAt)));
 
@@ -301,7 +315,7 @@ const Reports = () => {
     if (!shouldCalculateHeavy) {
       return { salesData: [], expensesData: [], costOfGoodsSoldData: [], profitData: [] };
     }
-    
+
     const salesByDay: Record<string, number> = Object.fromEntries(dateKeys.map(k => [k, 0]));
     const expensesByDay: Record<string, number> = Object.fromEntries(dateKeys.map(k => [k, 0]));
     const costOfGoodsSoldByDay: Record<string, number> = Object.fromEntries(dateKeys.map(k => [k, 0]));
@@ -313,15 +327,15 @@ const Reports = () => {
       const key = formatKey(normalizeToBucketStart(d));
       if (key in salesByDay) {
         salesByDay[key] += s.totalAmount || 0;
-        
+
         // Calculate cost of goods sold for this sale
         const costOfGoodsSold = s.products.reduce((sum: number, saleProduct: { costPrice?: number; quantity: number; productId: string }) => {
           // Use costPrice from saleProduct (historical price at time of sale)
-          const costPrice = saleProduct.costPrice ?? 
+          const costPrice = saleProduct.costPrice ??
             products.find(p => p.id === saleProduct.productId)?.costPrice ?? 0;
           return sum + (costPrice * saleProduct.quantity);
         }, 0);
-        
+
         costOfGoodsSoldByDay[key] += costOfGoodsSold;
       }
     }
@@ -426,7 +440,7 @@ const Reports = () => {
 
     return { labels, datasets };
   }, [labels, series, showTrend, trendData, t]);
-  
+
   const chartOptions: ChartOptions<'line'> = {
     responsive: true,
     maintainAspectRatio: false,
@@ -439,16 +453,13 @@ const Reports = () => {
         mode: 'index',
         intersect: false,
         callbacks: {
-          label: function(context) {
+          label: function (context) {
             let label = context.dataset.label || '';
             if (label) {
               label += ': ';
             }
             if (context.parsed.y !== null) {
-              label += new Intl.NumberFormat('en-US', { 
-                style: 'currency', 
-                currency: 'XAF' 
-              }).format(context.parsed.y);
+              label += formatCurrency(context.parsed.y);
             }
             return label;
           }
@@ -467,12 +478,8 @@ const Reports = () => {
           color: 'rgba(0, 0, 0, 0.06)',
         },
         ticks: {
-          callback: function(value) {
-            return new Intl.NumberFormat('en-US', { 
-              style: 'currency', 
-              currency: 'XAF',
-              maximumSignificantDigits: 3
-            }).format(Number(value));
+          callback: function (value) {
+            return formatCurrency(Number(value));
           }
         }
       },
@@ -482,29 +489,29 @@ const Reports = () => {
       mode: 'index',
     },
   };
-  
+
   // Aggregates and rankings
   const totalSales = useMemo(() => filteredSalesForProfit.reduce((sum, s) => sum + (s.totalAmount || 0), 0), [filteredSalesForProfit]);
   const totalExpenses = useMemo(() => filteredExpenses.reduce((sum, e) => sum + (e.amount || 0), 0), [filteredExpenses]);
-  
+
   // Calculate total cost of goods sold (excluding credit sales)
   const totalCostOfGoodsSold = useMemo(() => {
     return filteredSalesForProfit.reduce((sum, sale) => {
       return sum + sale.products.reduce((productSum: number, saleProduct: { costPrice?: number; quantity: number; productId: string }) => {
         // Use costPrice from saleProduct (historical price at time of sale)
-        const costPrice = saleProduct.costPrice ?? 
+        const costPrice = saleProduct.costPrice ??
           products.find(p => p.id === saleProduct.productId)?.costPrice ?? 0;
         return productSum + (costPrice * saleProduct.quantity);
       }, 0);
     }, 0);
   }, [filteredSalesForProfit, products]);
-  
+
   const netProfit = useMemo(() => totalSales - totalCostOfGoodsSold - totalExpenses, [totalSales, totalCostOfGoodsSold, totalExpenses]);
 
   // Calculate sales by status breakdown
   const salesByStatus = useMemo(() => {
     const statusMap: Record<string, { count: number; amount: number }> = {};
-    
+
     filteredSales.forEach(sale => {
       const status = sale.status || 'unknown';
       if (!statusMap[status]) {
@@ -513,7 +520,7 @@ const Reports = () => {
       statusMap[status].count += 1;
       statusMap[status].amount += sale.totalAmount || 0;
     });
-    
+
     return statusMap;
   }, [filteredSales]);
 
@@ -523,7 +530,7 @@ const Reports = () => {
     const totalCreditOutstanding = creditSales.reduce((sum, sale) => {
       return sum + (sale.remainingAmount ?? sale.totalAmount ?? 0);
     }, 0);
-    
+
     return {
       count: creditSales.length,
       totalAmount: creditSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0),
@@ -547,11 +554,11 @@ const Reports = () => {
   // Calculate previous period data
   const previousPeriodData = useMemo(() => {
     const previousSales = sales.filter(s => s.isAvailable !== false && previousInRange(toDate(s.createdAt)));
-    
+
     // Apply same filters as current period
     let filteredPreviousSales = previousSales;
     if (selectedCategory !== 'all') {
-      filteredPreviousSales = filteredPreviousSales.filter(sale => 
+      filteredPreviousSales = filteredPreviousSales.filter(sale =>
         sale.products.some((sp: { productId: string }) => {
           const product = products.find(p => p.id === sp.productId);
           return product?.category === selectedCategory;
@@ -566,10 +573,10 @@ const Reports = () => {
 
     const prevTotalSales = filteredPreviousSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
     const prevTotalExpenses = previousExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-    
+
     const prevTotalCostOfGoodsSold = filteredPreviousSales.reduce((sum, sale) => {
       return sum + sale.products.reduce((productSum: number, saleProduct: { costPrice?: number; quantity: number; productId: string }) => {
-        const costPrice = saleProduct.costPrice ?? 
+        const costPrice = saleProduct.costPrice ??
           products.find(p => p.id === saleProduct.productId)?.costPrice ?? 0;
         return productSum + (costPrice * saleProduct.quantity);
       }, 0);
@@ -587,22 +594,22 @@ const Reports = () => {
 
   // Calculate KPI metrics
   const kpiMetrics = useMemo(() => {
-    const grossMarginRate = totalSales > 0 
-      ? ((totalSales - totalCostOfGoodsSold) / totalSales) * 100 
+    const grossMarginRate = totalSales > 0
+      ? ((totalSales - totalCostOfGoodsSold) / totalSales) * 100
       : 0;
-    
-    const netMarginRate = totalSales > 0 
-      ? (netProfit / totalSales) * 100 
+
+    const netMarginRate = totalSales > 0
+      ? (netProfit / totalSales) * 100
       : 0;
-    
-    const expenseRatio = totalSales > 0 
-      ? (totalExpenses / totalSales) * 100 
+
+    const expenseRatio = totalSales > 0
+      ? (totalExpenses / totalSales) * 100
       : 0;
-    
+
     const growthRate = previousPeriodData.totalSales > 0
       ? ((totalSales - previousPeriodData.totalSales) / previousPeriodData.totalSales) * 100
       : 0;
-    
+
     const roi = totalCostOfGoodsSold > 0
       ? (netProfit / totalCostOfGoodsSold) * 100
       : 0;
@@ -773,7 +780,7 @@ const Reports = () => {
   // Product profitability analysis - DEFERRED (heavy calculation)
   const productProfitability = useMemo(() => {
     if (!shouldCalculateHeavy) return [];
-    
+
     const profitabilityMap = new Map<string, {
       name: string;
       quantitySold: number;
@@ -818,8 +825,8 @@ const Reports = () => {
     // Calculate profit and margin
     const results = Array.from(profitabilityMap.values()).map(entry => {
       entry.grossProfit = entry.totalSales - entry.totalCOGS;
-      entry.profitMargin = entry.totalSales > 0 
-        ? (entry.grossProfit / entry.totalSales) * 100 
+      entry.profitMargin = entry.totalSales > 0
+        ? (entry.grossProfit / entry.totalSales) * 100
         : 0;
       return entry;
     });
@@ -904,7 +911,7 @@ const Reports = () => {
       map.set(name, entry);
     }
     const sorted = Array.from(map.values()).sort((a, b) => b.sales - a.sales).slice(0, 5);
-    
+
     // Calculate cumulative sales
     let cumulative = 0;
     return sorted.map(item => {
@@ -925,10 +932,10 @@ const Reports = () => {
           <h1 className="text-2xl font-semibold text-gray-900">{t('reports.title')}</h1>
           <p className="text-gray-600">{t('reports.subtitle')}</p>
         </div>
-        
+
         <div className="mt-4 md:mt-0">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             icon={<FileDown size={16} />}
             onClick={handleExport}
           >
@@ -936,7 +943,7 @@ const Reports = () => {
           </Button>
         </div>
       </div>
-      
+
       {/* Date Range Picker - Same as Dashboard */}
       <Card className="mb-6">
         <DateRangePicker
@@ -1069,65 +1076,65 @@ const Reports = () => {
           <div></div>
         </div>
       </Card>
-      
+
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card className="bg-emerald-50 border border-emerald-100">
           <div className="text-center">
             <p className="text-sm font-medium text-emerald-700">{t('reports.summary.totalSales')}</p>
-            <p className="mt-1 text-3xl font-semibold text-emerald-900">{formatPrice(totalSales)} XAF</p>
+            <p className="mt-1 text-3xl font-semibold text-emerald-900">{formatCurrency(totalSales)}</p>
             <p className="mt-1 text-sm text-emerald-600">
               <span className="font-medium">{filteredSales.length}</span> {t('reports.summary.orders')}
             </p>
-            <ComparisonIndicator 
-              current={totalSales} 
+            <ComparisonIndicator
+              current={totalSales}
               previous={previousPeriodData.totalSales}
-              formatValue={(v) => `${formatPrice(v)} XAF`}
+              formatValue={(v) => formatCurrency(v)}
             />
           </div>
         </Card>
-        
+
         <Card className="bg-amber-50 border border-amber-100">
           <div className="text-center">
             <p className="text-sm font-medium text-amber-700">{t('reports.summary.costOfGoodsSold')}</p>
-            <p className="mt-1 text-3xl font-semibold text-amber-900">{formatPrice(totalCostOfGoodsSold)} XAF</p>
+            <p className="mt-1 text-3xl font-semibold text-amber-900">{formatCurrency(totalCostOfGoodsSold)}</p>
             <p className="mt-1 text-sm text-amber-600">
               <span className="font-medium">{(totalSales > 0 ? Math.round(((totalCostOfGoodsSold) / totalSales) * 100) : 0)}%</span> {t('reports.summary.ofSales')}
             </p>
-            <ComparisonIndicator 
-              current={totalCostOfGoodsSold} 
+            <ComparisonIndicator
+              current={totalCostOfGoodsSold}
               previous={previousPeriodData.totalCostOfGoodsSold}
-              formatValue={(v) => `${formatPrice(v)} XAF`}
+              formatValue={(v) => formatCurrency(v)}
             />
           </div>
         </Card>
-        
+
         <Card className="bg-red-50 border border-red-100">
           <div className="text-center">
             <p className="text-sm font-medium text-red-700">{t('reports.summary.totalExpenses')}</p>
-            <p className="mt-1 text-3xl font-semibold text-red-900">{formatPrice(totalExpenses)} XAF</p>
+            <p className="mt-1 text-3xl font-semibold text-red-900">{formatCurrency(totalExpenses)}</p>
             <p className="mt-1 text-sm text-red-600">
               <span className="font-medium">{filteredExpenses.length}</span> {t('reports.summary.entries')}
             </p>
-            <ComparisonIndicator 
-              current={totalExpenses} 
+            <ComparisonIndicator
+              current={totalExpenses}
               previous={previousPeriodData.totalExpenses}
-              formatValue={(v) => `${formatPrice(v)} XAF`}
+              formatValue={(v) => formatCurrency(v)}
             />
           </div>
         </Card>
-        
+
         <Card className="bg-indigo-50 border border-indigo-100">
           <div className="text-center">
             <p className="text-sm font-medium text-indigo-700">{t('reports.summary.netProfit')}</p>
-            <p className="mt-1 text-3xl font-semibold text-indigo-900">{formatPrice(netProfit)} XAF</p>
+            <p className="mt-1 text-3xl font-semibold text-indigo-900">{formatCurrency(netProfit)}</p>
             <p className="mt-1 text-sm text-indigo-600">
               <span className="font-medium">{(totalSales > 0 ? Math.round(((netProfit) / totalSales) * 100) : 0)}%</span> {t('reports.summary.margin')}
             </p>
-            <ComparisonIndicator 
-              current={netProfit} 
+            <ComparisonIndicator
+              current={netProfit}
               previous={previousPeriodData.netProfit}
-              formatValue={(v) => `${formatPrice(v)} XAF`}
+              formatValue={(v) => formatCurrency(v)}
             />
           </div>
         </Card>
@@ -1152,13 +1159,15 @@ const Reports = () => {
               'draft': { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' },
             };
             const colors = statusColors[status] || { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' };
+            const label = statusLabels[status] || status;
+            const textClass900 = colors.text.replace('700', '900');
             return (
               <div key={status} className={`${colors.bg} ${colors.border} border rounded-lg p-4`}>
                 <p className={`text-sm font-medium ${colors.text}`}>
-                  {statusLabels[status] || status}
+                  {label}
                 </p>
-                <p className={`mt-2 text-2xl font-semibold ${colors.text.replace('700', '900')}`}>
-                  {formatPrice(data.amount)} XAF
+                <p className={`mt-2 text-2xl font-semibold ${textClass900}`}>
+                  {formatCurrency(data.amount)}
                 </p>
                 <p className={`mt-1 text-xs ${colors.text}`}>
                   {data.count} {t('reports.statusBreakdown.sales') || 'sales'}
@@ -1179,7 +1188,7 @@ const Reports = () => {
                   {t('reports.creditSales.totalCreditSales') || 'Total Credit Sales'}
                 </p>
                 <p className="mt-2 text-2xl font-semibold text-orange-900">
-                  {formatPrice(creditSalesMetrics.totalAmount)} XAF
+                  {formatCurrency(creditSalesMetrics.totalAmount)}
                 </p>
                 <p className="mt-1 text-xs text-orange-600">
                   {creditSalesMetrics.count} {t('reports.creditSales.sales') || 'sales'}
@@ -1190,7 +1199,7 @@ const Reports = () => {
                   {t('reports.creditSales.totalOutstanding') || 'Total Outstanding'}
                 </p>
                 <p className="mt-2 text-2xl font-semibold text-red-900">
-                  {formatPrice(creditSalesMetrics.totalOutstanding)} XAF
+                  {formatCurrency(creditSalesMetrics.totalOutstanding)}
                 </p>
                 <p className="mt-1 text-xs text-red-600">
                   {t('reports.creditSales.unpaid') || 'Unpaid amount'}
@@ -1201,14 +1210,14 @@ const Reports = () => {
                   {t('reports.creditSales.totalPaid') || 'Total Paid'}
                 </p>
                 <p className="mt-2 text-2xl font-semibold text-green-900">
-                  {formatPrice(creditSalesMetrics.totalAmount - creditSalesMetrics.totalOutstanding)} XAF
+                  {formatCurrency(creditSalesMetrics.totalAmount - creditSalesMetrics.totalOutstanding)}
                 </p>
                 <p className="mt-1 text-xs text-green-600">
                   {t('reports.creditSales.paidAmount') || 'Paid amount'}
                 </p>
               </div>
             </div>
-            
+
             <div className="mt-4">
               <h4 className="text-sm font-semibold text-gray-700 mb-2">
                 {t('reports.creditSales.outstandingCredits') || 'Outstanding Credits'}
@@ -1252,13 +1261,13 @@ const Reports = () => {
                             {sale.customerInfo?.name || '-'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {formatPrice(sale.totalAmount)} XAF
+                            {formatCurrency(sale.totalAmount)}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600">
-                            {formatPrice(paidAmount)} XAF
+                            {formatCurrency(paidAmount)}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-red-600">
-                            {formatPrice(remainingAmount)} XAF
+                            {formatCurrency(remainingAmount)}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                             {dueDate ? dueDate.toLocaleDateString() : '-'}
@@ -1271,7 +1280,7 @@ const Reports = () => {
               </div>
               {creditSalesMetrics.sales.length > 10 && (
                 <p className="mt-2 text-sm text-gray-500 text-center">
-                  {t('reports.creditSales.showingFirst', { count: 10, total: creditSalesMetrics.sales.length }) || 
+                  {t('reports.creditSales.showingFirst', { count: 10, total: creditSalesMetrics.sales.length }) ||
                     `Showing first 10 of ${creditSalesMetrics.sales.length} credit sales`}
                 </p>
               )}
@@ -1279,7 +1288,7 @@ const Reports = () => {
           </div>
         </Card>
       )}
-      
+
       {/* KPI Dashboard */}
       <Card className="mb-6" title={t('reports.kpi.title')}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -1324,17 +1333,16 @@ const Reports = () => {
           />
         </div>
       </Card>
-      
+
       {/* Chart */}
       <Card className="mb-6" title={t('reports.chart.title')}>
         <div className="flex justify-end mb-2">
           <button
             onClick={() => setShowTrend(!showTrend)}
-            className={`px-3 py-1 text-sm rounded-md border ${
-              showTrend 
-                ? 'bg-gray-100 border-gray-300 text-gray-700' 
-                : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
-            }`}
+            className={`px-3 py-1 text-sm rounded-md border ${showTrend
+              ? 'bg-gray-100 border-gray-300 text-gray-700'
+              : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+              }`}
           >
             {showTrend ? t('reports.chart.hideTrendLine') : t('reports.chart.showTrendLine')}
           </button>
@@ -1351,7 +1359,7 @@ const Reports = () => {
           )}
         </div>
       </Card>
-      
+
       {/* Top Products & Customers */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <Card title={t('reports.tables.topProducts.title')}>
@@ -1389,10 +1397,10 @@ const Reports = () => {
                       {product.customersCount}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatPrice(product.totalSales)} XAF
+                      {formatCurrency(product.totalSales)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                      {formatPrice(product.cumulativeSales)} XAF
+                      {formatCurrency(product.cumulativeSales)}
                     </td>
                   </tr>
                 ))}
@@ -1400,7 +1408,7 @@ const Reports = () => {
             </table>
           </div>
         </Card>
-        
+
         <Card title={t('reports.tables.topCustomers.title')}>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -1427,13 +1435,13 @@ const Reports = () => {
                       {customer.name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatPrice(customer.sales)} XAF
+                      {formatCurrency(customer.sales)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {customer.orders}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                      {formatPrice(customer.cumulativeSales)} XAF
+                      {formatCurrency(customer.cumulativeSales)}
                     </td>
                   </tr>
                 ))}
@@ -1472,7 +1480,7 @@ const Reports = () => {
                     const dateB = b.createdAt?.seconds || 0;
                     return dateA - dateB;
                   });
-                  
+
                   let cumulative = 0;
                   return sortedExpenses.map((ex, idx) => {
                     cumulative += ex.amount || 0;
@@ -1483,8 +1491,8 @@ const Reports = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dateStr}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{ex.description}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{ex.category}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatPrice(ex.amount)} XAF</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{formatPrice(cumulative)} XAF</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency(ex.amount)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{formatCurrency(cumulative)}</td>
                       </tr>
                     );
                   });
@@ -1521,10 +1529,10 @@ const Reports = () => {
                     <tr key={idx}>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.quantitySold}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.totalSales} XAF</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.totalCOGS} XAF</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{formatCurrency(product.totalSales)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{formatCurrency(product.totalCOGS)}</td>
                       <td className={`px-4 py-3 whitespace-nowrap text-sm font-semibold ${product.grossProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {product.grossProfit} XAF
+                        {formatCurrency(product.grossProfit)}
                       </td>
                       <td className={`px-4 py-3 whitespace-nowrap text-sm font-semibold ${product.profitMargin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                         {product.profitMargin.toFixed(1)}%
@@ -1535,19 +1543,19 @@ const Reports = () => {
               </tbody>
             </table>
           </div>
-          
+
           {/* Pagination Controls */}
           {productProfitability.length > 0 && (
             <div className="px-4 py-3 border-t border-gray-200">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-sm text-gray-700">
-                  {t('common.showing', { 
-                    from: productProfitability.length > 0 ? profitabilityStartIndex : 0, 
-                    to: profitabilityEndIndex, 
-                    total: productProfitability.length 
+                  {t('common.showing', {
+                    from: productProfitability.length > 0 ? profitabilityStartIndex : 0,
+                    to: profitabilityEndIndex,
+                    total: productProfitability.length
                   })}
                 </div>
-                
+
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-2 text-sm">
                     <label>{t('common.rowsPerPage')}:</label>
@@ -1566,7 +1574,7 @@ const Reports = () => {
                       <option value={100}>100</option>
                     </select>
                   </div>
-                  
+
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => setProfitabilityPage(1)}
@@ -1647,7 +1655,7 @@ const Reports = () => {
                         },
                         tooltip: {
                           callbacks: {
-                            label: (context) => {
+                            label: (context: { label: string; parsed: number; dataset: { data: number[]; }; }) => {
                               const label = context.label || '';
                               const value = context.parsed || 0;
                               const total = (context.dataset.data as number[]).reduce(
@@ -1655,7 +1663,7 @@ const Reports = () => {
                                 0
                               );
                               const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
-                              return `${label}: ${value} XAF (${percentage}%)`;
+                              return `${label}: ${formatCurrency(value)} (${percentage}%)`;
                             },
                           },
                         },
@@ -1681,10 +1689,10 @@ const Reports = () => {
                     {expenseCategoryAnalysis.map((exp, idx) => (
                       <tr key={idx}>
                         <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{exp.category}</td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.amount.toLocaleString()} XAF</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatCurrency(exp.amount)}</td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.percentage.toFixed(1)}%</td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.count}</td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.average.toLocaleString()} XAF</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatCurrency(exp.average)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1704,18 +1712,7 @@ const Reports = () => {
               {sources.map((source) => {
                 const sourceSales = filteredSales.filter(s => s.customerSourceId === source.id);
                 const sourceRevenue = sourceSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
-                const sourceProfit = sourceSales.reduce((sum, sale) => {
-                  return sum + sale.products.reduce((productSum: number, sp: { negotiatedPrice?: number; basePrice: number; costPrice: number; quantity: number; batchLevelProfits?: Array<{ costPrice: number; consumedQuantity: number }> }) => {
-                    const unitSalePrice = sp.negotiatedPrice ?? sp.basePrice;
-                    if (sp.batchLevelProfits && sp.batchLevelProfits.length > 0) {
-                      return productSum + sp.batchLevelProfits.reduce(
-                        (batchSum: number, batch: { costPrice: number; consumedQuantity: number }) => batchSum + (unitSalePrice - batch.costPrice) * batch.consumedQuantity,
-                        0
-                      );
-                    }
-                    return productSum + (unitSalePrice - sp.costPrice) * sp.quantity;
-                  }, 0);
-                }, 0);
+                const sourceProfit = sourceSales.reduce((sum, sale) => sum + calculateSaleProfit(sale), 0);
                 const sourceCustomers = new Set(sourceSales.map(s => s.customerInfo.phone)).size;
                 const profitMargin = sourceRevenue > 0 ? (sourceProfit / sourceRevenue) * 100 : 0;
 
@@ -1735,13 +1732,13 @@ const Reports = () => {
                         <span className="text-gray-600">{t('reports.customerSourceStats.sales')}:</span>
                         <span className="font-semibold">{sourceSales.length}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">{t('reports.customerSourceStats.revenue')}:</span>
-                        <span className="font-semibold">{sourceRevenue.toLocaleString()} XAF</span>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Revenu:</span>
+                        <span className="font-semibold">{formatCurrency(sourceRevenue)}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">{t('reports.customerSourceStats.profit')}:</span>
-                        <span className="font-semibold text-emerald-600">{sourceProfit.toLocaleString()} XAF</span>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Profit:</span>
+                        <span className="font-semibold text-emerald-600">{formatCurrency(sourceProfit)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">{t('reports.customerSourceStats.customers')}:</span>
@@ -1774,18 +1771,7 @@ const Reports = () => {
                   {sources.map((source) => {
                     const sourceSales = filteredSales.filter(s => s.customerSourceId === source.id);
                     const sourceRevenue = sourceSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
-                    const sourceProfit = sourceSales.reduce((sum, sale) => {
-                      return sum + sale.products.reduce((productSum, sp) => {
-                        const unitSalePrice = sp.negotiatedPrice ?? sp.basePrice;
-                        if (sp.batchLevelProfits && sp.batchLevelProfits.length > 0) {
-                          return productSum + sp.batchLevelProfits.reduce(
-                            (batchSum, batch) => batchSum + (unitSalePrice - batch.costPrice) * batch.consumedQuantity,
-                            0
-                          );
-                        }
-                        return productSum + (unitSalePrice - sp.costPrice) * sp.quantity;
-                      }, 0);
-                    }, 0);
+                    const sourceProfit = sourceSales.reduce((sum, sale) => sum + calculateSaleProfit(sale), 0);
                     const sourceCustomers = new Set(sourceSales.map(s => s.customerInfo.phone)).size;
                     const profitMargin = sourceRevenue > 0 ? (sourceProfit / sourceRevenue) * 100 : 0;
 
@@ -1804,8 +1790,8 @@ const Reports = () => {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{sourceSales.length}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{sourceCustomers}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{sourceRevenue.toLocaleString()} XAF</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-emerald-600 font-semibold">{sourceProfit.toLocaleString()} XAF</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{formatCurrency(sourceRevenue)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-emerald-600 font-semibold">{formatCurrency(sourceProfit)}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{profitMargin.toFixed(1)}%</td>
                       </tr>
                     );
@@ -1815,18 +1801,7 @@ const Reports = () => {
                     const noSourceSales = filteredSales.filter(s => !s.customerSourceId);
                     if (noSourceSales.length > 0) {
                       const noSourceRevenue = noSourceSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
-                      const noSourceProfit = noSourceSales.reduce((sum, sale) => {
-                        return sum + sale.products.reduce((productSum, sp) => {
-                          const unitSalePrice = sp.negotiatedPrice ?? sp.basePrice;
-                          if (sp.batchLevelProfits && sp.batchLevelProfits.length > 0) {
-                            return productSum + sp.batchLevelProfits.reduce(
-                              (batchSum, batch) => batchSum + (unitSalePrice - batch.costPrice) * batch.consumedQuantity,
-                              0
-                            );
-                          }
-                          return productSum + (unitSalePrice - sp.costPrice) * sp.quantity;
-                        }, 0);
-                      }, 0);
+                      const noSourceProfit = noSourceSales.reduce((sum, sale) => sum + calculateSaleProfit(sale), 0);
                       const noSourceCustomers = new Set(noSourceSales.map(s => s.customerInfo.phone)).size;
                       const noSourceProfitMargin = noSourceRevenue > 0 ? (noSourceProfit / noSourceRevenue) * 100 : 0;
 
@@ -1837,8 +1812,8 @@ const Reports = () => {
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceSales.length}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceCustomers}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceRevenue.toLocaleString()} XAF</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-emerald-600 font-semibold">{noSourceProfit.toLocaleString()} XAF</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{formatCurrency(noSourceRevenue)}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-emerald-600 font-semibold">{formatCurrency(noSourceProfit)}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceProfitMargin.toFixed(1)}%</td>
                         </tr>
                       );
@@ -1865,7 +1840,7 @@ const Reports = () => {
           </div>
           <div className="text-center">
             <p className="text-sm font-medium text-gray-700">{t('reports.customerMetrics.averageBasket')}</p>
-            <p className="mt-1 text-2xl font-semibold text-gray-900">{customerMetrics.averageBasket.toLocaleString()} XAF</p>
+            <p className="mt-1 text-2xl font-semibold text-gray-900">{formatCurrency(customerMetrics.averageBasket)}</p>
           </div>
           <div className="text-center">
             <p className="text-sm font-medium text-gray-700">{t('reports.customerMetrics.repeatCustomers')}</p>

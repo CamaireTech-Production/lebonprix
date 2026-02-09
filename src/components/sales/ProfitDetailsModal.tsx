@@ -3,6 +3,7 @@ import Modal, { ModalFooter } from '../common/Modal';
 import Card from '../common/Card';
 import type { Sale, Product, SaleProduct } from '../../types/models';
 import { useTranslation } from 'react-i18next';
+import { useCurrency } from '@hooks/useCurrency';
 
 interface ProfitDetailsModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface ProfitDetailsModalProps {
 
 const ProfitDetailsModal: React.FC<ProfitDetailsModalProps> = ({ isOpen, onClose, sale, products }) => {
   const { t } = useTranslation();
+  const { format } = useCurrency();
   if (!sale) return null;
 
   // Helper to compute profit per product strictly from runtime data
@@ -110,16 +112,16 @@ const ProfitDetailsModal: React.FC<ProfitDetailsModalProps> = ({ isOpen, onClose
                           </td>
                           <td className="py-2 px-2 text-gray-900 text-right">{sp.quantity}</td>
                           <td className="py-2 px-2 text-gray-900 text-right">
-                            {unitSalePrice.toLocaleString()} XAF
+                            {format(unitSalePrice)}
                           </td>
                           <td className="py-2 px-2 text-gray-900 text-right">
-                            {totalSalePrice.toLocaleString()} XAF
+                            {format(totalSalePrice)}
                           </td>
                           <td className="py-2 px-2 text-gray-900 text-right">
-                            {sp.costPrice.toLocaleString()} XAF
+                            {format(sp.costPrice)}
                           </td>
                           <td className="py-2 px-2 text-gray-900 text-right">
-                            {productProfit.toLocaleString()} XAF
+                            {format(productProfit)}
                           </td>
                         </tr>
                         {sp.batchLevelProfits && sp.batchLevelProfits.length > 0 && (
@@ -148,13 +150,13 @@ const ProfitDetailsModal: React.FC<ProfitDetailsModalProps> = ({ isOpen, onClose
                                           <td className="py-1 px-2">{batch.batchId}</td>
                                           <td className="py-1 px-2 text-right">{batch.consumedQuantity}</td>
                                           <td className="py-1 px-2 text-right">
-                                            {batch.costPrice.toLocaleString()} XAF
+                                            {format(batch.costPrice)}
                                           </td>
                                           <td className="py-1 px-2 text-right">
-                                            {unitSalePrice.toLocaleString()} XAF
+                                            {format(unitSalePrice)}
                                           </td>
                                           <td className="py-1 px-2 text-right">
-                                            {batchProfit.toLocaleString()} XAF
+                                            {format(batchProfit)}
                                           </td>
                                         </tr>
                                       );
@@ -170,7 +172,7 @@ const ProfitDetailsModal: React.FC<ProfitDetailsModalProps> = ({ isOpen, onClose
                                   {t('sales.modals.profitDetails.productSubtotal', {
                                     defaultValue: 'Product Profit Subtotal:',
                                   })}{' '}
-                                  {productProfit.toLocaleString()} XAF
+                                  {format(productProfit)}
                                 </div>
                               </div>
                             </td>
@@ -188,7 +190,7 @@ const ProfitDetailsModal: React.FC<ProfitDetailsModalProps> = ({ isOpen, onClose
                   {t('sales.modals.profitDetails.totalProfit', { defaultValue: 'Total Profit' })}:
                 </span>
                 <span className="font-semibold text-emerald-700">
-                  {totalProfit.toLocaleString()} XAF
+                  {format(totalProfit)}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -196,7 +198,7 @@ const ProfitDetailsModal: React.FC<ProfitDetailsModalProps> = ({ isOpen, onClose
                   {t('sales.modals.profitDetails.totalCost', { defaultValue: 'Total Cost' })}:
                 </span>
                 <span className="font-semibold text-gray-700">
-                  {totalCost.toLocaleString()} XAF
+                  {format(totalCost)}
                 </span>
               </div>
               <div className="flex justify-between">

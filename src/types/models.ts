@@ -99,6 +99,9 @@ export interface Company extends BaseModel {
   employees?: Record<string, CompanyEmployee>; // Mirroir de employeeRefs pour lecture rapide
   employeeCount?: number; // Nombre total d'employés
   // Nouvelle architecture: employeeRefs via sous-collection companies/{id}/employeeRefs/{firebaseUid}
+
+  // Currency settings
+  currency?: string; // Currency code (e.g., "XAF", "USD")
 }
 
 /**

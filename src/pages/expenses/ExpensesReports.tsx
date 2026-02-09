@@ -5,15 +5,17 @@ import { useTranslation } from 'react-i18next';
 import { Card, Button, SkeletonExpensesReports } from '@components/common';
 import { useInfiniteExpenses } from '@hooks/data/useInfiniteExpenses';
 import { useExpenseCategories } from '@hooks/business/useExpenseCategories';
+import { useCurrency } from '@hooks/useCurrency';
 import ExpenseFilters from './shared/ExpenseFilters';
 import ExpenseTable from './shared/ExpenseTable';
 import { showSuccessToast, showWarningToast } from '@utils/core/toast';
 
 const ExpensesReports = () => {
   const { t } = useTranslation();
+  const { symbol, format: formatCurrency } = useCurrency();
   const { expenses, loading } = useInfiniteExpenses();
   const { expenseTypesList } = useExpenseCategories();
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
@@ -25,14 +27,14 @@ const ExpensesReports = () => {
   const filteredExpenses = useMemo(() => {
     return expenses.filter(expense => {
       if (expense.isAvailable === false) return false;
-      
+
       // Filter by category
       const categoryMatch = selectedCategory === 'All' || expense.category === selectedCategory;
-      
+
       // Filter by search query
-      const searchMatch = !searchQuery || 
+      const searchMatch = !searchQuery ||
         expense.description.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       // Filter by date range
       const timestamp = expense.date || expense.createdAt;
       let dateMatch = true;
@@ -40,7 +42,7 @@ const ExpensesReports = () => {
         const expenseDate = new Date(timestamp.seconds * 1000);
         dateMatch = expenseDate >= dateRange.from && expenseDate <= dateRange.to;
       }
-      
+
       return categoryMatch && searchMatch && dateMatch;
     });
   }, [expenses, selectedCategory, searchQuery, dateRange]);
@@ -52,21 +54,21 @@ const ExpensesReports = () => {
     }
 
     // Create CSV content
-    const headers = ['Date', 'Description', 'Montant (XAF)', 'Catégorie'];
+    const headers = ['Date', 'Description', `Montant (${symbol})`, 'Catégorie'];
     const rows = filteredExpenses.map(expense => {
       const timestamp = expense.date || expense.createdAt;
-      const date = timestamp?.seconds 
+      const date = timestamp?.seconds
         ? new Date(timestamp.seconds * 1000).toLocaleDateString('fr-FR')
         : 'N/A';
-      
+
       // Escape commas and quotes in description
       const description = expense.description
         .replace(/"/g, '""')
         .replace(/,/g, ', ');
-      
-      const amount = expense.amount.toLocaleString('fr-FR');
+
+      const amount = formatCurrency(expense.amount);
       const category = expense.category;
-      
+
       return `"${date}","${description}","${amount}","${category}"`;
     });
 
@@ -81,16 +83,16 @@ const ExpensesReports = () => {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    
+
     // Filename with date
     const today = new Date().toISOString().split('T')[0];
     link.setAttribute('download', `expenses_${today}.csv`);
-    
+
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     showSuccessToast(`Export réussi: ${filteredExpenses.length} dépense(s) exportée(s)`);
   };
 
@@ -105,9 +107,9 @@ const ExpensesReports = () => {
           <h1 className="text-2xl font-semibold text-gray-900">Rapports et Exports</h1>
           <p className="text-gray-600">Exportez vos dépenses et générez des rapports personnalisés</p>
         </div>
-        
-        <Button 
-          variant="primary" 
+
+        <Button
+          variant="primary"
           icon={<FileDown size={16} />}
           onClick={handleExportExpenses}
           disabled={filteredExpenses.length === 0}
@@ -124,7 +126,7 @@ const ExpensesReports = () => {
           onDateRangeChange={setDateRange}
           showDateRange={true}
         />
-        
+
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
           <select
             className="rounded-md border border-gray-300 shadow-sm py-2 px-3 bg-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -135,7 +137,7 @@ const ExpensesReports = () => {
             {expenseTypesList.map((category) => {
               const defaultCategories = ['transportation', 'purchase', 'other'];
               const isDefault = defaultCategories.includes(category.name);
-              const label = isDefault 
+              const label = isDefault
                 ? t(`expenses.categories.${category.name}`, category.name)
                 : category.name;
               return (
@@ -154,11 +156,11 @@ const ExpensesReports = () => {
             {filteredExpenses.length} dépense(s) trouvée(s) pour l'export
           </p>
         </div>
-        
+
         <ExpenseTable
           expenses={filteredExpenses}
-          onEdit={() => {}} // Not editable in reports view
-          onDelete={() => {}} // Not deletable in reports view
+          onEdit={() => { }} // Not editable in reports view
+          onDelete={() => { }} // Not deletable in reports view
         />
       </Card>
     </div>

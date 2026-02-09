@@ -17,6 +17,7 @@ import { Order, OrderFilters, OrderStats } from '../../types/order';
 import { useProducts } from '@hooks/data/useFirestore';
 import { generatePurchaseOrderPDF } from '@utils/orders/purchaseOrderPDF';
 import { generatePurchaseOrderNumber } from '@services/firestore/orders/orderService';
+import { useCurrency } from '@hooks/useCurrency';
 import {
   ShoppingBag,
   Search,
@@ -44,6 +45,7 @@ const Orders: React.FC = () => {
   const { user, company } = useAuth();
   const { canDelete } = usePermissionCheck(RESOURCES.ORDERS);
   const { products } = useProducts();
+  const { format: formatCurrency } = useCurrency();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<OrderStats | null>(null);
@@ -323,10 +325,10 @@ const Orders: React.FC = () => {
           </td>
           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{item.quantity}</td>
           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-            {formatPrice(item.price)} XAF
+            {formatCurrency(item.price)}
           </td>
           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-            {formatPrice(item.price * item.quantity)} XAF
+            {formatCurrency(item.price * item.quantity)}
           </td>
           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
             {product ? product.reference : '-'}
@@ -375,7 +377,7 @@ const Orders: React.FC = () => {
             {order.items.length} {order.items.length !== 1 ? t('orders.orderDetails.itemsPlural') : t('orders.orderDetails.items')}
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm">
-            {formatPrice(order.pricing.total)} XAF
+            {formatCurrency(order.pricing.total)}
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
             {formatDate(order.createdAt)}
@@ -574,7 +576,7 @@ const Orders: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">{t('orders.stats.totalRevenue')}</p>
-                <p className="text-2xl font-bold text-gray-900">{formatPrice(stats.totalRevenue)} XAF</p>
+                <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
               </div>
               <div className="p-3 bg-emerald-50 rounded-lg">
                 <DollarSign className="w-6 h-6 text-emerald-600" />
@@ -787,7 +789,7 @@ const Orders: React.FC = () => {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium">{formatPrice(item.price)} XAF</p>
+                      <p className="font-medium">{formatCurrency(item.price)}</p>
                       <p className="text-sm text-gray-600">{t('orders.orderDetails.qty')}: {item.quantity}</p>
                     </div>
                   </div>
@@ -801,27 +803,27 @@ const Orders: React.FC = () => {
               <div className="space-y-2 p-4 bg-gray-50 rounded-lg">
                 <div className="flex justify-between">
                   <span>{t('orders.orderDetails.subtotal')}:</span>
-                  <span>{formatPrice(selectedOrder.pricing.subtotal)} XAF</span>
+                  <span>{formatCurrency(selectedOrder.pricing.subtotal)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>{t('orders.orderDetails.deliveryFee')}:</span>
-                  <span>{formatPrice(selectedOrder.pricing.deliveryFee)} XAF</span>
+                  <span>{formatCurrency(selectedOrder.pricing.deliveryFee)}</span>
                 </div>
                 {selectedOrder.pricing.tax && selectedOrder.pricing.tax > 0 && (
                   <div className="flex justify-between">
                     <span>{t('orders.orderDetails.tax')}:</span>
-                    <span>{formatPrice(selectedOrder.pricing.tax)} XAF</span>
+                    <span>{formatCurrency(selectedOrder.pricing.tax)}</span>
                   </div>
                 )}
                 {selectedOrder.pricing.discount && selectedOrder.pricing.discount > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>{t('orders.orderDetails.discount')}:</span>
-                    <span>-{formatPrice(selectedOrder.pricing.discount)} XAF</span>
+                    <span>-{formatCurrency(selectedOrder.pricing.discount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between font-bold text-lg border-t pt-2">
                   <span>{t('orders.orderDetails.total')}:</span>
-                  <span>{formatPrice(selectedOrder.pricing.total)} XAF</span>
+                  <span>{formatCurrency(selectedOrder.pricing.total)}</span>
                 </div>
               </div>
             </div>

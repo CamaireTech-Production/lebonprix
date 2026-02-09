@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { format, differenceInCalendarDays, endOfMonth, endOfYear } from 'date-fns';
 import { useObjectives } from '@hooks/business/useObjectives';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
+import { useAuth } from '@contexts/AuthContext';
+import { CURRENCIES } from '@constants/currencies';
 
 interface ObjectiveItemProps {
   objective: Objective & { progress: number; currentValue?: number };
@@ -19,6 +21,9 @@ interface ObjectiveItemProps {
 const ObjectiveItem: React.FC<ObjectiveItemProps> = ({ objective, onEdit, onDelete, open, onToggle, isDeleting = false }) => {
   const { t } = useTranslation();
   const { updateObjective } = useObjectives();
+  const { company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
 
   // Determine translation key for metric
   const metricLabel = t(`dashboard.stats.${objective.metric}`);
@@ -33,7 +38,7 @@ const ObjectiveItem: React.FC<ObjectiveItemProps> = ({ objective, onEdit, onDele
     'totalSalesAmount',
     'totalPurchasePrice',
   ].includes(objective.metric)) {
-    amountUnit = ' XAF';
+    amountUnit = ` ${currencySymbol}`;
   } else if ([
     'totalSalesCount',
     'totalOrders',
@@ -62,17 +67,6 @@ const ObjectiveItem: React.FC<ObjectiveItemProps> = ({ objective, onEdit, onDele
   let remainingDays: number | null = null;
   if (dueDate) {
     remainingDays = differenceInCalendarDays(dueDate, new Date());
-  }
-  // Determine color for remaining days
-  let remainingDaysColor = 'text-green-600';
-  if (remainingDays !== null) {
-    if (remainingDays < 0) {
-      remainingDaysColor = 'text-red-600 font-bold';
-    } else if (remainingDays <= 3) {
-      remainingDaysColor = 'text-orange-500 font-semibold';
-    } else if (remainingDays <= 7) {
-      remainingDaysColor = 'text-yellow-600 font-semibold';
-    }
   }
 
   return (
@@ -126,21 +120,21 @@ const ObjectiveItem: React.FC<ObjectiveItemProps> = ({ objective, onEdit, onDele
             {t('objectives.period')}: <span className="font-medium text-gray-800">{
               objective.periodType === 'predefined'
                 ? (objective.predefined === 'this_year'
-                    ? t('dateRanges.thisYear')
-                    : t('dateRanges.thisMonth'))
+                  ? t('dateRanges.thisYear')
+                  : t('dateRanges.thisMonth'))
                 : (objective.startAt && objective.endAt
-                    ? `${format(
-                        objective.startAt instanceof Date 
-                          ? objective.startAt 
-                          : (typeof (objective.startAt as any).toDate === 'function' ? (objective.startAt as any).toDate() : new Date(objective.startAt as any)), 
-                        'dd/MM/yyyy'
-                      )} - ${format(
-                        objective.endAt instanceof Date 
-                          ? objective.endAt 
-                          : (typeof (objective.endAt as any).toDate === 'function' ? (objective.endAt as any).toDate() : new Date(objective.endAt as any)), 
-                        'dd/MM/yyyy'
-                      )}`
-                    : t('objectives.noPeriod'))
+                  ? `${format(
+                    objective.startAt instanceof Date
+                      ? objective.startAt
+                      : (typeof (objective.startAt as any).toDate === 'function' ? (objective.startAt as any).toDate() : new Date(objective.startAt as any)),
+                    'dd/MM/yyyy'
+                  )} - ${format(
+                    objective.endAt instanceof Date
+                      ? objective.endAt
+                      : (typeof (objective.endAt as any).toDate === 'function' ? (objective.endAt as any).toDate() : new Date(objective.endAt as any)),
+                    'dd/MM/yyyy'
+                  )}`
+                  : t('objectives.noPeriod'))
             }</span>
           </div>
           <div className="flex gap-2 pt-2">

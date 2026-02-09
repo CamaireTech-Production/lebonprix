@@ -53,7 +53,7 @@ export const AmountTooLowModal: React.FC<AmountTooLowModalProps> = ({
                 <DollarSign className="h-5 w-5 text-gray-600" />
                 <div>
                   <p className="text-sm font-medium text-gray-700">Your Order Total</p>
-                  <p className="text-2xl font-bold text-gray-900">{formatPrice(currentAmount)} {currency}</p>
+                  <p className="text-2xl font-bold text-gray-900">{formatPrice(currentAmount, currency)}</p>
                 </div>
               </div>
             </div>
@@ -64,7 +64,7 @@ export const AmountTooLowModal: React.FC<AmountTooLowModalProps> = ({
                 <CreditCard className="h-5 w-5 text-red-600" />
                 <div>
                   <p className="text-sm font-medium text-red-700">Minimum Required</p>
-                  <p className="text-2xl font-bold text-red-900">{formatPrice(minimumAmount)} {currency}</p>
+                  <p className="text-2xl font-bold text-red-900">{formatPrice(minimumAmount, currency)}</p>
                 </div>
               </div>
             </div>
@@ -76,7 +76,7 @@ export const AmountTooLowModal: React.FC<AmountTooLowModalProps> = ({
                 <div>
                   <p className="text-sm font-medium text-blue-900">Payment Method Limitation</p>
                   <p className="text-sm text-blue-700 mt-1">
-                    Online payments require a minimum amount of {formatPrice(minimumAmount)} {currency}. 
+                    Online payments require a minimum amount of {formatPrice(minimumAmount, currency)}.
                     You can either add more items to your cart or choose "Pay Onsite" instead.
                   </p>
                 </div>

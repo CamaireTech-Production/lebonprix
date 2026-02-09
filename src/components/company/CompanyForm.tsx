@@ -8,6 +8,7 @@ import { showWarningToast } from '@utils/core/toast';
 import { useTranslation } from 'react-i18next';
 import { validatePhoneNumber, getCountryFromPhone } from '@utils/core/phoneUtils';
 import { createCompany } from '@services/firestore/companies/companyService';
+import { CURRENCIES, DEFAULT_CURRENCY } from '@constants/currencies';
 
 interface CompanyFormData {
     name: string;
@@ -18,6 +19,7 @@ interface CompanyFormData {
     report_time: string;
     location: string;
     logo?: string;
+    currency: string;
 }
 
 interface CompanyFormProps {
@@ -41,7 +43,8 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({ onSuccess, onCancel, i
         report_mail: '',
         report_time: '08:00',
         location: '',
-        logo: ''
+        logo: '',
+        currency: DEFAULT_CURRENCY.code
     });
 
     const [isLoading, setIsLoading] = useState(false);
@@ -150,7 +153,8 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({ onSuccess, onCancel, i
                 report_time: reportTime,
                 location: formData.location.trim(),
                 logo: formData.logo || undefined,
-                planType: selectedPlan || 'starter'
+                planType: selectedPlan || 'starter',
+                currency: formData.currency
             });
 
             console.log('✅ Company créée avec succès:', company.id);
@@ -402,6 +406,29 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({ onSuccess, onCancel, i
                 />
                 <p className="mt-1 text-sm text-gray-500">
                     {t('settingsPage.account.reportTimeHelp')}
+                </p>
+            </div>
+
+            {/* Currency */}
+            <div>
+                <label htmlFor="currency" className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('settingsPage.ordering.currency', 'Devise')}
+                </label>
+                <select
+                    id="currency"
+                    name="currency"
+                    value={formData.currency}
+                    onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value }))}
+                    className="block w-full px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                >
+                    {CURRENCIES.map(currency => (
+                        <option key={currency.code} value={currency.code}>
+                            {currency.name} ({currency.symbol})
+                        </option>
+                    ))}
+                </select>
+                <p className="mt-1 text-sm text-gray-500">
+                    {t('company.create.currencyHelp', 'La devise utilisée pour l\'affichage des prix.')}
                 </p>
             </div>
 

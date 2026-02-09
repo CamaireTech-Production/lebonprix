@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, Search, Download } from 'lucide-react';
 import { Card, Input } from '@components/common';
 import { formatPrice } from '@utils/formatting/formatPrice';
+import { useCurrency } from '@hooks/useCurrency';
 
 interface ProductSoldData {
   id: string;
@@ -24,6 +25,7 @@ type SortDirection = 'asc' | 'desc';
 
 const AllProductsSold = ({ productsData }: AllProductsSoldProps) => {
   const { t } = useTranslation();
+  const { format: formatCurrency } = useCurrency();
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -153,8 +155,8 @@ const AllProductsSold = ({ productsData }: AllProductsSoldProps) => {
       p.quantity,
       p.salesCount,
       p.customersCount,
-      `${p.totalSales} XAF`,
-      `${p.grossProfit} XAF`,
+      formatCurrency(p.totalSales),
+      formatCurrency(p.grossProfit),
       `${p.profitMargin.toFixed(1)}%`
     ]);
 
@@ -249,11 +251,11 @@ const AllProductsSold = ({ productsData }: AllProductsSoldProps) => {
         </div>
         <div className="text-center">
           <p className="text-sm text-gray-600">{t('reports.tables.allProductsSold.totalRevenue')}</p>
-          <p className="text-2xl font-semibold text-emerald-600">{formatPrice(totalRevenue)} XAF</p>
+          <p className="text-2xl font-semibold text-emerald-600">{formatCurrency(totalRevenue)}</p>
         </div>
         <div className="text-center">
           <p className="text-sm text-gray-600">{t('reports.tables.allProductsSold.totalProfit')}</p>
-          <p className="text-2xl font-semibold text-indigo-600">{formatPrice(totalProfit)} XAF</p>
+          <p className="text-2xl font-semibold text-indigo-600">{formatCurrency(totalProfit)}</p>
         </div>
       </div>
 
@@ -407,16 +409,15 @@ const AllProductsSold = ({ productsData }: AllProductsSoldProps) => {
                     {product.customersCount}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatPrice(product.totalSales)} XAF
+                    {formatCurrency(product.totalSales)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-emerald-600">
-                    {formatPrice(product.grossProfit)} XAF
+                    {formatCurrency(product.grossProfit)}
                   </td>
-                  <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${
-                    product.profitMargin >= 20 ? 'text-emerald-600' :
-                    product.profitMargin >= 10 ? 'text-amber-600' :
-                    'text-red-600'
-                  }`}>
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${product.profitMargin >= 20 ? 'text-emerald-600' :
+                      product.profitMargin >= 10 ? 'text-amber-600' :
+                        'text-red-600'
+                    }`}>
                     {product.profitMargin.toFixed(1)}%
                   </td>
                 </tr>
@@ -456,11 +457,10 @@ const AllProductsSold = ({ productsData }: AllProductsSoldProps) => {
                   <button
                     key={page}
                     onClick={() => handlePageChange(page as number)}
-                    className={`px-3 py-2 rounded-md text-sm font-medium ${
-                      currentPage === page
+                    className={`px-3 py-2 rounded-md text-sm font-medium ${currentPage === page
                         ? 'bg-indigo-600 text-white'
                         : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     {page}
                   </button>

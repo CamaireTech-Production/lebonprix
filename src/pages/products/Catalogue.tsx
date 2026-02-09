@@ -10,6 +10,7 @@ import { getAvailableStockBatches } from '@services/firestore/stock/stockService
 import type { Company, Product, Category, Shop } from '../../types/models';
 import { Search, Package, AlertCircle, MapPin, Plus, Heart, Phone } from 'lucide-react';
 import { Button, FloatingCartButton, ProductDetailModal, ImageWithSkeleton, LanguageSwitcher, SkeletonCatalogue, SkeletonLoader } from '@components/common';
+import { useCurrency } from '@hooks/useCurrency';
 
 const placeholderImg = '/placeholder.png';
 
@@ -21,9 +22,9 @@ const Catalogue = () => {
   const categoriesParam = searchParams.get('categories'); // For multiple categories
   const { addToCart } = useCart();
   const [company, setCompany] = useState<Company | null>(null);
+  const { format } = useCurrency(company?.currency);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [shops, setShops] = useState<Shop[]>([]);
   // Initialize selectedShopId from URL param if present
   const [selectedShopId, setSelectedShopId] = useState<string>(shopId || '');
   const [productStockMap, setProductStockMap] = useState<Map<string, number>>(new Map());
@@ -68,9 +69,9 @@ const Catalogue = () => {
   };
 
   // Handle shop selection change
-  const handleShopChange = (shopId: string) => {
-    setSelectedShopId(shopId);
-  };
+  // const handleShopChange = (shopId: string) => {
+  //   setSelectedShopId(shopId);
+  // };
 
   // Product detail modal functions
   const handleProductClick = (product: Product) => {
@@ -230,7 +231,7 @@ const Catalogue = () => {
     // OPTIMIZATION: Added limit to reduce Firebase reads
     const unsubscribe = subscribeToCategories(company.id, (categoriesData) => {
       setCategories(categoriesData);
-    }, 50); // Limit to 50 categories
+    }, 'product'); // Specify type 'product' instead of a number
 
     return () => unsubscribe();
   }, [company?.id]);
@@ -240,11 +241,11 @@ const Catalogue = () => {
     if (!company?.id) return;
 
     // OPTIMIZATION: Added limit to reduce Firebase reads
-    const unsubscribe = subscribeToShops(company.id, (shopsData) => {
-      setShops(shopsData);
+    const unsubscribe = subscribeToShops(company.id, (_shopsData) => {
+      // setShops(shopsData);
       // Auto-selection REMOVED to support "All Shops" (Global Stock) as default
       // if (!selectedShopId && shopsData.length > 0) { ... }
-    }, 50); // Limit to 50 shops
+    }, undefined, 50); // Pass undefined for onError, and 50 as limitCount
 
     return () => unsubscribe();
   }, [company?.id]); // Removed selectedShopId dependency as we don't auto-select anymore
@@ -629,10 +630,7 @@ const Catalogue = () => {
                     <p className="text-xs text-gray-500 mb-2 sm:mb-3">{product.category}</p>
                     <div className="flex items-center justify-between">
                       <span className="text-xs sm:text-sm md:text-base font-bold" style={{ color: getCompanyColors().secondary }}>
-                        {((product.cataloguePrice && product.cataloguePrice > 0) ? product.cataloguePrice : (product.sellingPrice ?? 0)).toLocaleString('fr-FR', {
-                          style: 'currency',
-                          currency: 'XAF'
-                        })}
+                        {format((product.cataloguePrice && product.cataloguePrice > 0) ? product.cataloguePrice : (product.sellingPrice ?? 0))}
                       </span>
                       <button
                         onClick={(e) => {
@@ -672,7 +670,7 @@ const Catalogue = () => {
       </div> */}
 
       {/* Floating Cart Button */}
-      <FloatingCartButton />
+      <FloatingCartButton currency={company?.currency} />
 
       {/* Product Detail Modal */}
       {selectedProduct && company && (

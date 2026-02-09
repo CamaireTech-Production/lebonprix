@@ -11,17 +11,20 @@ import MatiereFormModal from '../../components/magasin/MatiereFormModal';
 import MatiereReportModal from '../../components/reports/MatiereReportModal';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { getStockBadgeVariant } from '@utils/magasin/stockBadge';
-import { usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
+import { CURRENCIES } from '@constants/currencies';
+import { usePermissionCheck } from '@components/permissions';
 import type { Matiere } from '../../types/models';
 
 const Matieres = () => {
   const { matieres, loading, error, deleteMatiereData } = useMatieres();
+  const { company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
   const { matiereStocks, loading: stocksLoading } = useMatiereStocks();
   const { categories } = useCategories();
   const { batches: allStockBatches } = useAllStockBatches('matiere');
   const { suppliers } = useSuppliers();
-  const { company } = useAuth();
   const { canEdit, canDelete, canCreate } = usePermissionCheck(RESOURCES.MAGASIN);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -128,8 +131,8 @@ const Matieres = () => {
           <p className="text-gray-600">Gérer vos matières premières et leurs stocks</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button 
-            onClick={() => setIsReportModalOpen(true)} 
+          <Button
+            onClick={() => setIsReportModalOpen(true)}
             icon={<FileText size={16} />}
             variant="outline"
           >
@@ -230,7 +233,7 @@ const Matieres = () => {
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Matiere Info */}
                   <div className="flex-1 flex flex-col">
                     <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">
@@ -251,22 +254,22 @@ const Matieres = () => {
                         </Badge>
                       </div>
                       <div className="text-sm text-gray-600 mb-3">
-                        Prix: {matiere.costPrice.toLocaleString()} XAF
+                        Prix: {matiere.costPrice.toLocaleString()} {currencySymbol}
                       </div>
-                      
+
                       {/* Stock Badge */}
                       <div className="mb-3">
                         {stocksLoading ? (
                           <div className="h-5 w-24 bg-gray-200 rounded animate-pulse" />
                         ) : (
                           <Badge variant={getStockBadgeVariant(getMatiereStock(matiere.id) ?? 0, threshold)}>
-                            Stock: {getMatiereStock(matiere.id) !== undefined 
+                            Stock: {getMatiereStock(matiere.id) !== undefined
                               ? `${getMatiereStock(matiere.id)!.toLocaleString()} ${matiere.unit || ''}`.trim()
                               : '—'}
                           </Badge>
                         )}
                       </div>
-                      
+
                       {/* Actions */}
                       <div className="flex justify-end space-x-2">
                         {canEdit && (
@@ -309,7 +312,7 @@ const Matieres = () => {
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Matiere Info */}
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-gray-900 mb-1">
@@ -331,7 +334,7 @@ const Matieres = () => {
                       )}
                     </div>
                     <div className="text-sm text-gray-600 mb-1">
-                      Prix: {matiere.costPrice.toLocaleString()} XAF
+                      Prix: {matiere.costPrice.toLocaleString()} {currencySymbol}
                     </div>
                     {/* Stock Badge */}
                     <div className="mt-1">
@@ -339,14 +342,14 @@ const Matieres = () => {
                         <div className="h-5 w-24 bg-gray-200 rounded animate-pulse" />
                       ) : (
                         <Badge variant={getStockBadgeVariant(getMatiereStock(matiere.id) ?? 0, threshold)}>
-                          Stock: {getMatiereStock(matiere.id) !== undefined 
+                          Stock: {getMatiereStock(matiere.id) !== undefined
                             ? `${getMatiereStock(matiere.id)!.toLocaleString()} ${matiere.unit || ''}`.trim()
                             : '—'}
                         </Badge>
                       )}
                     </div>
                   </div>
-                  
+
                   {/* Actions */}
                   <div className="flex space-x-2">
                     {canEdit && (

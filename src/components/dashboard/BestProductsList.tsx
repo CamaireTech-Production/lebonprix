@@ -2,6 +2,8 @@ import { useTranslation } from 'react-i18next';
 import { useCompanyColors } from '@hooks/business/useCompanyColors';
 import Card from '../common/Card';
 import { ExternalLink } from 'lucide-react';
+import { useAuth } from '@contexts/AuthContext';
+import { CURRENCIES } from '@constants/currencies';
 import type { Product } from '../../types/models';
 
 interface BestProduct {
@@ -22,16 +24,19 @@ interface BestProductsListProps {
 const BestProductsList = ({ products, allProducts = [], onViewAll, className = '' }: BestProductsListProps) => {
   const { t } = useTranslation();
   const colors = useCompanyColors();
+  const { company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
 
   const getProductImage = (productId: string) => {
     const product = allProducts.find(p => p.id === productId);
-    return product?.image || product?.images?.[0] || null;
+    return product?.images?.[0] || null;
   };
 
   return (
     <Card className={className}>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold" style={{color: colors.primary}}>
+        <h3 className="text-lg font-semibold" style={{ color: colors.primary }}>
           {t('dashboard.bestProducts.title', { defaultValue: 'Meilleurs produits' })}
         </h3>
         {onViewAll && (
@@ -74,8 +79,8 @@ const BestProductsList = ({ products, allProducts = [], onViewAll, className = '
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-semibold" style={{color: colors.primary}}>
-                    {product.revenue.toLocaleString()} FCFA
+                  <p className="text-sm font-semibold" style={{ color: colors.primary }}>
+                    {product.revenue.toLocaleString()} {currencySymbol}
                   </p>
                 </div>
               </div>

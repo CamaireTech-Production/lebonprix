@@ -4,6 +4,8 @@ import { getCompanyByUserId } from '@services/firestore/firestore';
 import { getSaleDetails, subscribeToSaleUpdates } from '@services/firestore/sales/saleService';
 import type { SaleDetails, Company } from '../../types/models';
 import { SkeletonTable, Card, Badge } from "@components/common";
+import { CURRENCIES } from '@constants/currencies';
+import { formatPrice } from '@utils/formatting/formatPrice';
 import { useProducts } from '@hooks/data/useFirestore';
 import { CheckCircle, Circle } from 'lucide-react';
 
@@ -97,18 +99,24 @@ const TimelinePage = () => {
     s => s.key === saleDetails.status
   );
 
+  // Get currency symbol
+  const getCurrencySymbol = () => {
+    const currencyCode = company?.currency || 'XAF';
+    return CURRENCIES.find(c => c.code === currencyCode)?.symbol || 'FCFA';
+  };
+
   return (
     <div className="p-6 max-w-2xl mx-auto bg-gray-50 min-h-screen rounded-lg shadow-lg">
       <h1 className="text-3xl font-bold mb-8 text-emerald-700">Order Tracking</h1>
-      
+
       {/* Combined Info Card */}
       <Card className="mb-8 bg-white">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Company Info */}
           <div className="flex items-start space-x-3">
             {company?.logo && (
-              <img 
-                src={company.logo} 
+              <img
+                src={company.logo}
                 alt={`${company.name} logo`}
                 className="w-12 h-12 object-contain"
               />
@@ -134,7 +142,7 @@ const TimelinePage = () => {
           <div>
             <h2 className="text-lg font-semibold mb-2 text-emerald-700">Order #{saleDetails.id}</h2>
             <p className="text-sm text-gray-600">
-              Total: {(saleDetails.totalAmount + (saleDetails.deliveryFee || 0)).toLocaleString()} XAF
+              Total: {formatPrice(saleDetails.totalAmount + (saleDetails.deliveryFee || 0), getCurrencySymbol())}
             </p>
             <p className="text-sm text-gray-600">Status: {saleDetails.status}</p>
           </div>
@@ -155,11 +163,11 @@ const TimelinePage = () => {
                     <div>
                       <p className="font-medium text-gray-900">{saleProduct.product?.name || 'Unknown Product'}</p>
                       <p className="text-sm text-gray-500">Qty: {saleProduct.quantity}</p>
-                      <p className="text-sm text-gray-500">Unit Price: {unitPrice.toLocaleString()} XAF</p>
+                      <p className="text-sm text-gray-500">Unit Price: {formatPrice(unitPrice, getCurrencySymbol())}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-medium text-emerald-600">
-                        {subtotal.toLocaleString()} XAF
+                        {formatPrice(subtotal, getCurrencySymbol())}
                       </p>
                     </div>
                   </div>
@@ -173,17 +181,17 @@ const TimelinePage = () => {
             <div className="space-y-2">
               <div className="flex justify-between text-sm text-gray-600">
                 <span>Subtotal</span>
-                <span>{saleDetails.totalAmount.toLocaleString()} XAF</span>
+                <span>{formatPrice(saleDetails.totalAmount, getCurrencySymbol())}</span>
               </div>
               {saleDetails.deliveryFee && saleDetails.deliveryFee > 0 && (
                 <div className="flex justify-between text-sm text-gray-600">
                   <span>Delivery Fee</span>
-                  <span>{saleDetails.deliveryFee.toLocaleString()} XAF</span>
+                  <span>{formatPrice(saleDetails.deliveryFee, getCurrencySymbol())}</span>
                 </div>
               )}
               <div className="flex justify-between text-base font-semibold text-emerald-700 pt-2 border-t border-gray-200">
                 <span>Total Amount</span>
-                <span>{(saleDetails.totalAmount + (saleDetails.deliveryFee || 0)).toLocaleString()} XAF</span>
+                <span>{formatPrice(saleDetails.totalAmount + (saleDetails.deliveryFee || 0), getCurrencySymbol())}</span>
               </div>
             </div>
           </div>
@@ -211,8 +219,8 @@ const TimelinePage = () => {
                           ? idx === 0
                             ? '#6366f1' // indigo-500
                             : idx === 1
-                            ? '#10b981' // emerald-500
-                            : '#047857' // emerald-700
+                              ? '#10b981' // emerald-500
+                              : '#047857' // emerald-700
                           : '#e5e7eb', // gray-200
                     }}
                   >

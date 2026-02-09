@@ -8,6 +8,7 @@ import { useCheckoutSettings } from '@hooks/data/useCheckoutSettings';
 import { printPOSBillDirect } from '@utils/pos/posPrint';
 import { showErrorToast, showSuccessToast } from '@utils/core/toast';
 import { formatPrice } from '@utils/formatting/formatPrice';
+import { useCurrency } from '@hooks/useCurrency';
 import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
 import { POSCalculator } from './POSCalculator';
 import Select from 'react-select';
@@ -22,7 +23,7 @@ export interface POSPaymentData {
   change?: number;
   transactionReference: string; // Empty string if not provided
   mobileMoneyPhone: string; // Empty string if not provided
-  
+
   // Customer Info
   customerPhone: string; // Always string, can be empty
   customerName: string;
@@ -30,14 +31,14 @@ export interface POSPaymentData {
   customerSourceId: string; // Empty string if not provided
   customerAddress: string; // Empty string if not provided
   customerTown: string; // Empty string if not provided
-  
+
   // Sale Info
   saleDate: string;
   deliveryFee: number;
   status: OrderStatus;
   inventoryMethod: 'fifo' | 'lifo' | 'cmup';
   creditDueDate?: string; // Optional due date for credit sales (ISO date string)
-  
+
   // Additional
   discountType?: 'amount' | 'percentage';
   discountValue?: number;
@@ -96,20 +97,21 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   // ✅ ALL HOOKS MUST BE CALLED FIRST - BEFORE ANY CONDITIONAL RETURNS
   const { t } = useTranslation();
   const { company } = useAuth();
+  const { format, currency } = useCurrency();
   const { activeSources } = useCustomerSources();
   const { products } = useProducts();
   const { settings: checkoutSettingsData } = useCheckoutSettings();
-  
+
   // State for logo base64
   const [logoBase64, setLogoBase64] = useState<string>('');
-  
+
   // State for all form fields
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money' | 'card' | null>(null);
   const [isPrinting, setIsPrinting] = useState<boolean>(false);
   const [amountReceived, setAmountReceived] = useState<string>('');
   const [transactionReference, setTransactionReference] = useState<string>('');
   const [mobileMoneyPhone, setMobileMoneyPhone] = useState<string>('');
-  
+
   // Customer Info
   const [customerPhone, setCustomerPhone] = useState<string>('');
   const [customerName, setCustomerName] = useState<string>('');
@@ -117,7 +119,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   const [customerSourceId, setCustomerSourceId] = useState<string>('');
   const [customerAddress, setCustomerAddress] = useState<string>('');
   const [customerTown, setCustomerTown] = useState<string>('');
-  
+
   // Customer search state
   const [showCustomerDropdown, setShowCustomerDropdown] = useState<boolean>(false);
   const [customerSearch, setCustomerSearch] = useState<string>('');
@@ -125,14 +127,14 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   const [activeSearchField, setActiveSearchField] = useState<'phone' | 'name' | null>(null);
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
-  
+
   // Sale Info
   const [saleDate, setSaleDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [deliveryFee, setDeliveryFee] = useState<number>(currentDeliveryFee);
   const [status, setStatus] = useState<OrderStatus>('paid');
   const [saleType, setSaleType] = useState<'paid' | 'credit'>('paid'); // Sale type: paid or credit
   const [creditDueDate, setCreditDueDate] = useState<string>(''); // Optional due date for credit sales
-  
+
   // Get default inventory method: use prop from POS state first, then settings, then fallback
   const getDefaultInventoryMethod = (): 'fifo' | 'lifo' | 'cmup' => {
     if (defaultInventoryMethod) {
@@ -141,9 +143,9 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     const defaultMethod = checkoutSettingsData?.defaultInventoryMethod || 'FIFO';
     return defaultMethod.toLowerCase() as 'fifo' | 'lifo' | 'cmup';
   };
-  
+
   const [inventoryMethod, setInventoryMethod] = useState<'fifo' | 'lifo' | 'cmup'>(getDefaultInventoryMethod());
-  
+
   // Update inventory method when prop or settings change
   useEffect(() => {
     if (defaultInventoryMethod) {
@@ -161,7 +163,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
       setInventoryMethod(methodToUse);
     }
   }, [isOpen, defaultInventoryMethod]);
-  
+
   // Additional
   const [discountType, setDiscountType] = useState<'amount' | 'percentage'>('amount');
   const [discountValue, setDiscountValue] = useState<string>('');
@@ -169,7 +171,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   const [tax, setTax] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [printReceipt, setPrintReceipt] = useState<boolean>(false);
-  
+
   // UI State
   const [showCustomerSection, setShowCustomerSection] = useState<boolean>(false);
   const [showSaleInfoSection, setShowSaleInfoSection] = useState<boolean>(false);
@@ -275,7 +277,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     if (isOpen && !completedSale) {
       // Modal just opened and no sale completed yet - reset form
       resetForm();
-      
+
       // Populate customer data if available
       if (currentCustomer) {
         setCustomerPhone(currentCustomer.phone || '');
@@ -312,7 +314,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
         const isPhoneInputClick = phoneInputRef.current?.contains(target);
         const isNameInputClick = nameInputRef.current?.contains(target);
         const isDropdownClick = (event.target as Element).closest('[data-dropdown="customer"]');
-        
+
         // Hide dropdown if click is outside both input fields and dropdown
         if (!isPhoneInputClick && !isNameInputClick && !isDropdownClick) {
           setShowCustomerDropdown(false);
@@ -333,7 +335,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     if (!isOpen || !completedSale || hasAutoPrinted || isProcessingPayment || !company || !printFromPreviewRef.current) {
       return;
     }
-    
+
     // Small delay to ensure the preview is fully rendered
     const timer = setTimeout(() => {
       if (printFromPreviewRef.current) {
@@ -341,7 +343,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
         setHasAutoPrinted(true);
       }
     }, 500);
-    
+
     return () => clearTimeout(timer);
   }, [isOpen, completedSale, hasAutoPrinted, isProcessingPayment, company]);
 
@@ -350,17 +352,17 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
 
   // Calculate totals
   const discountAmount = discountValue ? (
-    discountType === 'amount' 
-      ? parseFloat(discountValue) 
+    discountType === 'amount'
+      ? parseFloat(discountValue)
       : (subtotal * parseFloat(discountValue)) / 100
   ) : 0;
-  
+
   // Calculate tax amount (other taxes, not TVA)
   const taxAmount = tax ? parseFloat(tax) : 0;
-  
+
   // Calculate TVA amount
   const tvaAmount = applyTVA ? (subtotal * (tvaRate / 100)) : 0;
-  
+
   // Calculate total: subtotal + deliveryFee - discount + TVA + other tax
   const total = subtotal + (completedSale?.deliveryFee || 0) - discountAmount + tvaAmount + taxAmount;
   // Calculate change: if no amount received entered, assume exact amount (change = 0)
@@ -383,7 +385,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
         showErrorToast(t('pos.payment.errors.selectMethod') || 'Please select a payment method');
         return;
       }
-      
+
       // For cash payment: if amount received is entered, it must be >= total
       // If no amount received entered, assume exact amount (no change needed)
       if (paymentMethod === 'cash' && amountReceived) {
@@ -393,7 +395,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
           return;
         }
       }
-      
+
       if (paymentMethod === 'mobile_money' && !mobileMoneyPhone) {
         showErrorToast(t('pos.payment.errors.mobileMoneyPhone') || 'Mobile Money phone number is required');
         return;
@@ -402,8 +404,8 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
 
     const paymentData: POSPaymentData = {
       paymentMethod: saleType === 'credit' ? undefined : (paymentMethod ?? undefined), // No payment method for credit
-      amountReceived: saleType === 'paid' && paymentMethod === 'cash' && amountReceived && amountReceived.trim() !== '' 
-        ? parseFloat(amountReceived) 
+      amountReceived: saleType === 'paid' && paymentMethod === 'cash' && amountReceived && amountReceived.trim() !== ''
+        ? parseFloat(amountReceived)
         : undefined,
       change: saleType === 'paid' && paymentMethod === 'cash' ? change : undefined,
       transactionReference: saleType === 'paid' && paymentMethod !== 'cash' ? (transactionReference || '') : '',
@@ -436,24 +438,24 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     try {
       // Call onComplete and wait for the sale to be created
       const sale = await onComplete(paymentData);
-      
+
       // WORKAROUND: If backend ignored discount data, manually add it to the sale object
       if (sale && discountAmount > 0 && !sale.discountAmount) {
         sale.discountAmount = discountAmount;
         sale.discountType = discountType;
         sale.discountValue = parseFloat(discountValue);
         sale.discountOriginalValue = parseFloat(discountValue);
-        
+
         // Recalculate total if backend got it wrong
         const expectedTotal = subtotal + deliveryFee - discountAmount + (tax ? parseFloat(tax) : 0);
         if (sale.totalAmount !== expectedTotal) {
           sale.totalAmount = expectedTotal;
         }
       }
-      
+
       // Success notification
       showSuccessToast(t('pos.payment.paymentSuccess') || 'Payment completed successfully!');
-      
+
       // Store completed sale for preview
       if (sale) {
         setCompletedSale(sale);
@@ -476,7 +478,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     const paymentData: POSPaymentData = {
       paymentMethod: paymentMethod || 'cash', // Default to cash for draft
       // For cash: if amount received is entered, use it; otherwise use total (exact amount)
-      amountReceived: paymentMethod === 'cash' 
+      amountReceived: paymentMethod === 'cash'
         ? (amountReceived ? parseFloat(amountReceived) : total)
         : undefined,
       change: paymentMethod === 'cash' ? change : undefined,
@@ -541,7 +543,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
 
       // Build temporary sale object from cart
       const tempSale = {
-        id: `temp-${Date.now()}`,
+        id: `temp - ${Date.now()} `,
         products: cart.map(item => ({
           productId: item.product.id,
           quantity: item.quantity,
@@ -580,7 +582,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     setCustomerPhone(value);
     setCustomerSearch(value);
     setActiveSearchField('phone');
-    
+
     // Show dropdown if there's input and customers exist
     if (value && customers && customers.length > 0) {
       setShowCustomerDropdown(true);
@@ -595,7 +597,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     setCustomerName(value);
     setCustomerSearch(value);
     setActiveSearchField('name');
-    
+
     // Show dropdown if there's input and customers exist
     if (value && customers && customers.length > 0) {
       setShowCustomerDropdown(true);
@@ -655,202 +657,182 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     // Load logo and create print content
     loadLogo().then((logoBase64) => {
       // Create a hidden iframe for printing
-        const printIframe = document.createElement('iframe');
-        printIframe.style.position = 'absolute';
-        printIframe.style.width = '0';
-        printIframe.style.height = '0';
-        printIframe.style.border = 'none';
-        printIframe.style.left = '-9999px';
+      const printIframe = document.createElement('iframe');
+      printIframe.style.position = 'absolute';
+      printIframe.style.width = '0';
+      printIframe.style.height = '0';
+      printIframe.style.border = 'none';
+      printIframe.style.left = '-9999px';
 
-        if (document.body) {
-          document.body.appendChild(printIframe);
-        }
+      if (document.body) {
+        document.body.appendChild(printIframe);
+      }
 
-        // Flag to ensure we only print once
-        let hasPrinted = false;
+      // Flag to ensure we only print once
+      let hasPrinted = false;
 
-        const printOnce = () => {
-          if (hasPrinted || !printIframe.contentWindow) return;
-          hasPrinted = true;
-          printIframe.contentWindow.print();
-          // Remove iframe after printing
-          setTimeout(() => {
-            if (printIframe.parentNode) {
-              document.body.removeChild(printIframe);
-            }
-          }, 1000);
-        };
+      const printOnce = () => {
+        if (hasPrinted || !printIframe.contentWindow) return;
+        hasPrinted = true;
+        printIframe.contentWindow.print();
+        // Remove iframe after printing
+        setTimeout(() => {
+          if (printIframe.parentNode) {
+            document.body.removeChild(printIframe);
+          }
+        }, 1000);
+      };
 
-        // Build invoice HTML content with logo
-        const invoiceContent = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Invoice - ${completedSale.id || 'N/A'}</title>
-            <style>
-              @media print {
-                @page {
-                  margin: 1cm;
+      // Build invoice HTML content with logo
+      const invoiceContent = `
+  < !DOCTYPE html >
+    <html>
+      <head>
+        <title>Invoice - ${completedSale.id || 'N/A'}</title>
+        <style>
+          @media print {
+            @page {
+            margin: 1cm;
                 }
               }
-              body {
-                font-family: 'Arial', sans-serif;
-                font-size: 12px;
-                padding: 20px;
-                margin: 0;
+          body {
+            font - family: 'Arial', sans-serif;
+          font-size: 12px;
+          padding: 20px;
+          margin: 0;
               }
-            </style>
-          </head>
-          <body>
-            <div style="width: 80mm; margin: 0 auto; padding: 10px;">
-              ${logoBase64 ? `<div style="text-align: center; margin-bottom: 10px;"><img src="${logoBase64}" alt="${company.name || 'Company Logo'}" style="max-width: 60px; max-height: 40px; object-fit: contain;" /></div>` : ''}
-              <h2 style="text-align: center; margin-bottom: 10px;">${company.name}</h2>
-              <p style="text-align: center; margin-bottom: 5px;">${company.location || ''}</p>
-              <p style="text-align: center; margin-bottom: 15px;">Tel: ${company.phone || ''}</p>
-              <p><strong>Date:</strong> ${completedSale.createdAt?.seconds 
-                ? new Date(completedSale.createdAt.seconds * 1000).toLocaleString()
-                : new Date().toLocaleString()}</p>
-              <p><strong>Client:</strong> ${completedSale.customerInfo?.name || 'Walk-in Customer'}</p>
-              ${completedSale.customerInfo?.phone ? `<p><strong>Téléphone:</strong> ${completedSale.customerInfo.phone}</p>` : ''}
-              <p><strong>Facture ID:</strong> ${completedSale.id || completedSale.orderNumber || 'N/A'}</p>
-              <hr style="border-top: 1px dashed #000; margin: 10px 0;">
-              <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
-                <thead>
-                  <tr>
-                    <th style="text-align: left; padding: 2px 0;">Produit</th>
-                    <th style="text-align: right; padding: 2px 0;">Qté</th>
-                    <th style="text-align: right; padding: 2px 0;">Prix</th>
-                    <th style="text-align: right; padding: 2px 0;">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${completedSale.products?.map((item: any) => {
-                    const product = products?.find((p: any) => p.id === item.productId);
-                    const productName = product ? product.name : 'Unknown Product';
-                    const itemPrice = item.negotiatedPrice || item.basePrice;
-                    return `
+        </style>
+      </head>
+      <body>
+        <div style="width: 80mm; margin: 0 auto; padding: 10px;">
+          ${logoBase64 ? `<div style="text-align: center; margin-bottom: 10px;"><img src="${logoBase64}" alt="${company.name || 'Company Logo'}" style="max-width: 60px; max-height: 40px; object-fit: contain;" /></div>` : ''}
+          <h2 style="text-align: center; margin-bottom: 10px;">${company.name}</h2>
+          <p style="text-align: center; margin-bottom: 5px;">${company.location || ''}</p>
+          <p style="text-align: center; margin-bottom: 15px;">Tel: ${company.phone || ''}</p>
+          <p><strong>Date:</strong> ${completedSale.createdAt?.seconds
+          ? new Date(completedSale.createdAt.seconds * 1000).toLocaleString()
+          : new Date().toLocaleString()}</p>
+          <p><strong>Client:</strong> ${completedSale.customerInfo?.name || 'Walk-in Customer'}</p>
+          ${completedSale.customerInfo?.phone ? `<p><strong>Téléphone:</strong> ${completedSale.customerInfo.phone}</p>` : ''}
+          <p><strong>Facture ID:</strong> ${completedSale.id || completedSale.orderNumber || 'N/A'}</p>
+          <hr style="border-top: 1px dashed #000; margin: 10px 0;">
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
+              <thead>
+                <tr>
+                  <th style="text-align: left; padding: 2px 0;">Produit</th>
+                  <th style="text-align: right; padding: 2px 0;">Qté</th>
+                  <th style="text-align: right; padding: 2px 0;">Prix</th>
+                  <th style="text-align: right; padding: 2px 0;">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${completedSale.products?.map((item: any) => {
+            const product = products?.find((p: any) => p.id === item.productId);
+            const productName = product ? product.name : 'Unknown Product';
+            const itemPrice = item.negotiatedPrice || item.basePrice;
+            return `
                       <tr>
                         <td style="text-align: left; padding: 2px 0;">${productName}</td>
                         <td style="text-align: right; padding: 2px 0;">${item.quantity}</td>
-                        <td style="text-align: right; padding: 2px 0;">${formatPrice(itemPrice)}</td>
-                        <td style="text-align: right; padding: 2px 0;">${formatPrice(itemPrice * item.quantity)}</td>
+                        <td style="text-align: right; padding: 2px 0;">${format(itemPrice)}</td>
+                        <td style="text-align: right; padding: 2px 0;">${format(itemPrice * item.quantity)}</td>
                       </tr>
                     `;
-                  }).join('')}
-                </tbody>
-              </table>
-              <hr style="border-top: 1px dashed #000; margin: 10px 0;">
+          }).join('')}
+              </tbody>
+            </table>
+            <hr style="border-top: 1px dashed #000; margin: 10px 0;">
               <p style="text-align: right;"><strong>Sous-total:</strong> ${(() => {
-                // Calculate subtotal from completed sale products instead of current cart
-                const saleSubtotal = completedSale.products?.reduce((sum: number, item: any) => {
-                  const itemPrice = item.negotiatedPrice || item.basePrice;
-                  return sum + (itemPrice * item.quantity);
-                }, 0) || 0;
-                return saleSubtotal.toLocaleString();
-              })()} XAF</p>
-              ${completedSale.deliveryFee > 0 ? `<p style="text-align: right;"><strong>Frais de livraison:</strong> ${completedSale.deliveryFee.toLocaleString()} XAF</p>` : ''}
+          // Calculate subtotal from completed sale products instead of current cart
+          const saleSubtotal = completedSale.products?.reduce((sum: number, item: any) => {
+            const itemPrice = item.negotiatedPrice || item.basePrice;
+            return sum + (itemPrice * item.quantity);
+          }, 0) || 0;
+          return format(saleSubtotal);
+        })()}</p>
+              ${completedSale.deliveryFee > 0 ? `<p style="text-align: right;"><strong>Frais de livraison:</strong> ${format(completedSale.deliveryFee)}</p>` : ''}
               ${(() => {
-                // Calculate discount from completed sale data
-                const saleDiscountAmount = completedSale.discountAmount || 0;
-                const saleDiscountType = completedSale.discountType;
-                const saleDiscountOriginalValue = completedSale.discountOriginalValue;
-                const saleDiscountValue = completedSale.discountValue;
-                
-                // Calculate subtotal for discount calculation
-                const saleSubtotal = completedSale.products?.reduce((sum: number, item: any) => {
-                  const itemPrice = item.negotiatedPrice || item.basePrice;
-                  return sum + (itemPrice * item.quantity);
-                }, 0) || 0;
-                
-                // Calculate expected discount based on subtotal, delivery fee, and total
-                const expectedTotal = saleSubtotal + (completedSale.deliveryFee || 0);
-                const calculatedDiscount = expectedTotal - (completedSale.totalAmount || 0);
-                
-                // Show discount if we have discount data OR if there's a calculated discount
-                const hasDiscount = saleDiscountAmount > 0 || saleDiscountValue > 0 || calculatedDiscount > 0;
-                
-                if (hasDiscount) {
-                  // Use stored discount amount if available, otherwise use calculated discount
-                  let displayAmount = saleDiscountAmount;
-                  let displayType = saleDiscountType;
-                  let displayOriginalValue = saleDiscountOriginalValue;
-                  
-                  // If no stored discount but we have a calculated difference
-                  if (!displayAmount && calculatedDiscount > 0) {
-                    displayAmount = calculatedDiscount;
-                    displayType = 'amount'; // Default to amount type
-                    displayOriginalValue = undefined;
-                  }
-                  
-                  // If still no amount but we have saleDiscountValue, calculate it
-                  if (!displayAmount && saleDiscountValue) {
-                    if (saleDiscountType === 'percentage' && saleDiscountOriginalValue) {
-                      displayAmount = (saleSubtotal * saleDiscountOriginalValue) / 100;
-                    } else {
-                      displayAmount = saleDiscountValue || 0;
-                    }
-                  }
-                  
-                  // Ensure we have correct display values for percentage type if only saleDiscountValue was present
-                  if (saleDiscountType === 'percentage' && !displayOriginalValue && saleDiscountValue) {
-                    displayOriginalValue = parseFloat(saleDiscountValue);
-                    if (!displayAmount) {
-                      displayAmount = (saleSubtotal * displayOriginalValue) / 100;
-                    }
-                  }
-                  
-                  if (displayAmount && displayAmount > 0) {
-                    return `<p style="text-align: right;"><strong>Remise ${displayType === 'percentage' && displayOriginalValue ? `(${displayOriginalValue}%)` : ''}:</strong> -${displayAmount.toLocaleString()} XAF</p>`;
-                  }
-                }
-                return '';
-              })()}
+          // Calculate discount from completed sale data
+          const saleSubtotal = completedSale.products?.reduce((sum: number, item: any) => {
+            const itemPrice = item.negotiatedPrice || item.basePrice;
+            return sum + (itemPrice * item.quantity);
+          }, 0) || 0;
+
+          const saleDiscountAmount = completedSale.discountAmount || 0;
+          const saleDiscountType = completedSale.discountType;
+          const saleDiscountOriginalValue = completedSale.discountOriginalValue;
+          const saleDiscountValue = completedSale.discountValue;
+
+          const hasDiscount = saleDiscountAmount > 0 || saleDiscountValue > 0;
+
+          if (hasDiscount) {
+            let displayAmount = saleDiscountAmount;
+            let displayType = saleDiscountType;
+            let displayOriginalValue = saleDiscountOriginalValue;
+
+            if (!displayAmount && saleDiscountValue) {
+              displayType = saleDiscountType || 'amount';
+              displayOriginalValue = saleDiscountType === 'percentage' ? parseFloat(saleDiscountValue) : undefined;
+
+              if (saleDiscountType === 'percentage' && displayOriginalValue) {
+                displayAmount = (saleSubtotal * displayOriginalValue) / 100;
+              } else {
+                displayAmount = parseFloat(saleDiscountValue) || 0;
+              }
+            }
+
+            if (displayAmount && displayAmount > 0) {
+              return `<p style="text-align: right;"><strong>Remise ${displayType === 'percentage' && displayOriginalValue ? `(${displayOriginalValue}%)` : ''}:</strong> -${format(displayAmount)}</p>`;
+            }
+          }
+          return '';
+        })()}
               ${(() => {
-                // Calculate tax from completed sale data
-                const saleTaxAmount = completedSale.tax || 0;
-                return saleTaxAmount > 0 ? `<p style="text-align: right;"><strong>Taxe/TVA${applyTVA ? ` (${tvaRate}%)` : ''}:</strong> ${saleTaxAmount.toLocaleString()} XAF</p>` : '';
-              })()}
-              <h3 style="text-align: right; margin-top: 10px;">Total: ${completedSale.totalAmount?.toLocaleString() || total.toLocaleString()} XAF</h3>
-              ${paymentMethod === 'cash' && amountReceived && parseFloat(amountReceived) !== (completedSale.totalAmount || total) ? `<p style="text-align: right;"><strong>Montant reçu:</strong> ${parseFloat(amountReceived).toLocaleString()} XAF</p>` : ''}
+          // Calculate tax from completed sale data
+          const saleTaxAmount = completedSale.tax || 0;
+          return saleTaxAmount > 0 ? `<p style="text-align: right;"><strong>Taxe/TVA${applyTVA ? ` (${tvaRate}%)` : ''}:</strong> ${format(saleTaxAmount)}</p>` : '';
+        })()}
+              <h3 style="text-align: right; margin-top: 10px;">Total: ${format(completedSale.totalAmount || total)}</h3>
+              ${paymentMethod === 'cash' && amountReceived && parseFloat(amountReceived) !== (completedSale.totalAmount || total) ? `<p style="text-align: right;"><strong>Montant reçu:</strong> ${format(parseFloat(amountReceived))}</p>` : ''}
               ${(() => {
-                if (paymentMethod === 'cash' && amountReceived) {
-                  const actualTotal = completedSale.totalAmount || total;
-                  const received = parseFloat(amountReceived);
-                  const calculatedChange = received > actualTotal ? Math.max(0, received - actualTotal) : 0;
-                  return calculatedChange > 0 ? `<p style="text-align: right;"><strong>Monnaie:</strong> ${calculatedChange.toLocaleString()} XAF</p>` : '';
-                }
-                return '';
-              })()}
-              ${paymentMethod === 'cash' && (!amountReceived || parseFloat(amountReceived) === (completedSale.totalAmount || total)) ? `<p style="text-align: right;"><strong>Montant:</strong> ${(completedSale.totalAmount || total).toLocaleString()} XAF (exact)</p>` : ''}
+          if (paymentMethod === 'cash' && amountReceived) {
+            const actualTotal = completedSale.totalAmount || total;
+            const received = parseFloat(amountReceived);
+            const calculatedChange = received > actualTotal ? Math.max(0, received - actualTotal) : 0;
+            return calculatedChange > 0 ? `<p style="text-align: right;"><strong>Monnaie:</strong> ${format(calculatedChange)}</p>` : '';
+          }
+          return '';
+        })()}
+              ${paymentMethod === 'cash' && (!amountReceived || parseFloat(amountReceived) === (completedSale.totalAmount || total)) ? `<p style="text-align: right;"><strong>Montant:</strong> ${format(completedSale.totalAmount || total)} (exact)</p>` : ''}
               <p style="text-align: right;"><strong>Méthode:</strong> ${completedSale?.status === 'credit' ? 'Crédit' : paymentMethod === 'cash' ? 'Espèces' : paymentMethod === 'mobile_money' ? 'Mobile Money' : paymentMethod === 'card' ? 'Carte' : ''}</p>
               <hr style="border-top: 1px dashed #000; margin: 10px 0;">
-              ${completedSale.notes ? `<p style="margin-top: 10px;"><strong>Notes:</strong> ${completedSale.notes}</p>` : ''}
-              <p style="text-align: center; margin-top: 15px;">Merci de votre achat!</p>
-            </div>
-          </body>
-        </html>
-      `;
-      
+                ${completedSale.notes ? `<p style="margin-top: 10px;"><strong>Notes:</strong> ${completedSale.notes}</p>` : ''}
+                <p style="text-align: center; margin-top: 15px;">Merci de votre achat!</p>
+              </div>
+            </body>
+          </html>
+          `;
+
       // Write content to iframe
       const iframeDoc = printIframe.contentDocument || printIframe.contentWindow?.document;
       if (iframeDoc) {
         iframeDoc.open();
         iframeDoc.write(invoiceContent);
         iframeDoc.close();
-        
+
         // Wait for content to load, then print
         printIframe.onload = () => {
           setTimeout(() => {
             printOnce();
           }, 250);
         };
-        
+
         // Fallback: if onload doesn't fire, trigger print after a delay
         setTimeout(() => {
           printOnce();
         }, 1000);
       }
-      
+
       showSuccessToast(t('pos.payment.printSuccess') || 'Bill printed successfully');
     }).catch((error) => {
       console.error('Error loading logo for printing:', error);
@@ -890,8 +872,8 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                 <div>
                   <div className="flex items-center space-x-3 mb-2">
                     {logoBase64 && (
-                      <img 
-                        src={logoBase64} 
+                      <img
+                        src={logoBase64}
                         alt={`${company?.name} Logo`}
                         className="h-12 w-12 object-contain rounded"
                       />
@@ -908,7 +890,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                   <h4 className="text-xl font-bold mb-2">{t('pos.payment.invoice')}</h4>
                   <p className="text-sm text-gray-600">{t('pos.payment.invoiceNumber')}: {completedSale.id || completedSale.orderNumber || 'N/A'}</p>
                   <p className="text-sm text-gray-600">
-                    {t('pos.payment.date')}: {completedSale.createdAt?.seconds 
+                    {t('pos.payment.date')}: {completedSale.createdAt?.seconds
                       ? new Date(completedSale.createdAt.seconds * 1000).toLocaleDateString()
                       : new Date().toLocaleDateString()}
                   </p>
@@ -949,8 +931,8 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                         <tr key={index} className="border-b border-gray-200">
                           <td className="py-2 px-3">{product?.name || 'Unknown Product'}</td>
                           <td className="text-center py-2 px-3">{saleProduct.quantity}</td>
-                          <td className="text-right py-2 px-3">{formatPrice(unitPrice)} XAF</td>
-                          <td className="text-right py-2 px-3 font-semibold">{formatPrice(itemTotal)} XAF</td>
+                          <td className="text-right py-2 px-3">{format(unitPrice)}</td>
+                          <td className="text-right py-2 px-3 font-semibold">{format(itemTotal)}</td>
                         </tr>
                       );
                     })}
@@ -968,65 +950,48 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                         const itemPrice = item.negotiatedPrice || item.basePrice;
                         return sum + (itemPrice * item.quantity);
                       }, 0) || 0;
-                      
+
                       return (
                         <>
                           <div className="flex justify-between text-sm">
                             <span>{t('pos.payment.subtotal')}:</span>
-                            <span>{formatPrice(saleSubtotal)} XAF</span>
+                            <span>{format(saleSubtotal)}</span>
                           </div>
                           {completedSale.deliveryFee > 0 && (
                             <div className="flex justify-between text-sm">
                               <span>{t('pos.payment.deliveryFee')}:</span>
-                              <span>{formatPrice(completedSale.deliveryFee)} XAF</span>
+                              <span>{format(completedSale.deliveryFee)}</span>
                             </div>
                           )}
                           {(() => {
-                            // Calculate discount from completed sale data
                             const saleDiscountAmount = completedSale.discountAmount || 0;
                             const saleDiscountType = completedSale.discountType;
                             const saleDiscountOriginalValue = completedSale.discountOriginalValue;
                             const saleDiscountValue = completedSale.discountValue;
-                            
-                            // Calculate expected discount based on subtotal, delivery fee, and total
-                            const expectedTotal = saleSubtotal + (completedSale.deliveryFee || 0);
-                            const calculatedDiscount = expectedTotal - (completedSale.totalAmount || 0);
-                            
-                            // Show discount if we have discount data OR if there's a calculated discount
-                            const hasDiscount = saleDiscountAmount > 0 || saleDiscountValue > 0 || calculatedDiscount > 0;
-                            
+
+                            const hasDiscount = saleDiscountAmount > 0 || saleDiscountValue > 0;
+
                             if (hasDiscount) {
-                              // Use stored discount amount if available, otherwise use calculated discount
                               let displayAmount = saleDiscountAmount;
                               let displayType = saleDiscountType;
                               let displayOriginalValue = saleDiscountOriginalValue;
-                              
-                              // If no stored discount amount but we have saleDiscountValue, use it to determine type
+
                               if (!displayAmount && saleDiscountValue) {
                                 displayType = saleDiscountType || 'amount';
                                 displayOriginalValue = saleDiscountType === 'percentage' ? parseFloat(saleDiscountValue) : undefined;
-                                
-                                // Calculate display amount based on type
+
                                 if (saleDiscountType === 'percentage' && displayOriginalValue) {
                                   displayAmount = (saleSubtotal * displayOriginalValue) / 100;
                                 } else {
                                   displayAmount = parseFloat(saleDiscountValue) || 0;
                                 }
                               }
-                              
-                              // Ensure we have correct display values for percentage type if only saleDiscountValue was present
-                              if (displayType === 'percentage' && !displayOriginalValue && saleDiscountValue) {
-                                displayOriginalValue = parseFloat(saleDiscountValue);
-                                if (!displayAmount) {
-                                  displayAmount = (saleSubtotal * displayOriginalValue) / 100;
-                                }
-                              }
-                              
+
                               if (displayAmount && displayAmount > 0) {
                                 return (
                                   <div className="flex justify-between text-sm text-red-600">
                                     <span>{t('pos.payment.discount')} {displayType === 'percentage' && displayOriginalValue ? `(${displayOriginalValue}%)` : ''}:</span>
-                                    <span>-{formatPrice(displayAmount)} XAF</span>
+                                    <span>-{format(displayAmount)}</span>
                                   </div>
                                 );
                               }
@@ -1039,7 +1004,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                             return saleTaxAmount > 0 ? (
                               <div className="flex justify-between text-sm">
                                 <span>{t('pos.payment.tax')}{applyTVA ? ` (${tvaRate}%)` : ''}:</span>
-                                <span>{formatPrice(saleTaxAmount)} XAF</span>
+                                <span>{format(saleTaxAmount)}</span>
                               </div>
                             ) : null;
                           })()}
@@ -1048,12 +1013,12 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                     })()}
                     <div className="flex justify-between text-xl font-bold pt-2 border-t border-gray-300" style={{ color: colors.primary }}>
                       <span>{t('pos.payment.totalAmount')}:</span>
-                      <span>{formatPrice(completedSale.totalAmount || total)} XAF</span>
+                      <span>{format(completedSale.totalAmount || total)}</span>
                     </div>
                     {paymentMethod === 'cash' && amountReceived && parseFloat(amountReceived) !== (completedSale.totalAmount || total) && (
                       <div className="flex justify-between text-sm pt-2">
                         <span>{t('pos.payment.amountReceived')}:</span>
-                        <span>{formatPrice(parseFloat(amountReceived))} XAF</span>
+                        <span>{format(parseFloat(amountReceived))}</span>
                       </div>
                     )}
                     {paymentMethod === 'cash' && amountReceived && (() => {
@@ -1063,18 +1028,18 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                       return calculatedChange > 0 ? (
                         <div className="flex justify-between text-sm text-green-600 font-semibold">
                           <span>{t('pos.payment.change')}:</span>
-                          <span>{calculatedChange.toLocaleString()} XAF</span>
+                          <span>{format(calculatedChange)}</span>
                         </div>
                       ) : null;
                     })()}
                     <div className="flex justify-between text-sm pt-2">
                       <span>{t('pos.payment.paymentMethod')}:</span>
                       <span className="font-semibold">
-                        {completedSale?.status === 'credit' 
+                        {completedSale?.status === 'credit'
                           ? t('sales.filters.status.credit') || 'Crédit'
-                          : paymentMethod === 'cash' ? t('pos.payment.cash') : 
-                            paymentMethod === 'mobile_money' ? t('pos.payment.mobileMoney') : 
-                            paymentMethod === 'card' ? t('pos.payment.card') : ''}
+                          : paymentMethod === 'cash' ? t('pos.payment.cash') :
+                            paymentMethod === 'mobile_money' ? t('pos.payment.mobileMoney') :
+                              paymentMethod === 'card' ? t('pos.payment.card') : ''}
                       </span>
                     </div>
                   </div>
@@ -1171,11 +1136,11 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm truncate">{item.product.name}</p>
                             <p className="text-xs text-gray-500">
-                              {formatPrice(price)} XAF × {item.quantity}
+                              {format(price)} × {item.quantity}
                             </p>
                           </div>
                           <div className="font-semibold text-sm" style={{ color: colors.primary }}>
-                            {formatPrice(itemTotal)} XAF
+                            {format(itemTotal)}
                           </div>
                         </div>
                       );
@@ -1189,16 +1154,16 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">{t('pos.payment.subtotal')}</span>
-                    <span className="font-semibold">{formatPrice(subtotal)} XAF</span>
+                    <span className="font-semibold">{format(subtotal)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">{t('pos.payment.deliveryFee')}</span>
-                    <span className="font-semibold">{formatPrice(deliveryFee)} XAF</span>
+                    <span className="font-semibold">{format(deliveryFee)}</span>
                   </div>
                   {applyTVA && (
                     <div className="flex justify-between">
                       <span className="text-gray-600">TVA ({tvaRate}%)</span>
-                      <span className="font-semibold">{formatPrice(subtotal * (tvaRate / 100))} XAF</span>
+                      <span className="font-semibold">{format(subtotal * (tvaRate / 100))}</span>
                     </div>
                   )}
                   {discountAmount > 0 && (
@@ -1206,13 +1171,13 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                       <span className="text-gray-600">
                         {t('pos.payment.discount')} {discountType === 'percentage' ? `(${discountValue}%)` : ''}
                       </span>
-                      <span className="font-semibold text-red-600">-{formatPrice(discountAmount)} XAF</span>
+                      <span className="font-semibold text-red-600">-{format(discountAmount)}</span>
                     </div>
                   )}
                   {taxAmount > 0 && (
                     <div className="flex justify-between">
                       <span className="text-gray-600">{t('pos.payment.tax')}</span>
-                      <span className="font-semibold">{formatPrice(taxAmount)} XAF</span>
+                      <span className="font-semibold">{format(taxAmount)}</span>
                     </div>
                   )}
                 </div>
@@ -1220,7 +1185,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                   <div className="flex justify-between items-center">
                     <div className="text-lg font-medium text-gray-700">{t('pos.payment.totalAmount')}</div>
                     <div className="text-3xl font-bold" style={{ color: colors.primary }}>
-                      {formatPrice(total)} XAF
+                      {format(total)}
                     </div>
                   </div>
                 </div>
@@ -1236,11 +1201,10 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                       setStatus('paid');
                       setPaymentMethod(null); // Reset payment method when switching
                     }}
-                    className={`p-4 border-2 rounded-lg transition-colors flex items-center space-x-3 ${
-                      saleType === 'paid'
-                        ? 'border-emerald-500 bg-emerald-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                    className={`p-4 border-2 rounded-lg transition-colors flex items-center space-x-3 ${saleType === 'paid'
+                      ? 'border-emerald-500 bg-emerald-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                      }`}
                   >
                     <DollarSign size={24} className="text-emerald-600" />
                     <div className="text-left">
@@ -1255,11 +1219,10 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                       setStatus('credit');
                       setPaymentMethod(null); // Reset payment method when switching
                     }}
-                    className={`p-4 border-2 rounded-lg transition-colors flex items-center space-x-3 ${
-                      saleType === 'credit'
-                        ? 'border-orange-500 bg-orange-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                    className={`p-4 border-2 rounded-lg transition-colors flex items-center space-x-3 ${saleType === 'credit'
+                      ? 'border-orange-500 bg-orange-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                      }`}
                   >
                     <Clock size={24} className="text-orange-600" />
                     <div className="text-left">
@@ -1309,117 +1272,114 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
 
               {/* Payment Method Section - Only show for paid sales */}
               {saleType === 'paid' && (
-              <div>
-                <h3 className="text-lg font-semibold mb-3">{t('pos.payment.selectMethod')}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <button
-                    onClick={() => setPaymentMethod('cash')}
-                    className={`p-4 border-2 rounded-lg transition-colors flex items-center space-x-3 ${
-                      paymentMethod === 'cash'
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">{t('pos.payment.selectMethod')}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <button
+                      onClick={() => setPaymentMethod('cash')}
+                      className={`p-4 border-2 rounded-lg transition-colors flex items-center space-x-3 ${paymentMethod === 'cash'
                         ? 'border-emerald-500 bg-emerald-50'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <DollarSign size={24} className="text-emerald-600" />
-                    <div className="text-left">
-                      <div className="font-semibold">{t('pos.payment.cash')}</div>
-                      <div className="text-sm text-gray-600">{t('pos.payment.cashDescription')}</div>
-                    </div>
-                  </button>
+                        }`}
+                    >
+                      <DollarSign size={24} className="text-emerald-600" />
+                      <div className="text-left">
+                        <div className="font-semibold">{t('pos.payment.cash')}</div>
+                        <div className="text-sm text-gray-600">{t('pos.payment.cashDescription')}</div>
+                      </div>
+                    </button>
 
-                  <button
-                    onClick={() => setPaymentMethod('mobile_money')}
-                    className={`p-4 border-2 rounded-lg transition-colors flex items-center space-x-3 ${
-                      paymentMethod === 'mobile_money'
+                    <button
+                      onClick={() => setPaymentMethod('mobile_money')}
+                      className={`p-4 border-2 rounded-lg transition-colors flex items-center space-x-3 ${paymentMethod === 'mobile_money'
                         ? 'border-emerald-500 bg-emerald-50'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <Smartphone size={24} className="text-blue-600" />
-                    <div className="text-left">
-                      <div className="font-semibold">{t('pos.payment.mobileMoney')}</div>
-                      <div className="text-sm text-gray-600">{t('pos.payment.mobileMoneyDescription')}</div>
-                    </div>
-                  </button>
+                        }`}
+                    >
+                      <Smartphone size={24} className="text-blue-600" />
+                      <div className="text-left">
+                        <div className="font-semibold">{t('pos.payment.mobileMoney')}</div>
+                        <div className="text-sm text-gray-600">{t('pos.payment.mobileMoneyDescription')}</div>
+                      </div>
+                    </button>
 
-                  <button
-                    onClick={() => setPaymentMethod('card')}
-                    className={`p-4 border-2 rounded-lg transition-colors flex items-center space-x-3 ${
-                      paymentMethod === 'card'
+                    <button
+                      onClick={() => setPaymentMethod('card')}
+                      className={`p-4 border-2 rounded-lg transition-colors flex items-center space-x-3 ${paymentMethod === 'card'
                         ? 'border-emerald-500 bg-emerald-50'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <CreditCard size={24} className="text-purple-600" />
-                    <div className="text-left">
-                      <div className="font-semibold">{t('pos.payment.card')}</div>
-                      <div className="text-sm text-gray-600">{t('pos.payment.cardDescription')}</div>
-                    </div>
-                  </button>
-                </div>
+                        }`}
+                    >
+                      <CreditCard size={24} className="text-purple-600" />
+                      <div className="text-left">
+                        <div className="font-semibold">{t('pos.payment.card')}</div>
+                        <div className="text-sm text-gray-600">{t('pos.payment.cardDescription')}</div>
+                      </div>
+                    </button>
+                  </div>
 
-                {/* Payment Method Specific Fields */}
-                {paymentMethod === 'cash' && (
-                  <div className="mt-4 space-y-3">
-                    <div>
-                      <PriceInput
-                        label={t('pos.payment.amountReceived') + ' ' + t('pos.payment.optional')}
-                        name="amountReceived"
-                        value={amountReceived}
-                        onChange={(e) => setAmountReceived(e.target.value)}
-                        placeholder={t('pos.payment.exactAmountHint') || `Laisser vide si montant exact (${formatPrice(total)} XAF)`}
+                  {/* Payment Method Specific Fields */}
+                  {paymentMethod === 'cash' && (
+                    <div className="mt-4 space-y-3">
+                      <div>
+                        <PriceInput
+                          label={t('pos.payment.amountReceived') + ' ' + t('pos.payment.optional')}
+                          name="amountReceived"
+                          value={amountReceived}
+                          onChange={(e) => setAmountReceived(e.target.value)}
+                          placeholder={t('pos.payment.exactAmountHint') || `Laisser vide si montant exact (${format(total)})`}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {t('pos.payment.amountReceivedHint') || 'Laissez vide si le client paie le montant exact. Entrez le montant uniquement si vous devez rendre de la monnaie.'}
+                        </p>
+                      </div>
+                      {change > 0 && (
+                        <div className="p-3 bg-green-50 rounded-lg">
+                          <div className="text-sm text-gray-600">{t('pos.payment.change')}</div>
+                          <div className="text-xl font-bold text-green-600">{format(change)}</div>
+                        </div>
+                      )}
+                      {!amountReceived && (
+                        <div className="p-3 bg-blue-50 rounded-lg">
+                          <div className="text-sm text-gray-600">{t('pos.payment.exactAmount')}</div>
+                          <div className="text-lg font-semibold text-blue-600">{format(total)}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {paymentMethod === 'mobile_money' && (
+                    <div className="mt-4 space-y-3">
+                      <Input
+                        label={t('pos.payment.mobileMoneyPhone')}
+                        type="tel"
+                        value={mobileMoneyPhone}
+                        onChange={(e) => setMobileMoneyPhone(e.target.value)}
+                        placeholder="+237 6XX XXX XXX"
+                        required
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        {t('pos.payment.amountReceivedHint') || 'Laissez vide si le client paie le montant exact. Entrez le montant uniquement si vous devez rendre de la monnaie.'}
-                      </p>
+                      <Input
+                        label={t('pos.payment.transactionReference')}
+                        type="text"
+                        value={transactionReference}
+                        onChange={(e) => setTransactionReference(e.target.value)}
+                        placeholder={t('pos.payment.transactionReferencePlaceholder')}
+                      />
                     </div>
-                    {change > 0 && (
-                      <div className="p-3 bg-green-50 rounded-lg">
-                        <div className="text-sm text-gray-600">{t('pos.payment.change')}</div>
-                        <div className="text-xl font-bold text-green-600">{formatPrice(change)} XAF</div>
-                      </div>
-                    )}
-                    {!amountReceived && (
-                      <div className="p-3 bg-blue-50 rounded-lg">
-                        <div className="text-sm text-gray-600">{t('pos.payment.exactAmount')}</div>
-                        <div className="text-lg font-semibold text-blue-600">{formatPrice(total)} XAF</div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                  )}
 
-                {paymentMethod === 'mobile_money' && (
-                  <div className="mt-4 space-y-3">
-                    <Input
-                      label={t('pos.payment.mobileMoneyPhone')}
-                      type="tel"
-                      value={mobileMoneyPhone}
-                      onChange={(e) => setMobileMoneyPhone(e.target.value)}
-                      placeholder="+237 6XX XXX XXX"
-                      required
-                    />
-                    <Input
-                      label={t('pos.payment.transactionReference')}
-                      type="text"
-                      value={transactionReference}
-                      onChange={(e) => setTransactionReference(e.target.value)}
-                      placeholder={t('pos.payment.transactionReferencePlaceholder')}
-                    />
-                  </div>
-                )}
-
-                {paymentMethod === 'card' && (
-                  <div className="mt-4 space-y-3">
-                    <Input
-                      label={t('pos.payment.transactionReference')}
-                      type="text"
-                      value={transactionReference}
-                      onChange={(e) => setTransactionReference(e.target.value)}
-                      placeholder={t('pos.payment.transactionReferencePlaceholder')}
-                    />
-                  </div>
-                )}
-              </div>
+                  {paymentMethod === 'card' && (
+                    <div className="mt-4 space-y-3">
+                      <Input
+                        label={t('pos.payment.transactionReference')}
+                        type="text"
+                        value={transactionReference}
+                        onChange={(e) => setTransactionReference(e.target.value)}
+                        placeholder={t('pos.payment.transactionReferencePlaceholder')}
+                      />
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -1431,11 +1391,10 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
               {checkoutSettings?.posCalculatorEnabled && (
                 <button
                   onClick={() => setActiveTab('calculator')}
-                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                    activeTab === 'calculator'
-                      ? 'border-b-2 text-gray-900 font-semibold'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'calculator'
+                    ? 'border-b-2 text-gray-900 font-semibold'
+                    : 'text-gray-500 hover:text-gray-700'
+                    }`}
                   style={activeTab === 'calculator' ? { borderBottomColor: colors.primary } : {}}
                 >
                   {t('pos.payment.calculator')}
@@ -1443,13 +1402,11 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
               )}
               <button
                 onClick={() => setActiveTab('additional')}
-                className={`${
-                  checkoutSettings?.posCalculatorEnabled ? 'flex-1' : 'flex-1'
-                } px-4 py-3 text-sm font-medium transition-colors ${
-                  activeTab === 'additional'
+                className={`${checkoutSettings?.posCalculatorEnabled ? 'flex-1' : 'flex-1'
+                  } px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'additional'
                     ? 'border-b-2 text-gray-900 font-semibold'
                     : 'text-gray-500 hover:text-gray-700'
-                }`}
+                  }`}
                 style={activeTab === 'additional' ? { borderBottomColor: colors.primary } : {}}
               >
                 {t('pos.payment.additionalInfo')}
@@ -1481,295 +1438,295 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                 <div className="space-y-4">
                   {/* Customer Information */}
                   <div className="border border-gray-200 rounded-lg p-4">
-            <h3 className="text-lg font-semibold mb-4 flex items-center">
-              <User size={20} className="mr-2" />
-              {t('pos.payment.customerInfo')}
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="relative">
-                <Input
-                  label={t('pos.payment.customerPhone')}
-                  type="tel"
-                  value={customerPhone}
-                  onChange={handleCustomerPhoneChange}
-                  ref={phoneInputRef}
-                />
-                
-                {/* Customer Dropdown - shown below phone field when phone field is active */}
-                {showCustomerDropdown && activeSearchField === 'phone' && (
-                  <div 
-                    className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
-                    data-dropdown="customer"
-                  >
-                    {customers && customers.length > 0
-                      ? customers
-                          .filter(c => {
-                            if (!customerSearch.trim()) return true;
-                            
-                            const searchTerm = customerSearch.trim().toLowerCase();
-                            const normalizedSearch = normalizePhoneForComparison(customerSearch);
-                            
-                            // Search by name (case-insensitive, partial match)
-                            const nameMatch = c.name?.toLowerCase().includes(searchTerm) || false;
-                            
-                            // Search by phone (normalized comparison for partial match)
-                            const phoneMatch = c.phone && normalizedSearch.length >= 1
-                              ? normalizePhoneForComparison(c.phone).includes(normalizedSearch) || 
-                                normalizedSearch.includes(normalizePhoneForComparison(c.phone))
-                              : false;
-                            
-                            // Return true if EITHER name OR phone matches
-                            return nameMatch || phoneMatch;
-                          })
-                          .slice(0, 10)
-                          .map((customer) => (
-                            <button
-                              key={customer.id}
-                              type="button"
-                              className="w-full px-4 py-3 text-left hover:bg-gray-100 border-b border-gray-100 last:border-b-0 flex items-center justify-between"
-                              onClick={() => handleSelectCustomer(customer)}
-                            >
-                              <div className="flex-1">
-                                <div className="font-medium text-gray-900">{customer.name}</div>
-                                <div className="text-sm text-gray-500">{customer.phone}</div>
-                                {customer.quarter && (
-                                  <div className="text-xs text-gray-400">{customer.quarter}</div>
-                                )}
-                              </div>
-                            </button>
-                          ))
-                      : null}
-                  </div>
-                )}
-              </div>
-              <div className="relative">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('pos.payment.customerName')}
-                  {saleType === 'credit' && <span className="text-red-600 ml-1">*</span>}
-                </label>
-                <Input
-                  type="text"
-                  value={customerName}
-                  onChange={handleCustomerNameChange}
-                  ref={nameInputRef}
-                  error={saleType === 'credit' && (!customerName || customerName.trim() === '') ? (t('sales.messages.errors.customerNameRequiredForCredit') || 'Customer name is required for credit sales') : undefined}
-                  helpText={saleType === 'credit' ? (t('pos.payment.customerNameRequiredForCredit') || 'Required for credit sales') : undefined}
-                  className={saleType === 'credit' && (!customerName || customerName.trim() === '') ? 'border-red-300' : ''}
-                />
-                
-                {/* Improved Customer Dropdown - Unified search by name AND phone */}
-                {showCustomerDropdown && activeSearchField === 'name' && (
-                  <div 
-                    className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
-                    data-dropdown="customer"
-                  >
-                    {customers && customers.length > 0 ? (() => {
-                      const filteredCustomers = customers
-                        .filter(c => {
-                          if (!customerSearch.trim()) return true;
-                          
-                          const searchTerm = customerSearch.trim().toLowerCase();
-                          const normalizedSearch = normalizePhoneForComparison(customerSearch);
-                          
-                          // Search by name (case-insensitive, partial match)
-                          const nameMatch = c.name?.toLowerCase().includes(searchTerm) || false;
-                          
-                          // Search by phone (normalized comparison for partial match)
-                          const phoneMatch = c.phone && normalizedSearch.length >= 1
-                            ? normalizePhoneForComparison(c.phone).includes(normalizedSearch) || 
-                              normalizedSearch.includes(normalizePhoneForComparison(c.phone))
-                            : false;
-                          
-                          // Return true if EITHER name OR phone matches
-                          return nameMatch || phoneMatch;
-                        })
-                        .slice(0, 10);
-                      
-                      if (filteredCustomers.length === 0) {
-                        return (
-                          <div className="p-4 text-sm text-gray-500 text-center">
-                            Aucun client trouvé pour "{customerSearch}"
-                          </div>
-                        );
-                      }
-                      
-                      return (
-                        <>
-                          <div className="p-2 bg-gray-50 border-b sticky top-0">
-                            <div className="text-xs font-medium text-gray-600">
-                              {filteredCustomers.length} {filteredCustomers.length === 1 ? 'client trouvé' : 'clients trouvés'} (nom ou téléphone)
-                            </div>
-                          </div>
-                          {filteredCustomers.map((customer) => {
-                            const searchTerm = customerSearch.trim().toLowerCase();
-                            const normalizedSearch = normalizePhoneForComparison(customerSearch);
-                            const nameMatch = customer.name?.toLowerCase().includes(searchTerm);
-                            const phoneMatch = customer.phone && normalizePhoneForComparison(customer.phone).includes(normalizedSearch);
-                            
-                            return (
-                              <button
-                                key={customer.id}
-                                type="button"
-                                className="w-full px-4 py-3 text-left hover:bg-emerald-50 border-b border-gray-100 last:border-b-0 transition-colors"
-                                onClick={() => handleSelectCustomer(customer)}
-                              >
-                                <div className="flex items-start gap-2">
-                                  <div className="flex-1">
-                                    <div className="font-medium text-gray-900 flex items-center gap-2">
-                                      {customer.name || 'Client de passage'}
-                                      {nameMatch && <span className="text-xs bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded">Nom</span>}
-                                      {phoneMatch && <span className="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">Tél</span>}
-                                    </div>
-                                    {customer.phone && (
-                                      <div className="text-sm text-gray-600 mt-1">
-                                        📞 {customer.phone}
-                                      </div>
-                                    )}
-                                    {customer.quarter && (
-                                      <div className="text-xs text-gray-500 mt-1">
-                                        📍 {customer.quarter}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </>
-                      );
-                    })() : null}
-                  </div>
-                )}
-              </div>
-              <Input
-                label={t('pos.payment.customerQuarter')}
-                type="text"
-                value={customerQuarter}
-                onChange={(e) => setCustomerQuarter(e.target.value)}
-              />
-              {activeSources.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t('pos.payment.customerSource')}
-                  </label>
-                  <Select
-                    options={[
-                      { value: '', label: t('pos.payment.noSource'), color: '#6B7280' },
-                      ...activeSources.map(source => ({
-                        value: source.id,
-                        label: source.name,
-                        color: source.color || '#3B82F6'
-                      }))
-                    ]}
-                    value={customerSourceId && activeSources.find(s => s.id === customerSourceId)
-                      ? { 
-                          value: customerSourceId, 
-                          label: activeSources.find(s => s.id === customerSourceId)?.name || '',
-                          color: activeSources.find(s => s.id === customerSourceId)?.color || '#3B82F6'
-                        }
-                      : null
-                    }
-                    onChange={(option) => setCustomerSourceId(option?.value || '')}
-                    formatOptionLabel={({ label, color }) => (
-                      <div className="flex items-center gap-2">
-                        {color && (
+                    <h3 className="text-lg font-semibold mb-4 flex items-center">
+                      <User size={20} className="mr-2" />
+                      {t('pos.payment.customerInfo')}
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="relative">
+                        <Input
+                          label={t('pos.payment.customerPhone')}
+                          type="tel"
+                          value={customerPhone}
+                          onChange={handleCustomerPhoneChange}
+                          ref={phoneInputRef}
+                        />
+
+                        {/* Customer Dropdown - shown below phone field when phone field is active */}
+                        {showCustomerDropdown && activeSearchField === 'phone' && (
                           <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: color }}
-                          />
+                            className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
+                            data-dropdown="customer"
+                          >
+                            {customers && customers.length > 0
+                              ? customers
+                                .filter(c => {
+                                  if (!customerSearch.trim()) return true;
+
+                                  const searchTerm = customerSearch.trim().toLowerCase();
+                                  const normalizedSearch = normalizePhoneForComparison(customerSearch);
+
+                                  // Search by name (case-insensitive, partial match)
+                                  const nameMatch = c.name?.toLowerCase().includes(searchTerm) || false;
+
+                                  // Search by phone (normalized comparison for partial match)
+                                  const phoneMatch = c.phone && normalizedSearch.length >= 1
+                                    ? normalizePhoneForComparison(c.phone).includes(normalizedSearch) ||
+                                    normalizedSearch.includes(normalizePhoneForComparison(c.phone))
+                                    : false;
+
+                                  // Return true if EITHER name OR phone matches
+                                  return nameMatch || phoneMatch;
+                                })
+                                .slice(0, 10)
+                                .map((customer) => (
+                                  <button
+                                    key={customer.id}
+                                    type="button"
+                                    className="w-full px-4 py-3 text-left hover:bg-gray-100 border-b border-gray-100 last:border-b-0 flex items-center justify-between"
+                                    onClick={() => handleSelectCustomer(customer)}
+                                  >
+                                    <div className="flex-1">
+                                      <div className="font-medium text-gray-900">{customer.name}</div>
+                                      <div className="text-sm text-gray-500">{customer.phone}</div>
+                                      {customer.quarter && (
+                                        <div className="text-xs text-gray-400">{customer.quarter}</div>
+                                      )}
+                                    </div>
+                                  </button>
+                                ))
+                              : null}
+                          </div>
                         )}
-                        <span>{label}</span>
+                      </div>
+                      <div className="relative">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {t('pos.payment.customerName')}
+                          {saleType === 'credit' && <span className="text-red-600 ml-1">*</span>}
+                        </label>
+                        <Input
+                          type="text"
+                          value={customerName}
+                          onChange={handleCustomerNameChange}
+                          ref={nameInputRef}
+                          error={saleType === 'credit' && (!customerName || customerName.trim() === '') ? (t('sales.messages.errors.customerNameRequiredForCredit') || 'Customer name is required for credit sales') : undefined}
+                          helpText={saleType === 'credit' ? (t('pos.payment.customerNameRequiredForCredit') || 'Required for credit sales') : undefined}
+                          className={saleType === 'credit' && (!customerName || customerName.trim() === '') ? 'border-red-300' : ''}
+                        />
+
+                        {/* Improved Customer Dropdown - Unified search by name AND phone */}
+                        {showCustomerDropdown && activeSearchField === 'name' && (
+                          <div
+                            className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
+                            data-dropdown="customer"
+                          >
+                            {customers && customers.length > 0 ? (() => {
+                              const filteredCustomers = customers
+                                .filter(c => {
+                                  if (!customerSearch.trim()) return true;
+
+                                  const searchTerm = customerSearch.trim().toLowerCase();
+                                  const normalizedSearch = normalizePhoneForComparison(customerSearch);
+
+                                  // Search by name (case-insensitive, partial match)
+                                  const nameMatch = c.name?.toLowerCase().includes(searchTerm) || false;
+
+                                  // Search by phone (normalized comparison for partial match)
+                                  const phoneMatch = c.phone && normalizedSearch.length >= 1
+                                    ? normalizePhoneForComparison(c.phone).includes(normalizedSearch) ||
+                                    normalizedSearch.includes(normalizePhoneForComparison(c.phone))
+                                    : false;
+
+                                  // Return true if EITHER name OR phone matches
+                                  return nameMatch || phoneMatch;
+                                })
+                                .slice(0, 10);
+
+                              if (filteredCustomers.length === 0) {
+                                return (
+                                  <div className="p-4 text-sm text-gray-500 text-center">
+                                    Aucun client trouvé pour "{customerSearch}"
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <>
+                                  <div className="p-2 bg-gray-50 border-b sticky top-0">
+                                    <div className="text-xs font-medium text-gray-600">
+                                      {filteredCustomers.length} {filteredCustomers.length === 1 ? 'client trouvé' : 'clients trouvés'} (nom ou téléphone)
+                                    </div>
+                                  </div>
+                                  {filteredCustomers.map((customer) => {
+                                    const searchTerm = customerSearch.trim().toLowerCase();
+                                    const normalizedSearch = normalizePhoneForComparison(customerSearch);
+                                    const nameMatch = customer.name?.toLowerCase().includes(searchTerm);
+                                    const phoneMatch = customer.phone && normalizePhoneForComparison(customer.phone).includes(normalizedSearch);
+
+                                    return (
+                                      <button
+                                        key={customer.id}
+                                        type="button"
+                                        className="w-full px-4 py-3 text-left hover:bg-emerald-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                                        onClick={() => handleSelectCustomer(customer)}
+                                      >
+                                        <div className="flex items-start gap-2">
+                                          <div className="flex-1">
+                                            <div className="font-medium text-gray-900 flex items-center gap-2">
+                                              {customer.name || 'Client de passage'}
+                                              {nameMatch && <span className="text-xs bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded">Nom</span>}
+                                              {phoneMatch && <span className="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">Tél</span>}
+                                            </div>
+                                            {customer.phone && (
+                                              <div className="text-sm text-gray-600 mt-1">
+                                                📞 {customer.phone}
+                                              </div>
+                                            )}
+                                            {customer.quarter && (
+                                              <div className="text-xs text-gray-500 mt-1">
+                                                📍 {customer.quarter}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </button>
+                                    );
+                                  })}
+                                </>
+                              );
+                            })() : null}
+                          </div>
+                        )}
+                      </div>
+                      <Input
+                        label={t('pos.payment.customerQuarter')}
+                        type="text"
+                        value={customerQuarter}
+                        onChange={(e) => setCustomerQuarter(e.target.value)}
+                      />
+                      {activeSources.length > 0 && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            {t('pos.payment.customerSource')}
+                          </label>
+                          <Select
+                            options={[
+                              { value: '', label: t('pos.payment.noSource'), color: '#6B7280' },
+                              ...activeSources.map(source => ({
+                                value: source.id,
+                                label: source.name,
+                                color: source.color || '#3B82F6'
+                              }))
+                            ]}
+                            value={customerSourceId && activeSources.find(s => s.id === customerSourceId)
+                              ? {
+                                value: customerSourceId,
+                                label: activeSources.find(s => s.id === customerSourceId)?.name || '',
+                                color: activeSources.find(s => s.id === customerSourceId)?.color || '#3B82F6'
+                              }
+                              : null
+                            }
+                            onChange={(option) => setCustomerSourceId(option?.value || '')}
+                            formatOptionLabel={({ label, color }) => (
+                              <div className="flex items-center gap-2">
+                                {color && (
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: color }}
+                                  />
+                                )}
+                                <span>{label}</span>
+                              </div>
+                            )}
+                            className="react-select-container"
+                            classNamePrefix="react-select"
+                            isClearable
+                            placeholder={t('pos.payment.selectSource')}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    {/* Additional customer fields - Collapsible */}
+                    <button
+                      onClick={() => setShowCustomerSection(!showCustomerSection)}
+                      className="mt-3 text-sm text-gray-600 hover:text-gray-900 flex items-center space-x-1"
+                    >
+                      <span>{showCustomerSection ? t('pos.payment.hideAdditional') : t('pos.payment.showAdditional')}</span>
+                      {showCustomerSection ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    </button>
+                    {showCustomerSection && (
+                      <div className="mt-3 pt-3 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input
+                          label={t('pos.payment.customerAddress')}
+                          type="text"
+                          value={customerAddress}
+                          onChange={(e) => setCustomerAddress(e.target.value)}
+                        />
+                        <Input
+                          label={t('pos.payment.customerTown')}
+                          type="text"
+                          value={customerTown}
+                          onChange={(e) => setCustomerTown(e.target.value)}
+                        />
                       </div>
                     )}
-                    className="react-select-container"
-                    classNamePrefix="react-select"
-                    isClearable
-                    placeholder={t('pos.payment.selectSource')}
-                  />
-                </div>
-              )}
-            </div>
-            {/* Additional customer fields - Collapsible */}
-            <button
-              onClick={() => setShowCustomerSection(!showCustomerSection)}
-              className="mt-3 text-sm text-gray-600 hover:text-gray-900 flex items-center space-x-1"
-            >
-              <span>{showCustomerSection ? t('pos.payment.hideAdditional') : t('pos.payment.showAdditional')}</span>
-              {showCustomerSection ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
-            {showCustomerSection && (
-              <div className="mt-3 pt-3 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label={t('pos.payment.customerAddress')}
-                  type="text"
-                  value={customerAddress}
-                  onChange={(e) => setCustomerAddress(e.target.value)}
-                />
-                <Input
-                  label={t('pos.payment.customerTown')}
-                  type="text"
-                  value={customerTown}
-                  onChange={(e) => setCustomerTown(e.target.value)}
-                />
-              </div>
-            )}
-          </div>
+                  </div>
 
-          {/* Sale Date and Discount - Always Visible */}
-          <div className="flex flex-col gap-4">
-            {/* Row 1: Date and Promo Code */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="w-full">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <Calendar size={16} className="inline mr-2" />
-                  {t('pos.payment.saleDate')}
-                </label>
-                <Input
-                  type="date"
-                  value={saleDate}
-                  onChange={(e) => setSaleDate(e.target.value)}
-                  className="w-full"
-                />
-              </div>
-              <div className="w-full">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('pos.payment.promoCode')}
-                </label>
-                <Input
-                  type="text"
-                  value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value)}
-                  placeholder={t('pos.payment.promoCodePlaceholder')}
-                  className="w-full"
-                />
-              </div>
-            </div>
-            {/* Row 2: Discount */}
-            <div className="w-full">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                <Percent size={16} className="inline mr-2" />
-                {t('pos.payment.discount')}
-              </label>
-              <div className="flex flex-col sm:flex-row gap-2 w-full">
-                <select
-                  value={discountType}
-                  onChange={(e) => setDiscountType(e.target.value as 'amount' | 'percentage')}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm w-full sm:w-auto sm:min-w-[140px] flex-shrink-0"
-                >
-                  <option value="amount">{t('pos.payment.discountAmount')}</option>
-                  <option value="percentage">{t('pos.payment.discountPercentage')}</option>
-                </select>
-                <PriceInput
-                  name="discountValue"
-                  value={discountValue}
-                  onChange={(e) => setDiscountValue(e.target.value)}
-                  placeholder={discountType === 'amount' ? 'XAF' : '%'}
-                  className="flex-1"
-                  allowDecimals={discountType === 'percentage'}
-                />
-              </div>
-            </div>
-          </div>
+                  {/* Sale Date and Discount - Always Visible */}
+                  <div className="flex flex-col gap-4">
+                    {/* Row 1: Date and Promo Code */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="w-full">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <Calendar size={16} className="inline mr-2" />
+                          {t('pos.payment.saleDate')}
+                        </label>
+                        <Input
+                          type="date"
+                          value={saleDate}
+                          onChange={(e) => setSaleDate(e.target.value)}
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="w-full">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {t('pos.payment.promoCode')}
+                        </label>
+                        <Input
+                          type="text"
+                          value={promoCode}
+                          onChange={(e) => setPromoCode(e.target.value)}
+                          placeholder={t('pos.payment.promoCodePlaceholder')}
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                    {/* Row 2: Discount */}
+                    <div className="w-full">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <Percent size={16} className="inline mr-2" />
+                        {t('pos.payment.discount')}
+                      </label>
+                      <div className="flex flex-col sm:flex-row gap-2 w-full">
+                        <select
+                          value={discountType}
+                          onChange={(e) => setDiscountType(e.target.value as 'amount' | 'percentage')}
+                          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm w-full sm:w-auto sm:min-w-[140px] flex-shrink-0"
+                        >
+                          <option value="amount">{t('pos.payment.discountAmount')} ({currency.symbol})</option>
+                          <option value="percentage">{t('pos.payment.discountPercentage')}</option>
+                        </select>
+                        <PriceInput
+                          name="discountValue"
+                          value={discountValue}
+                          onChange={(e) => setDiscountValue(e.target.value)}
+                          placeholder={discountType === 'amount' ? currency.symbol : '%'}
+                          className="flex-1"
+                          allowDecimals={discountType === 'percentage'}
+                        />
+                      </div>
+                    </div>
+                  </div>
 
                   {/* Sale Information Section (Collapsible) */}
                   <div className="border border-gray-200 rounded-lg">
@@ -1843,8 +1800,8 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                               inventoryMethod === 'fifo'
                                 ? t('sales.modals.add.inventoryMethod.fifoDescription')
                                 : inventoryMethod === 'lifo'
-                                ? t('sales.modals.add.inventoryMethod.lifoDescription')
-                                : t('sales.modals.add.inventoryMethod.cmupDescription')
+                                  ? t('sales.modals.add.inventoryMethod.lifoDescription')
+                                  : t('sales.modals.add.inventoryMethod.cmupDescription')
                             }
                           />
                         </div>
@@ -1861,23 +1818,21 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                         <label className="text-sm font-medium text-gray-700">TVA Cameroun ({tvaRate}%):</label>
                         <button
                           onClick={() => onTVAToggle && onTVAToggle(!applyTVA)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            applyTVA ? 'bg-emerald-600' : 'bg-gray-200'
-                          }`}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${applyTVA ? 'bg-emerald-600' : 'bg-gray-200'
+                            }`}
                         >
-                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            applyTVA ? 'translate-x-6' : 'translate-x-1'
-                          }`} />
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${applyTVA ? 'translate-x-6' : 'translate-x-1'
+                            }`} />
                         </button>
                       </div>
-                      
+
                       {/* TVA Amount Display */}
                       {applyTVA && (
                         <div className="text-sm text-gray-600">
-                          TVA: {formatPrice(subtotal * (tvaRate / 100))} XAF
+                          TVA: {format(subtotal * (tvaRate / 100))}
                         </div>
                       )}
-                      
+
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           {t('pos.payment.tax')}
@@ -1886,7 +1841,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                           name="tax"
                           value={tax}
                           onChange={(e) => setTax(e.target.value)}
-                          placeholder="XAF"
+                          placeholder={currency.symbol}
                         />
                       </div>
                       <div>
@@ -1952,8 +1907,8 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
           <button
             onClick={handleComplete}
             disabled={
-              isSubmitting || 
-              isPrinting || 
+              isSubmitting ||
+              isPrinting ||
               (saleType === 'paid' && !paymentMethod) ||
               (saleType === 'credit' && (!customerName || customerName.trim() === ''))
             }

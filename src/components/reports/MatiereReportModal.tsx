@@ -11,12 +11,14 @@ import {
   DateRangeFilter,
   ReportFormat
 } from '../../types/reports';
+import { useCurrency } from '@hooks/useCurrency';
 import {
   MATIERE_REPORT_FIELDS,
   generateMatiereReport,
   transformMatieresToReportData,
   filterMatiereReportData
 } from '../../services/reports/matiereReportService';
+import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast } from '../../utils/core/toast';
 
 interface MatiereReportModalProps {
@@ -40,6 +42,10 @@ const MatiereReportModal: React.FC<MatiereReportModalProps> = ({
   companyName = '',
   companyLogo = ''
 }) => {
+  const { format: formatCurrency } = useCurrency();
+  const { company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+
   // Report configuration state
   const [reportFormat, setReportFormat] = useState<ReportFormat>('csv');
   const [periodType, setPeriodType] = useState<'all' | 'today' | 'week' | 'month' | 'year' | 'custom'>('all');
@@ -62,13 +68,9 @@ const MatiereReportModal: React.FC<MatiereReportModalProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  // Get unique category names for matiere type
   const categoryNames = categories
     .filter(c => c.type === 'matiere' && !c.isActive === false)
     .map(c => c.name);
-  const supplierNames = suppliers
-    .filter(s => !s.isDeleted)
-    .map(s => s.name);
 
   // Update preview when filters change
   useEffect(() => {
@@ -140,6 +142,7 @@ const MatiereReportModal: React.FC<MatiereReportModalProps> = ({
           filename: '',
           companyName,
           companyLogo,
+          currencyCode: currencyCode, // Use currency code for PDF compatibility
           includeTimestamp: true,
           includeFooter: true,
           orientation: 'landscape'
@@ -230,21 +233,19 @@ const MatiereReportModal: React.FC<MatiereReportModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => setReportFormat('csv')}
-              className={`px-4 py-2.5 rounded-md border text-sm font-medium transition-colors ${
-                reportFormat === 'csv'
-                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-              }`}
+              className={`px-4 py-2.5 rounded-md border text-sm font-medium transition-colors ${reportFormat === 'csv'
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
             >
               CSV
             </button>
             <button
               onClick={() => setReportFormat('pdf')}
-              className={`px-4 py-2.5 rounded-md border text-sm font-medium transition-colors ${
-                reportFormat === 'pdf'
-                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-              }`}
+              className={`px-4 py-2.5 rounded-md border text-sm font-medium transition-colors ${reportFormat === 'pdf'
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
             >
               PDF
             </button>
@@ -268,11 +269,10 @@ const MatiereReportModal: React.FC<MatiereReportModalProps> = ({
               <button
                 key={period.value}
                 onClick={() => handlePeriodChange(period.value as any)}
-                className={`px-3 py-2 rounded-md text-xs font-medium transition-colors ${
-                  periodType === period.value
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
+                className={`px-3 py-2 rounded-md text-xs font-medium transition-colors ${periodType === period.value
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
               >
                 {period.label}
               </button>
@@ -299,9 +299,8 @@ const MatiereReportModal: React.FC<MatiereReportModalProps> = ({
               Filtres avancés
             </h4>
             <svg
-              className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${
-                showAdvancedFilters ? 'rotate-180' : ''
-              }`}
+              className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${showAdvancedFilters ? 'rotate-180' : ''
+                }`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -309,7 +308,7 @@ const MatiereReportModal: React.FC<MatiereReportModalProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
-          
+
           {showAdvancedFilters && (
             <div className="px-4 pb-4 space-y-4 border-t border-gray-200">
               <div className="flex justify-end pt-3">
@@ -338,11 +337,10 @@ const MatiereReportModal: React.FC<MatiereReportModalProps> = ({
                               : [...prev, cat]
                           );
                         }}
-                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                          selectedCategories.includes(cat)
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                        }`}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedCategories.includes(cat)
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          }`}
                       >
                         {cat}
                       </button>
@@ -414,7 +412,7 @@ const MatiereReportModal: React.FC<MatiereReportModalProps> = ({
                       {MATIERE_REPORT_FIELDS.filter(f => selectedFields.includes(f.key)).map(field => (
                         <td key={field.key} className="px-3 py-2 text-gray-600">
                           {field.type === 'currency'
-                            ? `${Number(item[field.key as keyof MatiereReportData]).toLocaleString('fr-FR')} F`
+                            ? formatCurrency(Number(item[field.key as keyof MatiereReportData]))
                             : String(item[field.key as keyof MatiereReportData] ?? '-')}
                         </td>
                       ))}

@@ -13,6 +13,7 @@ import StatCard from '../../components/dashboard/StatCard';
 import { calculateSolde } from '@utils/calculations/financialCalculations';
 import { PermissionButton, usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
+import { useCurrency } from '@hooks/useCurrency';
 
 const Suppliers = () => {
   const { t } = useTranslation();
@@ -21,6 +22,7 @@ const Suppliers = () => {
   const { entries: financeEntries } = useFinanceEntries();
   const { user, company } = useAuth();
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.SUPPLIERS);
+  const { format } = useCurrency();
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -29,7 +31,7 @@ const Suppliers = () => {
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
   const [isDebtHistoryModalOpen, setIsDebtHistoryModalOpen] = useState(false);
   const [isAddDebtModalOpen, setIsAddDebtModalOpen] = useState(false);
-  
+
   // Form states
   const [currentSupplier, setCurrentSupplier] = useState<Supplier | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -57,7 +59,7 @@ const Suppliers = () => {
   // Map supplier debts by supplierId for easy lookup
   const supplierDebts = useMemo(() => {
     const debtsMap: Record<string, SupplierDebt> = {};
-    
+
     supplierDebtsList.forEach((debt: SupplierDebt) => {
       debtsMap[debt.supplierId] = debt;
     });
@@ -72,7 +74,7 @@ const Suppliers = () => {
 
   // Filter suppliers
   const filteredSuppliers = useMemo(() => {
-    return suppliers.filter(supplier => 
+    return suppliers.filter(supplier =>
       supplier.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       supplier.contact.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (supplier.location && supplier.location.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -278,7 +280,7 @@ const Suppliers = () => {
       // Find the first debt entry to link the refund to (optional, for tracking)
       const debtEntries = supplierDebt.entries?.filter(e => e.type === 'debt') || [];
       const debtToRefundId = debtEntries.length > 0 ? debtEntries[0].id : undefined;
-      
+
       await createSupplierRefund(
         currentSupplier.id,
         refundAmount,
@@ -392,7 +394,7 @@ const Suppliers = () => {
           <h1 className="text-2xl font-semibold text-gray-900">{t('suppliers.title')}</h1>
           <p className="text-gray-600">{t('suppliers.subtitle')}</p>
         </div>
-        
+
         <div className="mt-4 md:mt-0">
           <PermissionButton
             resource={RESOURCES.SUPPLIERS}
@@ -418,7 +420,7 @@ const Suppliers = () => {
                 e => e.type !== 'supplier_debt' && e.type !== 'supplier_refund'
               );
               const solde = calculateSolde(nonSupplierEntries, [], []);
-              return solde.toLocaleString() + ' XAF';
+              return format(solde);
             })()}
             icon={<DollarSign size={24} />}
             type="solde"
@@ -432,7 +434,7 @@ const Suppliers = () => {
                 {t('suppliers.debtCard.title')}
               </div>
               <div className="text-base md:text-xl font-bold text-red-900 mb-1 md:mb-2">
-                {totalSupplierDebt.toLocaleString()} XAF
+                {format(totalSupplierDebt)}
               </div>
             </div>
             <DollarSign className="text-red-600" size={24} />
@@ -467,7 +469,7 @@ const Suppliers = () => {
         onClose={() => setIsAddModalOpen(false)}
         title={t('suppliers.actions.addSupplier')}
         footer={
-          <ModalFooter 
+          <ModalFooter
             onCancel={() => setIsAddModalOpen(false)}
             onConfirm={handleAddSupplier}
             confirmText={t('suppliers.actions.addSupplier')}
@@ -483,7 +485,7 @@ const Suppliers = () => {
             onChange={handleInputChange}
             required
           />
-          
+
           <Input
             label={t('suppliers.form.contact')}
             name="contact"
@@ -492,7 +494,7 @@ const Suppliers = () => {
             onChange={handleInputChange}
             required
           />
-          
+
           <Input
             label={t('suppliers.form.location')}
             name="location"
@@ -508,7 +510,7 @@ const Suppliers = () => {
         onClose={() => setIsEditModalOpen(false)}
         title={t('suppliers.actions.editSupplier')}
         footer={
-          <ModalFooter 
+          <ModalFooter
             onCancel={() => setIsEditModalOpen(false)}
             onConfirm={handleEditSupplier}
             confirmText={t('suppliers.actions.editSupplier')}
@@ -524,7 +526,7 @@ const Suppliers = () => {
             onChange={handleInputChange}
             required
           />
-          
+
           <Input
             label={t('suppliers.form.contact')}
             name="contact"
@@ -533,7 +535,7 @@ const Suppliers = () => {
             onChange={handleInputChange}
             required
           />
-          
+
           <Input
             label={t('suppliers.form.location')}
             name="location"
@@ -549,7 +551,7 @@ const Suppliers = () => {
         onClose={() => setIsDeleteModalOpen(false)}
         title={t('suppliers.actions.deleteSupplier')}
         footer={
-          <ModalFooter 
+          <ModalFooter
             onCancel={() => setIsDeleteModalOpen(false)}
             onConfirm={handleDeleteSupplier}
             confirmText={t('suppliers.actions.deleteSupplier')}
@@ -572,7 +574,7 @@ const Suppliers = () => {
         onClose={() => setIsRefundModalOpen(false)}
         title={t('suppliers.refund.title')}
         footer={
-          <ModalFooter 
+          <ModalFooter
             onCancel={() => setIsRefundModalOpen(false)}
             onConfirm={handleAddRefund}
             confirmText={t('suppliers.refund.title')}
@@ -584,14 +586,14 @@ const Suppliers = () => {
           {currentSupplier && (
             <div className="bg-gray-50 p-3 rounded-lg">
               <p className="text-sm text-gray-600">
-                {t('suppliers.refund.remainingDebt')}: 
+                {t('suppliers.refund.remainingDebt')}:
                 <span className="font-semibold ml-1">
-                  {(supplierDebts[currentSupplier.id]?.outstanding || 0).toLocaleString()} XAF
+                  {format(supplierDebts[currentSupplier.id]?.outstanding || 0)}
                 </span>
               </p>
             </div>
           )}
-          
+
           <PriceInput
             label={t('suppliers.refund.amount')}
             name="amount"
@@ -599,7 +601,7 @@ const Suppliers = () => {
             onChange={handleRefundInputChange}
             required
           />
-          
+
           <Textarea
             label={t('suppliers.refund.description')}
             name="description"
@@ -617,7 +619,7 @@ const Suppliers = () => {
         onClose={() => setIsAddDebtModalOpen(false)}
         title={t('suppliers.debt.addTitle') || 'Ajouter une dette'}
         footer={
-          <ModalFooter 
+          <ModalFooter
             onCancel={() => setIsAddDebtModalOpen(false)}
             onConfirm={handleAddDebt}
             confirmText={t('suppliers.debt.addButton') || 'Ajouter la dette'}
@@ -629,22 +631,22 @@ const Suppliers = () => {
           {currentSupplier && (
             <div className="bg-gray-50 p-3 rounded-lg">
               <p className="text-sm text-gray-600">
-                {t('suppliers.debt.supplier') || 'Fournisseur'}: 
+                {t('suppliers.debt.supplier') || 'Fournisseur'}:
                 <span className="font-semibold ml-1">
                   {currentSupplier.name}
                 </span>
               </p>
               {supplierDebts[currentSupplier.id] && (
                 <p className="text-sm text-gray-600 mt-1">
-                  {t('suppliers.debtHistory.remaining') || 'Dette actuelle'}: 
+                  {t('suppliers.debtHistory.remaining') || 'Dette actuelle'}:
                   <span className="font-semibold ml-1">
-                    {(supplierDebts[currentSupplier.id]?.outstanding || 0).toLocaleString()} XAF
+                    {format(supplierDebts[currentSupplier.id]?.outstanding || 0)}
                   </span>
                 </p>
               )}
             </div>
           )}
-          
+
           <PriceInput
             label={t('suppliers.debt.amount') || 'Montant de la dette'}
             name="amount"
@@ -652,7 +654,7 @@ const Suppliers = () => {
             onChange={handleDebtInputChange}
             required
           />
-          
+
           <Textarea
             label={t('suppliers.debt.description') || 'Description'}
             name="description"
@@ -680,13 +682,13 @@ const Suppliers = () => {
                 <div>
                   <span className="text-gray-600">{t('suppliers.debtHistory.total')}: </span>
                   <span className="font-semibold">
-                    {(supplierDebts[currentSupplier.id]?.totalDebt || 0).toLocaleString()} XAF
+                    {format(supplierDebts[currentSupplier.id]?.totalDebt || 0)}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-600">{t('suppliers.debtHistory.remaining')}: </span>
                   <span className="font-semibold">
-                    {(supplierDebts[currentSupplier.id]?.outstanding || 0).toLocaleString()} XAF
+                    {format(supplierDebts[currentSupplier.id]?.outstanding || 0)}
                   </span>
                 </div>
               </div>
@@ -701,16 +703,16 @@ const Suppliers = () => {
                       <div key={entry.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                         <div className="flex-1">
                           <div className="flex items-center space-x-2">
-                            <Badge 
+                            <Badge
                               variant={entry.type === 'debt' ? 'error' : 'success'}
                             >
-                              {entry.type === 'debt' 
+                              {entry.type === 'debt'
                                 ? t('suppliers.debtHistory.debtEntry')
                                 : t('suppliers.debtHistory.refundEntry')
                               }
                             </Badge>
                             <span className="font-semibold">
-                              {entry.amount.toLocaleString()} XAF
+                              {format(entry.amount)}
                             </span>
                           </div>
                           {entry.description && (
@@ -718,7 +720,7 @@ const Suppliers = () => {
                           )}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {entry.createdAt?.seconds 
+                          {entry.createdAt?.seconds
                             ? new Date(entry.createdAt.seconds * 1000).toLocaleDateString()
                             : '-'
                           }

@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { showErrorToast } from '@utils/core/toast';
-import { formatPrice } from '@utils/formatting/formatPrice';
+import { useCurrency } from '@hooks/useCurrency';
 import CustomerAdditionalInfo from '../customers/CustomerAdditionalInfo';
 import { useCustomers } from '@hooks/data/useFirestore';
 import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
@@ -29,6 +29,7 @@ interface SaleDetailsModalProps {
 
 const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sale, products, title, onSettleCredit, onCancelCredit, onRefundCredit }) => {
   const { t } = useTranslation();
+  const { format } = useCurrency();
   const [isSharing, setIsSharing] = useState(false);
   const { company } = useAuth();
   const { customers } = useCustomers();
@@ -477,7 +478,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 mb-1">{t('sales.modals.view.summary.totalAmount') || 'Total Amount'}</p>
-                  <p className="text-lg font-bold text-emerald-600">{formatPrice(totalAmount)} XAF</p>
+                  <p className="text-lg font-bold text-emerald-600">{format(totalAmount)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 mb-1">{t('sales.modals.view.summary.items') || 'Items'}</p>
@@ -516,14 +517,14 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                               <p className="font-medium text-gray-900">{productData?.name || 'Unknown'}</p>
                               {product.negotiatedPrice && product.negotiatedPrice !== product.basePrice && (
                                 <p className="text-xs text-gray-500">
-                                  Base: {formatPrice(product.basePrice)} XAF
+                                  Base: {format(product.basePrice)}
                                 </p>
                               )}
                             </td>
                             <td className="text-right py-2 px-2 text-gray-900">{product.quantity}</td>
-                            <td className="text-right py-2 px-2 text-gray-900">{formatPrice(unitPrice)} XAF</td>
-                            <td className="text-right py-2 px-2 text-emerald-600">{formatPrice(profit)} XAF</td>
-                            <td className="text-right py-2 px-2 font-medium text-emerald-600">{formatPrice(productTotal)} XAF</td>
+                            <td className="text-right py-2 px-2 text-gray-900">{format(unitPrice)}</td>
+                            <td className="text-right py-2 px-2 text-emerald-600">{format(profit)}</td>
+                            <td className="text-right py-2 px-2 font-medium text-emerald-600">{format(productTotal)}</td>
                           </tr>
                         );
                       })}
@@ -603,21 +604,21 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">{t('sales.modals.view.orderSummary.subtotal')}</span>
-                  <span className="text-gray-900">{formatPrice(subtotal)} XAF</span>
+                  <span className="text-gray-900">{format(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600 font-medium">{t('sales.modals.view.orderSummary.totalProfit') || 'Total Profit'}</span>
-                  <span className="text-emerald-600 font-medium">{formatPrice(totalProfit)} XAF</span>
+                  <span className="text-emerald-600 font-medium">{format(totalProfit)}</span>
                 </div>
                 {(sale.deliveryFee ?? 0) > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">{t('sales.modals.view.orderSummary.deliveryFee')}</span>
-                    <span className="text-gray-900">{formatPrice(sale.deliveryFee ?? 0)} XAF</span>
+                    <span className="text-gray-900">{format(sale.deliveryFee ?? 0)}</span>
                   </div>
                 )}
                 <div className="pt-2 border-t border-gray-200 flex justify-between">
                   <span className="font-semibold text-gray-900">{t('sales.modals.view.orderSummary.totalAmount')}</span>
-                  <span className="text-lg font-bold text-emerald-600">{formatPrice(totalAmount)} XAF</span>
+                  <span className="text-lg font-bold text-emerald-600">{format(totalAmount)}</span>
                 </div>
               </div>
               {/* Credit Sale Info */}
@@ -630,12 +631,12 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
                       <p className="text-xs text-orange-700">{t('sales.modals.view.creditInformation.remaining') || 'Remaining'}</p>
-                      <p className="font-semibold text-red-600">{formatPrice(sale.remainingAmount ?? sale.totalAmount)} XAF</p>
+                      <p className="font-semibold text-red-600">{format(sale.remainingAmount ?? sale.totalAmount)}</p>
                     </div>
                     {sale.paidAmount && sale.paidAmount > 0 && (
                       <div>
                         <p className="text-xs text-orange-700">{t('sales.modals.view.creditInformation.paid') || 'Paid'}</p>
-                        <p className="font-semibold text-green-600">{formatPrice(sale.paidAmount)} XAF</p>
+                        <p className="font-semibold text-green-600">{format(sale.paidAmount)}</p>
                       </div>
                     )}
                     {sale.creditDueDate && (
@@ -703,7 +704,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                             )}
                             {historyEntry.amountPaid && (
                               <p className="text-xs text-gray-600 mt-1">
-                                {t('sales.modals.view.statusHistory.amountPaid') || 'Amount Paid'}: {formatPrice(historyEntry.amountPaid)} XAF
+                                {t('sales.modals.view.statusHistory.amountPaid') || 'Amount Paid'}: {format(historyEntry.amountPaid)}
                               </p>
                             )}
                           </div>
@@ -746,7 +747,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                                     {t('sales.refund.refund') || 'Refund'}
                                   </Badge>
                                   <span className="text-sm font-semibold text-red-600">
-                                    {formatPrice(refund.amount)} XAF
+                                    {format(refund.amount)}
                                   </span>
                                   {refund.paymentMethod && (
                                     <span className="text-xs text-gray-500">
@@ -778,7 +779,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                               {t('sales.refund.totalRefunded') || 'Total Refunded'}:
                             </span>
                             <span className="text-lg font-bold text-red-600">
-                              {formatPrice(sale.totalRefunded)} XAF
+                              {format(sale.totalRefunded)}
                             </span>
                           </div>
                         </div>
@@ -864,7 +865,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                     <div>
                       <p className="text-xs text-gray-500 mb-1">{t('sales.modals.view.paymentInformation.creditAmount') || 'Credit Amount'}</p>
                       <p className="text-sm font-semibold text-orange-600">
-                        {formatPrice(sale.remainingAmount ?? sale.totalAmount)} XAF
+                        {format(sale.remainingAmount ?? sale.totalAmount)}
                       </p>
                     </div>
                   )}

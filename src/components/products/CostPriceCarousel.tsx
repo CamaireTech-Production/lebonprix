@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { StockBatch } from '../../types/models';
+import { useAuth } from '@contexts/AuthContext';
+import { CURRENCIES } from '@constants/currencies';
 
 interface CostPriceCarouselProps {
   batches: StockBatch[];
@@ -9,6 +11,9 @@ interface CostPriceCarouselProps {
 
 const CostPriceCarousel: React.FC<CostPriceCarouselProps> = ({ batches, className = '' }) => {
   const { t } = useTranslation();
+  const { company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
@@ -53,7 +58,7 @@ const CostPriceCarousel: React.FC<CostPriceCarouselProps> = ({ batches, classNam
     return (
       <div className={`text-sm ${className}`}>
         <div className="font-medium text-gray-900">
-          {batch.costPrice.toLocaleString()} XAF
+          {batch.costPrice.toLocaleString()} {currencySymbol}
         </div>
         <div className="text-xs text-gray-500">
           {t('products.batchInfo', {
@@ -68,7 +73,7 @@ const CostPriceCarousel: React.FC<CostPriceCarouselProps> = ({ batches, classNam
   const currentBatch = activeBatches[currentIndex];
 
   return (
-    <div 
+    <div
       className={`relative ${className}`}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
@@ -76,7 +81,7 @@ const CostPriceCarousel: React.FC<CostPriceCarouselProps> = ({ batches, classNam
       {/* Main display */}
       <div className="text-sm">
         <div className="font-medium text-gray-900">
-          {currentBatch.costPrice.toLocaleString()} XAF
+          {currentBatch.costPrice.toLocaleString()} {currencySymbol}
         </div>
         <div className="text-xs text-gray-500">
           {t('products.batchInfo', {
@@ -92,11 +97,10 @@ const CostPriceCarousel: React.FC<CostPriceCarouselProps> = ({ batches, classNam
           <button
             key={index}
             onClick={() => setCurrentIndex(index)}
-            className={`w-1.5 h-1.5 rounded-full transition-colors ${
-              index === currentIndex 
-                ? 'bg-emerald-500' 
-                : 'bg-gray-300 hover:bg-gray-400'
-            }`}
+            className={`w-1.5 h-1.5 rounded-full transition-colors ${index === currentIndex
+              ? 'bg-emerald-500'
+              : 'bg-gray-300 hover:bg-gray-400'
+              }`}
             aria-label={t('products.goToBatch', { index: index + 1 })}
           />
         ))}

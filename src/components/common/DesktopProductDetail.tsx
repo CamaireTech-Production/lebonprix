@@ -7,9 +7,9 @@ import type { SellerSettings } from '../../types/order';
 import { ArrowLeft, Plus, Minus, MessageCircle, ShoppingCart, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ImageWithSkeleton } from '@components/common';
 import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
-import { formatPrice } from '@utils/formatting/formatPrice';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
+import { useCurrency } from '@hooks/useCurrency';
 
 const placeholderImg = '/placeholder.png';
 
@@ -29,31 +29,30 @@ const DesktopProductDetail: React.FC<DesktopProductDetailProps> = ({
   companyId
 }) => {
   const { addToCart } = useCart();
-  
+  const { format } = useCurrency();
+
   // Use passed data immediately
   const [company, setCompany] = useState<Company | null>(initialCompany);
   const [product, setProduct] = useState<Product | null>(initialProduct);
   const [sellerSettings, setSellerSettings] = useState<SellerSettings | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Get stock from batches
   const { batches: allBatches } = useAllStockBatches('product');
   const stockMap = useMemo(
     () => buildProductStockMap(allBatches || []),
     [allBatches]
   );
-  
+
   // Calculate product stock from batches
   const productStock = useMemo(() => {
     if (!product) return 0;
     return getEffectiveProductStock(product, stockMap);
   }, [product, stockMap]);
-  
+
   // Product detail state
   const [quantity, setQuantity] = useState(1);
   const [selectedVariations, setSelectedVariations] = useState<Record<string, string>>({});
-  const [isFavorite, setIsFavorite] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // Fetch fresh data in background to ensure data freshness
@@ -79,7 +78,7 @@ const DesktopProductDetail: React.FC<DesktopProductDetailProps> = ({
           setProduct(prev => prev?.id === foundProduct.id ? foundProduct : prev);
           setCompany(companyData);
         }
-        
+
         // Load seller settings for WhatsApp number
         if (settingsData) {
           setSellerSettings(settingsData);
@@ -129,27 +128,25 @@ const DesktopProductDetail: React.FC<DesktopProductDetailProps> = ({
 
   const handleWhatsAppOrder = () => {
     if (!product || !company) return;
-    
-    const selectedColor = selectedVariations['Color'] || '';
-    const selectedSize = selectedVariations['Size'] || '';
+
     const variations = Object.entries(selectedVariations)
-      .filter(([key, value]) => value) // Only include selected variations
+      .filter(([_key, value]) => value) // Only include selected variations
       .map(([key, value]) => `${key}: ${value}`)
       .join(', ');
-    
+
     const message = `Bonjour! Je voudrais commander:
 
 *${product.name}*
 ${variations ? `Options: ${variations}` : ''}
 Quantité: ${quantity}
-Prix unitaire: ${formatPrice(product.cataloguePrice || product.sellingPrice)} XAF
-Total: ${formatPrice((product.cataloguePrice || product.sellingPrice) * quantity)} XAF
+Prix unitaire: ${format(product.cataloguePrice || product.sellingPrice)}
+Total: ${format((product.cataloguePrice || product.sellingPrice) * quantity)}
 
 Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
 
     // Use seller settings WhatsApp number first, fallback to company phone
     const whatsappNumber = sellerSettings?.whatsappNumber || company.phone;
-    
+
     // Use centralized WhatsApp formatting function
     const cleanPhone = formatPhoneForWhatsApp(whatsappNumber);
 
@@ -166,14 +163,14 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
   // Handle image navigation
   const handlePreviousImage = () => {
     if (!product?.images || product.images.length <= 1) return;
-    setCurrentImageIndex((prev) => 
+    setCurrentImageIndex((prev) =>
       prev === 0 ? product.images!.length - 1 : prev - 1
     );
   };
 
   const handleNextImage = () => {
     if (!product?.images || product.images.length <= 1) return;
-    setCurrentImageIndex((prev) => 
+    setCurrentImageIndex((prev) =>
       prev === product.images!.length - 1 ? 0 : prev + 1
     );
   };
@@ -184,7 +181,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
       ...prev,
       [tagId]: variationId
     }));
-    
+
     // If this variation has an associated image, switch to it
     if (product?.tags) {
       const tag = product.tags.find(t => t.id === tagId);
@@ -226,7 +223,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
                 alt={product.name}
                 className="w-full h-full object-cover"
               />
-              
+
               {/* Previous Image Button */}
               {images.length > 1 && (
                 <button
@@ -237,7 +234,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
                   <ChevronLeft className="h-5 w-5" />
                 </button>
               )}
-              
+
               {/* Next Image Button */}
               {images.length > 1 && (
                 <button
@@ -249,7 +246,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
                 </button>
               )}
             </div>
-            
+
             {/* Image Navigation Dots */}
             {images.length > 1 && (
               <div className="flex justify-center mt-4 space-x-2">
@@ -257,11 +254,10 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
                   <button
                     key={index}
                     onClick={() => setCurrentImageIndex(index)}
-                    className={`w-3 h-3 rounded-full transition-all duration-200 hover:scale-110 ${
-                      index === currentImageIndex 
-                        ? 'bg-[#e2b069] ring-2 ring-[#e2b069] ring-offset-2 ring-offset-[#f5f5f0]' 
-                        : 'bg-gray-300 hover:bg-gray-400'
-                    }`}
+                    className={`w-3 h-3 rounded-full transition-all duration-200 hover:scale-110 ${index === currentImageIndex
+                      ? 'bg-[#e2b069] ring-2 ring-[#e2b069] ring-offset-2 ring-offset-[#f5f5f0]'
+                      : 'bg-gray-300 hover:bg-gray-400'
+                      }`}
                     aria-label={`Go to image ${index + 1}`}
                   />
                 ))}
@@ -289,7 +285,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
 
             {/* Price */}
             <div className="text-2xl font-semibold text-[#e2b069]">
-              {formatPrice(product.cataloguePrice || product.sellingPrice)} XAF
+              {format(product.cataloguePrice || product.sellingPrice)}
             </div>
 
             {/* Stock Availability */}
@@ -316,11 +312,10 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
                         <button
                           key={variation.id}
                           onClick={() => handleVariationChange(tag.id, variation.id)}
-                          className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${
-                            selectedVariations[tag.id] === variation.id
-                              ? 'bg-[#e2b069] text-[#183524] border-[#e2b069]'
-                              : 'bg-white text-gray-700 border-gray-300 hover:border-[#e2b069]'
-                          }`}
+                          className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${selectedVariations[tag.id] === variation.id
+                            ? 'bg-[#e2b069] text-[#183524] border-[#e2b069]'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-[#e2b069]'
+                            }`}
                         >
                           {variation.name}
                         </button>
@@ -364,7 +359,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
                 <ShoppingCart className="h-5 w-5" />
                 <span>Ajouter au panier</span>
               </button>
-              
+
               <button
                 onClick={handleWhatsAppOrder}
                 className="w-full bg-[#25D366] text-white py-4 rounded-xl font-semibold text-lg hover:bg-[#1da851] transition-colors flex items-center justify-center space-x-2"

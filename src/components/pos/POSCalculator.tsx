@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCurrency } from '@hooks/useCurrency';
 import { Delete, RotateCcw } from 'lucide-react';
 
 interface POSCalculatorProps {
@@ -14,6 +15,7 @@ export const POSCalculator: React.FC<POSCalculatorProps> = ({
 }) => {
   const { t } = useTranslation();
   const { company } = useAuth();
+  const { format } = useCurrency();
   const [display, setDisplay] = useState<string>('0');
   const [previousValue, setPreviousValue] = useState<number | null>(null);
   const [operation, setOperation] = useState<string | null>(null);
@@ -276,7 +278,7 @@ export const POSCalculator: React.FC<POSCalculatorProps> = ({
           className="mt-2 w-full py-3 text-white font-semibold rounded-lg transition-colors"
           style={{ backgroundColor: colors.primary }}
         >
-          {t('pos.calculator.apply')} ({display} XAF)
+          {t('pos.calculator.apply')} ({format(parseFloat(display))})
         </button>
       )}
 

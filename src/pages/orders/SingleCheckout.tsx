@@ -12,6 +12,7 @@ import { getUserById } from '@services/utilities/userService';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import { subscribeToCheckoutSettingsByCompanyId } from '@services/utilities/checkoutSettingsService';
 import { DEFAULT_CHECKOUT_SETTINGS } from '../../types/checkoutSettings';
+import { CURRENCIES } from '@constants/currencies';
 // Removed useCheckoutPersistence - using manual save approach
 import { subscribeToCinetPayConfig, isCinetPayConfigured } from '@services/payment/cinetpayService';
 import { processCinetPayPayment, validatePaymentData, formatPhoneForCinetPay } from '@utils/core/cinetpayHandler';
@@ -68,6 +69,12 @@ const SingleCheckout: React.FC = () => {
       headerText: '#ffffff',
     };
     return colors;
+  };
+
+  // Get currency symbol
+  const getCurrencySymbol = () => {
+    const currencyCode = company?.currency || 'XAF';
+    return CURRENCIES.find(c => c.code === currencyCode)?.symbol || 'FCFA';
   };
 
   // Manual data loading
@@ -471,16 +478,16 @@ const SingleCheckout: React.FC = () => {
     message += `📋 Détails:\n`;
     order.items.forEach(item => {
       const itemTotal = item.price * item.quantity;
-      message += `- ${item.name} x ${item.quantity} = ${formatPrice(itemTotal)} XAF\n`;
+      message += `- ${item.name} x ${item.quantity} = ${formatPrice(itemTotal, getCurrencySymbol())}\n`;
     });
 
-    message += `\n💰 Total: ${formatPrice(order.pricing.subtotal)} XAF\n`;
+    message += `\n💰 Total: ${formatPrice(order.pricing.subtotal, getCurrencySymbol())}\n`;
 
     if (order.pricing.deliveryFee > 0) {
-      message += `🚚 Frais de livraison: ${formatPrice(order.pricing.deliveryFee)} XAF\n`;
+      message += `🚚 Frais de livraison: ${formatPrice(order.pricing.deliveryFee, getCurrencySymbol())}\n`;
     }
 
-    message += `💳 Total final: ${formatPrice(order.pricing.total)} XAF\n\n`;
+    message += `💳 Total final: ${formatPrice(order.pricing.total, getCurrencySymbol())}\n\n`;
 
     // Customer information
     message += `👤 Client: ${order.customerInfo.name}\n`;
@@ -852,7 +859,7 @@ const SingleCheckout: React.FC = () => {
             // Check for demo amount limit error
             const errorMessage = data.message || '';
             if (errorMessage.includes('Maximum amount') || errorMessage.includes('ER201') || errorMessage.includes('demo system')) {
-              const demoError = `Demo environment limit: Maximum amount is 10 XAF. Your order total is ${calculatedTotal} XAF. Please use production environment for larger amounts.`;
+              const demoError = `Demo environment limit: Maximum amount is 10 ${getCurrencySymbol()}. Your order total is ${formatPrice(calculatedTotal, getCurrencySymbol())}. Please use production environment for larger amounts.`;
               toast.error(demoError, { duration: 6000 });
             } else {
               toast.error(data.message || 'Payment failed. Please try again.');
@@ -1807,7 +1814,7 @@ const SingleCheckout: React.FC = () => {
                             {item.selectedSize && `${item.selectedSize}`}
                           </p>
                           <p className="text-sm font-medium text-emerald-600">
-                            {formatPrice(item.price * item.quantity)} XAF
+                            {formatPrice(item.price * item.quantity, getCurrencySymbol())}
                           </p>
                         </div>
                       </div>
@@ -1838,20 +1845,20 @@ const SingleCheckout: React.FC = () => {
                     <div className="flex justify-between">
                       <span className="text-gray-600">{t('checkout.orderSummaryDetails.subtotal')}</span>
                       <span className="font-medium">
-                        {formatPrice(subtotal)} XAF
+                        {formatPrice(subtotal, getCurrencySymbol())}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Livraison</span>
                       <span className="font-medium">
-                        {deliveryFee > 0 ? `${formatPrice(deliveryFee)} XAF` : 'À confirmer'}
+                        {deliveryFee > 0 ? `${formatPrice(deliveryFee, getCurrencySymbol())}` : 'À confirmer'}
                       </span>
                     </div>
                     <div className="border-t border-gray-200 pt-3">
                       <div className="flex justify-between text-lg font-bold">
                         <span>{t('checkout.orderSummaryDetails.total')}</span>
                         <span className="text-emerald-600">
-                          {formatPrice(finalTotal)} XAF
+                          {formatPrice(finalTotal, getCurrencySymbol())}
                         </span>
                       </div>
                     </div>
@@ -1965,7 +1972,7 @@ const SingleCheckout: React.FC = () => {
         onClose={() => setShowAmountTooLowModal(false)}
         currentAmount={getCartTotal()}
         minimumAmount={minimumAmount}
-        currency="XAF"
+        currency={getCurrencySymbol()}
         onAddMoreItems={scrollToCart}
       />
 

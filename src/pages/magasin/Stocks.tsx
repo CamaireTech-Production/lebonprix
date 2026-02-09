@@ -9,8 +9,10 @@ import MatiereRestockModal from '../../components/magasin/MatiereRestockModal';
 import MatiereDirectConsumptionModal from '../../components/magasin/MatiereDirectConsumptionModal';
 import UnifiedBatchAdjustmentModal from '../../components/magasin/UnifiedBatchAdjustmentModal';
 import BatchDeleteModal from '../../components/common/BatchDeleteModal';
-import { usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
+import { CURRENCIES } from '@constants/currencies';
+import { useAuth } from '@contexts/AuthContext';
+import { usePermissionCheck } from '@components/permissions';
 import { getUserById } from '@services/utilities/userService';
 import { canDeleteBatch } from '@services/firestore/stock/stockAdjustments';
 import type { Matiere, StockBatch, StockChange } from '../../types/models';
@@ -72,6 +74,9 @@ const formatNumber = (value: number | undefined) =>
 
 const Stocks = () => {
   const { t } = useTranslation();
+  const { company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
   const { matieres, loading, error: matieresError } = useMatieres();
   const { batches, loading: batchesLoading, error: batchesError } = useAllStockBatches('matiere');
   const { stockChanges } = useStockChanges('matiere');
@@ -84,7 +89,7 @@ const Stocks = () => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
-  
+
   // Modal states
   const [restockModalOpen, setRestockModalOpen] = useState(false);
   const [directConsumptionModalOpen, setDirectConsumptionModalOpen] = useState(false);
@@ -407,22 +412,22 @@ const Stocks = () => {
                       <div className="flex-shrink-0 min-w-[100px] text-sm text-gray-900 whitespace-nowrap text-right pr-2 overflow-hidden">
                         {matiereBatches.length > 0
                           ? (
-                              <>
-                                {formatNumber(batchRemaining)} / {formatNumber(batchTotal)}
-                              </>
-                            )
+                            <>
+                              {formatNumber(batchRemaining)} / {formatNumber(batchTotal)}
+                            </>
+                          )
                           : (
-                              <>
-                                0
-                              </>
-                            )}
+                            <>
+                              0
+                            </>
+                          )}
                       </div>
                       <div className="flex-shrink-0 min-w-[120px] text-sm text-gray-900 break-words pr-2 overflow-hidden">
                         <div className="line-clamp-2">{t('navigation.warehouseMenu.stocksPage.status.activeDepleted', { active: activeBatches.length, depleted: depletedBatches.length })}</div>
                       </div>
                       <div className="flex-shrink-0 min-w-[180px] flex justify-end items-center gap-2">
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
                           onClick={() => handleHistory(matiere)}
                           className="whitespace-nowrap"
@@ -430,7 +435,7 @@ const Stocks = () => {
                           {t('navigation.warehouseMenu.stocksPage.actions.history')}
                         </Button>
                         {batchRemaining > 0 && (
-                          <Button 
+                          <Button
                             size="sm"
                             variant="outline"
                             onClick={() => handleDirectConsumption(matiere)}
@@ -439,7 +444,7 @@ const Stocks = () => {
                             {t('navigation.warehouseMenu.stocksPage.actions.destock')}
                           </Button>
                         )}
-                        <Button 
+                        <Button
                           size="sm"
                           onClick={() => handleRestock(matiere)}
                           className="whitespace-nowrap"
@@ -492,8 +497,8 @@ const Stocks = () => {
                                     <td className="py-3 pr-4 text-right space-x-3">
                                       {batch.status === 'active' ? (
                                         <>
-                                          <Button 
-                                            size="sm" 
+                                          <Button
+                                            size="sm"
                                             variant="outline"
                                             className="px-3 py-1.5 text-sm"
                                             onClick={() => handleAdjust(matiere, batch)}
@@ -703,8 +708,8 @@ const Stocks = () => {
                     const supplierName = change.supplierId
                       ? (suppliersMap.get(change.supplierId) || change.supplierId)
                       : change.isOwnPurchase
-                      ? t('navigation.warehouseMenu.stocksPage.payment.ownPurchase')
-                      : '—';
+                        ? t('navigation.warehouseMenu.stocksPage.payment.ownPurchase')
+                        : '—';
                     return (
                       <tr key={change.id} className="hover:bg-gray-50">
                         <td className="px-4 py-2 text-gray-700">
@@ -715,9 +720,8 @@ const Stocks = () => {
                         <td className="px-4 py-2 text-gray-700">
                           {userName}
                         </td>
-                        <td className={`px-4 py-2 font-medium ${
-                          change.change > 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
+                        <td className={`px-4 py-2 font-medium ${change.change > 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
                           {change.change > 0 ? '+' : ''}{change.change}
                           <span className="ml-1 text-xs text-gray-500">({selectedMatiere?.unit || ''})</span>
                         </td>
@@ -733,7 +737,7 @@ const Stocks = () => {
                           )}
                         </td>
                         <td className="px-4 py-2 text-gray-700">
-                          {change.costPrice ? `${change.costPrice.toLocaleString()} XAF` : '—'}
+                          {change.costPrice ? `${change.costPrice.toLocaleString()} ${currencySymbol}` : '—'}
                         </td>
                       </tr>
                     );

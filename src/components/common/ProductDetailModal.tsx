@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useCart } from '../../contexts/CartContext';
 import { getCompanyByUserId, getSellerSettings } from '@services/firestore/firestore';
 import { subscribeToProducts } from '@services/firestore/products/productService';
-import type { Company, Product} from '../../types/models';
+import type { Company, Product } from '../../types/models';
 import type { SellerSettings } from '../../types/order';
 import { X, Share2, Heart, Star, Plus, Minus, ChevronRight, MessageCircle } from 'lucide-react';
 import { FloatingCartButton, ImageWithSkeleton } from '@components/common';
 import DesktopProductDetail from './DesktopProductDetail';
 import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
-import { formatPrice } from '@utils/formatting/formatPrice';
+import { useCurrency } from '@hooks/useCurrency';
 
 const placeholderImg = '/placeholder.png';
 
@@ -40,40 +40,23 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     window.addEventListener('resize', checkScreenSize);
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
-  
+
   // Use passed data immediately
   const [company, setCompany] = useState<Company | null>(initialCompany);
+  const { format } = useCurrency(company?.currency);
   const [product, setProduct] = useState<Product | null>(initialProduct);
   const [sellerSettings, setSellerSettings] = useState<SellerSettings | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Product detail state
   const [quantity, setQuantity] = useState(1);
   const [selectedVariations, setSelectedVariations] = useState<Record<string, string>>({});
   const [isFavorite, setIsFavorite] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [selectedColor, setSelectedColor] = useState<string>('');
-  const [selectedSize, setSelectedSize] = useState<string>('');
 
-  // Extract available colors from product variations
-  const availableColors = product?.tags?.find(tag => tag.name === 'Color')?.variations?.map(v => v.name) || [];
-  
-  // Extract available sizes from product variations
-  const availableSizes = product?.tags?.find(tag => tag.name === 'Size')?.variations?.map(v => v.name) || [];
 
-  // Update selectedColor and selectedSize when selectedVariations changes
-  useEffect(() => {
-    const colorVariation = selectedVariations['Color'];
-    if (colorVariation) {
-      setSelectedColor(colorVariation);
-    }
-    
-    const sizeVariation = selectedVariations['Size'];
-    if (sizeVariation) {
-      setSelectedSize(sizeVariation);
-    }
-  }, [selectedVariations]);
+
+
 
   // Fetch fresh data in background to ensure data freshness
   useEffect(() => {
@@ -98,7 +81,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           setProduct(prev => prev?.id === foundProduct.id ? foundProduct : prev);
           setCompany(companyData);
         }
-        
+
         // Load seller settings for WhatsApp number
         if (settingsData) {
           setSellerSettings(settingsData);
@@ -140,28 +123,28 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   const handleWhatsAppOrder = () => {
     if (!product || !company) return;
-    
+
     const variations = Object.entries(selectedVariations)
-      .filter(([key, value]) => value) // Only include selected variations
+      .filter(([_key, value]) => value) // Only include selected variations
       .map(([key, value]) => `${key}: ${value}`)
       .join(', ');
-    
+
     const unitPrice = (product.cataloguePrice && product.cataloguePrice > 0) ? product.cataloguePrice : (product.sellingPrice ?? 0);
     const totalPrice = unitPrice * quantity;
-    
+
     const message = `Bonjour! Je voudrais commander:
 
 *${product.name}*
 ${variations ? `Options: ${variations}` : ''}
 Quantité: ${quantity}
-Prix unitaire: ${formatPrice(unitPrice)} XAF
-Total: ${formatPrice(totalPrice)} XAF
+Prix unitaire: ${format(unitPrice)}
+Total: ${format(totalPrice)}
 
 Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
 
     // Use seller settings WhatsApp number first, fallback to company phone
     const whatsappNumber = sellerSettings?.whatsappNumber || company.phone;
-    
+
     // Use centralized WhatsApp formatting function
     const cleanPhone = formatPhoneForWhatsApp(whatsappNumber);
 
@@ -178,14 +161,14 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
   // Image navigation functions
   const nextImage = () => {
     if (!product?.images) return;
-    setCurrentImageIndex((prev) => 
+    setCurrentImageIndex((prev) =>
       prev < product.images!.length - 1 ? prev + 1 : 0
     );
   };
 
   const prevImage = () => {
     if (!product?.images) return;
-    setCurrentImageIndex((prev) => 
+    setCurrentImageIndex((prev) =>
       prev > 0 ? prev - 1 : product.images!.length - 1
     );
   };
@@ -200,7 +183,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
       ...prev,
       [tagId]: variationId
     }));
-    
+
     // If this variation has an associated image, switch to it
     if (product?.tags) {
       const tag = product.tags.find(t => t.id === tagId);
@@ -249,10 +232,9 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
             </button>
             <button
               onClick={() => setIsFavorite(!isFavorite)}
-              className={`p-2 rounded-full transition-colors ${
-                isFavorite ? 'bg-gray-100' : 'bg-gray-100 text-gray-400'
-              }`}
-              style={isFavorite ? {backgroundColor: 'rgba(226, 176, 105, 0.1)', color: '#e2b069'} : {}}
+              className={`p-2 rounded-full transition-colors ${isFavorite ? 'bg-gray-100' : 'bg-gray-100 text-gray-400'
+                }`}
+              style={isFavorite ? { backgroundColor: 'rgba(226, 176, 105, 0.1)', color: '#e2b069' } : {}}
             >
               <Heart className={`h-5 w-5 ${isFavorite ? 'fill-current' : ''}`} />
             </button>
@@ -273,7 +255,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
             className="w-full h-full object-cover"
             placeholder={placeholderImg}
           />
-          
+
           {/* Image Navigation Arrows */}
           {images.length > 1 && (
             <>
@@ -291,7 +273,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
               </button>
             </>
           )}
-          
+
           {/* Image Indicators */}
           {images.length > 1 && (
             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
@@ -299,21 +281,20 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
                 <button
                   key={index}
                   onClick={() => goToImage(index)}
-                  className={`w-2 h-2 rounded-full transition-all ${
-                    index === currentImageIndex ? 'bg-white' : 'bg-white bg-opacity-50'
-                  }`}
+                  className={`w-2 h-2 rounded-full transition-all ${index === currentImageIndex ? 'bg-white' : 'bg-white bg-opacity-50'
+                    }`}
                 />
               ))}
             </div>
           )}
-          
+
           {/* Floating Quantity Selector */}
           <div className="absolute right-4 top-4">
             <div className="bg-white rounded-lg border border-gray-200 p-2 shadow-lg">
               <button
                 onClick={() => updateQuantity(quantity - 1)}
                 className="w-8 h-8 flex items-center justify-center rounded transition-colors"
-                style={{color: '#e2b069'}}
+                style={{ color: '#e2b069' }}
                 onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = 'rgba(226, 176, 105, 0.1)'}
                 onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = 'transparent'}
               >
@@ -325,7 +306,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
               <button
                 onClick={() => updateQuantity(quantity + 1)}
                 className="w-8 h-8 flex items-center justify-center rounded transition-colors"
-                style={{color: '#e2b069'}}
+                style={{ color: '#e2b069' }}
                 onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = 'rgba(226, 176, 105, 0.1)'}
                 onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = 'transparent'}
               >
@@ -339,7 +320,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
         <div className="bg-white rounded-t-3xl -mt-6 relative z-10 min-h-[40vh] flex flex-col">
           {/* Drag Handle */}
           <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mt-4 mb-6"></div>
-          
+
           <div className="px-6 pb-32 flex-1">
             {/* Product Header */}
             <div className="flex items-start justify-between mb-6">
@@ -347,7 +328,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
                 <h1 className="text-xl font-bold text-gray-900 mb-2">{product.name}</h1>
                 <div className="flex items-center space-x-3">
                   <span className="text-lg font-bold text-gray-900">
-                    {formatPrice((product.cataloguePrice && product.cataloguePrice > 0) ? product.cataloguePrice : (product.sellingPrice ?? 0))} XAF
+                    {format((product.cataloguePrice && product.cataloguePrice > 0) ? product.cataloguePrice : (product.sellingPrice ?? 0))}
                   </span>
                   <div className="flex items-center space-x-1">
                     <Star className="h-4 w-4 text-yellow-400 fill-current" />
@@ -360,7 +341,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
             {/* Product Details */}
             <div className="mb-6">
               <h3 className="text-sm font-medium text-gray-900 mb-3">Product Details</h3>
-              
+
               {/* Dynamic Tags */}
               {availableTags.length > 0 ? (
                 availableTags.map((tag) => (
@@ -371,12 +352,11 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
                         <button
                           key={variation.id}
                           onClick={() => handleVariationChange(tag.id, variation.id)}
-                          className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                            selectedVariations[tag.id] === variation.id
-                              ? 'text-gray-700 border-gray-300'
-                              : 'bg-gray-100 text-gray-700 border-gray-300'
-                          }`}
-                          style={selectedVariations[tag.id] === variation.id ? {backgroundColor: 'rgba(226, 176, 105, 0.1)', color: '#183524', borderColor: '#e2b069'} : {}}
+                          className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${selectedVariations[tag.id] === variation.id
+                            ? 'text-gray-700 border-gray-300'
+                            : 'bg-gray-100 text-gray-700 border-gray-300'
+                            }`}
+                          style={selectedVariations[tag.id] === variation.id ? { backgroundColor: 'rgba(226, 176, 105, 0.1)', color: '#183524', borderColor: '#e2b069' } : {}}
                         >
                           {variation.name}
                         </button>
@@ -408,14 +388,14 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 z-20 pb-safe space-y-3">
         <button
           onClick={handleAddToCart}
-          className="w-full text-white py-4 rounded-xl font-semibold text-lg transition-colors shadow-lg" 
-          style={{backgroundColor: '#183524'}} 
-          onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#0f2418'} 
+          className="w-full text-white py-4 rounded-xl font-semibold text-lg transition-colors shadow-lg"
+          style={{ backgroundColor: '#183524' }}
+          onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#0f2418'}
           onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#183524'}
         >
-          Ajouter au panier - {formatPrice(((product.cataloguePrice && product.cataloguePrice > 0) ? product.cataloguePrice : (product.sellingPrice ?? 0)) * quantity)} XAF
+          Ajouter au panier - {format(((product.cataloguePrice && product.cataloguePrice > 0) ? product.cataloguePrice : (product.sellingPrice ?? 0)) * quantity)}
         </button>
-        
+
         <button
           onClick={handleWhatsAppOrder}
           className="w-full bg-[#25D366] text-white py-4 rounded-xl font-semibold text-lg hover:bg-[#1da851] transition-colors shadow-lg flex items-center justify-center space-x-2"

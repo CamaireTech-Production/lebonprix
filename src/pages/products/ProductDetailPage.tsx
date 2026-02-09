@@ -4,7 +4,6 @@ import { useCart } from '../../contexts/CartContext';
 import { getCompanyByUserId, getSellerSettings } from '@services/firestore/firestore';
 import { subscribeToProducts } from '@services/firestore/products/productService';
 import { trackProductView } from '@services/firestore/site/siteService';
-import { formatPrice } from '@utils/formatting/formatPrice';
 import type { Company, Product } from '../../types/models';
 import type { SellerSettings } from '../../types/order';
 import { ArrowLeft, Share2, Plus, Minus, ShoppingCart, Camera, QrCode, MessageCircle } from 'lucide-react';
@@ -15,26 +14,27 @@ import { showSuccessToast } from '@utils/core/toast';
 import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
+import { useCurrency } from '@hooks/useCurrency';
 
 const placeholderImg = '/placeholder.png';
 
 const ProductDetailPage = () => {
-  const { companyName, companyId, productId } = useParams<{ 
-    companyName: string; 
-    companyId: string; 
-    productId: string 
+  const { companyName, companyId, productId } = useParams<{
+    companyName: string;
+    companyId: string;
+    productId: string
   }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const action = searchParams.get('action'); // 'buy' ou 'view'
-  
+
   const { addToCart } = useCart();
   const [company, setCompany] = useState<Company | null>(null);
   const [product, setProduct] = useState<Product | null>(null);
   const [sellerSettings, setSellerSettings] = useState<SellerSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Product detail state
   const [quantity, setQuantity] = useState(1);
   const [selectedVariations, setSelectedVariations] = useState<Record<string, string>>({});
@@ -72,7 +72,7 @@ const ProductDetailPage = () => {
         ]);
 
         const foundProduct = productsData.find(p => p.id === productId);
-        
+
         if (!foundProduct) {
           setError('Produit non trouvé');
           setLoading(false);
@@ -81,7 +81,7 @@ const ProductDetailPage = () => {
 
         setCompany(companyData);
         setProduct(foundProduct);
-        
+
         // Load seller settings for WhatsApp number
         if (settingsData) {
           setSellerSettings(settingsData);
@@ -137,6 +137,20 @@ const ProductDetailPage = () => {
   };
 
   const colors = getCompanyColors();
+  const { format } = useCurrency(company?.currency);
+
+  // Calculate product stock from batches
+  const { batches: allBatches } = useAllStockBatches();
+  const productStock = useMemo(() => {
+    if (!product) return 0;
+    // If we have batches, use them to calculate stock
+    if (allBatches && allBatches.length > 0) {
+      const stockMap = buildProductStockMap(allBatches);
+      return getEffectiveProductStock(product, stockMap);
+    }
+    // Fallback to product.stock if no batches loaded yet or legacy
+    return product.stock || 0;
+  }, [product, allBatches]);
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -156,27 +170,27 @@ const ProductDetailPage = () => {
 
   const handleWhatsAppOrder = () => {
     if (!product || !company) return;
-    
+
     const variations = Object.entries(selectedVariations)
       .filter(([_key, value]) => value) // Only include selected variations
       .map(([key, value]) => `${key}: ${value}`)
       .join(', ');
-    
+
     const totalPrice = displayPrice * quantity;
-    
+
     const message = `Bonjour! Je voudrais commander:
 
 *${product.name}*
 ${variations ? `Options: ${variations}` : ''}
 Quantité: ${quantity}
-Prix unitaire: ${formatPrice(displayPrice)} XAF
-Total: ${formatPrice(totalPrice)} XAF
+Prix unitaire: ${format(displayPrice)}
+Total: ${format(totalPrice)}
 
 Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
 
     // Use seller settings WhatsApp number first, fallback to company phone
     const whatsappNumber = sellerSettings?.whatsappNumber || company.phone;
-    
+
     // Use centralized WhatsApp formatting function
     const cleanPhone = formatPhoneForWhatsApp(whatsappNumber);
 
@@ -186,9 +200,9 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
 
   const handleShare = async () => {
     if (!product || !companyName || !companyId) return;
-    
+
     const url = `${window.location.origin}/catalogue/${encodeURIComponent(companyName)}/${companyId}/product/${product.id}`;
-    
+
     try {
       if (navigator.share) {
         await navigator.share({
@@ -237,7 +251,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div 
+      <div
         className="sticky top-0 z-10 px-4 py-3 flex items-center justify-between"
         style={{ backgroundColor: colors.primary }}
       >
@@ -282,7 +296,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
             </div>
           ))}
         </div>
-        
+
         {/* Image indicators */}
         {images.length > 1 && (
           <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
@@ -290,9 +304,8 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
               <button
                 key={index}
                 onClick={() => setCurrentImageIndex(index)}
-                className={`w-2 h-2 rounded-full transition-colors ${
-                  index === currentImageIndex ? 'bg-white' : 'bg-white/50'
-                }`}
+                className={`w-2 h-2 rounded-full transition-colors ${index === currentImageIndex ? 'bg-white' : 'bg-white/50'
+                  }`}
               />
             ))}
           </div>
@@ -311,11 +324,11 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
         <div className="flex items-center justify-between">
           <div>
             <p className="text-3xl font-bold" style={{ color: colors.primary }}>
-              {formatPrice(displayPrice)} FCFA
+              {format(displayPrice)}
             </p>
             {product.cataloguePrice && product.cataloguePrice !== product.sellingPrice && (
               <p className="text-sm text-gray-500 line-through">
-                {formatPrice(product.sellingPrice)} FCFA
+                {format(product.sellingPrice)}
               </p>
             )}
           </div>
@@ -330,11 +343,10 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
                 <button
                   key={color}
                   onClick={() => setSelectedVariations(prev => ({ ...prev, Color: color }))}
-                  className={`px-4 py-2 rounded-lg border-2 transition-colors ${
-                    selectedVariations.Color === color
-                      ? 'border-emerald-600 bg-emerald-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                  className={`px-4 py-2 rounded-lg border-2 transition-colors ${selectedVariations.Color === color
+                    ? 'border-emerald-600 bg-emerald-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                    }`}
                 >
                   {color}
                 </button>
@@ -351,11 +363,10 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
                 <button
                   key={size}
                   onClick={() => setSelectedVariations(prev => ({ ...prev, Size: size }))}
-                  className={`px-4 py-2 rounded-lg border-2 transition-colors ${
-                    selectedVariations.Size === size
-                      ? 'border-emerald-600 bg-emerald-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                  className={`px-4 py-2 rounded-lg border-2 transition-colors ${selectedVariations.Size === size
+                    ? 'border-emerald-600 bg-emerald-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                    }`}
                 >
                   {size}
                 </button>
@@ -436,7 +447,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
           <MessageCircle size={20} />
           <span>Commander via WhatsApp</span>
         </button>
-        
+
         <div className="grid grid-cols-2 gap-2">
           <Button
             onClick={handleAddToCart}
@@ -459,7 +470,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
       </div>
 
       {/* Floating Cart Button */}
-      <FloatingCartButton />
+      <FloatingCartButton currency={company?.currency} />
 
       {/* Barcode Generator Modal */}
       {showBarcodeGenerator && companyName && companyId && (

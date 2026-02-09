@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Download, Package, DollarSign, ShoppingCart, Box } from 'lucide-react';
+import { useAuth } from '@contexts/AuthContext';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import DateRangePicker from './DateRangePicker';
@@ -37,9 +38,12 @@ const ConsolidatedReportModal: React.FC<ConsolidatedReportModalProps> = ({
   suppliers,
   productStockBatches,
   matiereStockBatches,
-  companyName = '',
-  companyLogo = ''
+  companyName,
+  companyLogo
 }) => {
+  const { company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+
   const [reportFormat, setReportFormat] = useState<ReportFormat>('pdf');
   const [selectedSections, setSelectedSections] = useState<ReportSection[]>(['products']);
   const [periodType, setPeriodType] = useState<'all' | 'today' | 'week' | 'month' | 'year' | 'custom'>('all');
@@ -148,8 +152,9 @@ const ConsolidatedReportModal: React.FC<ConsolidatedReportModalProps> = ({
           productStockBatches,
           matiereStockBatches
         },
-        companyName,
-        companyLogo
+        companyName: companyName || company?.name,
+        companyLogo: companyLogo || company?.logo,
+        currencyCode: currencyCode // Use currency code for PDF compatibility
       });
 
       if (!result.success) {
@@ -202,9 +207,8 @@ const ConsolidatedReportModal: React.FC<ConsolidatedReportModalProps> = ({
                 <button
                   key={section.id}
                   onClick={() => toggleSection(section.id)}
-                  className={`p-4 rounded-lg border-2 transition-all text-left ${
-                    getColorClasses(section.color, isSelected)
-                  } ${isSelected ? 'shadow-sm' : 'hover:shadow-sm'}`}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${getColorClasses(section.color, isSelected)
+                    } ${isSelected ? 'shadow-sm' : 'hover:shadow-sm'}`}
                 >
                   <div className="flex items-start gap-3">
                     <div className={`p-2 rounded-lg bg-white`}>
@@ -238,21 +242,19 @@ const ConsolidatedReportModal: React.FC<ConsolidatedReportModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => setReportFormat('csv')}
-              className={`px-4 py-2.5 rounded-md border text-sm font-medium transition-colors ${
-                reportFormat === 'csv'
-                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-              }`}
+              className={`px-4 py-2.5 rounded-md border text-sm font-medium transition-colors ${reportFormat === 'csv'
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
             >
               CSV (sections séparées)
             </button>
             <button
               onClick={() => setReportFormat('pdf')}
-              className={`px-4 py-2.5 rounded-md border text-sm font-medium transition-colors ${
-                reportFormat === 'pdf'
-                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-              }`}
+              className={`px-4 py-2.5 rounded-md border text-sm font-medium transition-colors ${reportFormat === 'pdf'
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
             >
               PDF (document unique)
             </button>
@@ -276,11 +278,10 @@ const ConsolidatedReportModal: React.FC<ConsolidatedReportModalProps> = ({
               <button
                 key={period.value}
                 onClick={() => handlePeriodChange(period.value as any)}
-                className={`px-3 py-2 rounded-md text-xs font-medium transition-colors ${
-                  periodType === period.value
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
+                className={`px-3 py-2 rounded-md text-xs font-medium transition-colors ${periodType === period.value
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
               >
                 {period.label}
               </button>
@@ -306,8 +307,8 @@ const ConsolidatedReportModal: React.FC<ConsolidatedReportModalProps> = ({
               <li>• Format: <strong>{reportFormat.toUpperCase()}</strong></li>
               <li>• Période: <strong>{
                 periodType === 'all' ? 'Toutes les données' :
-                periodType === 'custom' ? 'Personnalisée' :
-                { today: 'Aujourd\'hui', week: 'Cette semaine', month: 'Ce mois', year: 'Cette année' }[periodType]
+                  periodType === 'custom' ? 'Personnalisée' :
+                    { today: 'Aujourd\'hui', week: 'Cette semaine', month: 'Ce mois', year: 'Cette année' }[periodType]
               }</strong></li>
             </ul>
           </div>

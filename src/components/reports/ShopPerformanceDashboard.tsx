@@ -4,9 +4,9 @@
  */
 
 import React, { useMemo } from 'react';
-import { Store, TrendingUp, DollarSign, Package, Users } from 'lucide-react';
+import { Store, TrendingUp, DollarSign, Package } from 'lucide-react';
 import type { Sale, Shop } from '../../types/models';
-import { formatPrice } from '@utils/formatting/formatPrice';
+import { useCurrency } from '@hooks/useCurrency';
 
 interface ShopPerformanceDashboardProps {
   shops: Shop[];
@@ -30,6 +30,7 @@ export const ShopPerformanceDashboard: React.FC<ShopPerformanceDashboardProps> =
   sales,
   dateRange
 }) => {
+  const { format: formatCurrency } = useCurrency();
   // Calculate shop performance metrics
   const shopPerformance = useMemo(() => {
     const performanceMap = new Map<string, ShopPerformance>();
@@ -111,7 +112,7 @@ export const ShopPerformanceDashboard: React.FC<ShopPerformanceDashboardProps> =
             <div>
               <p className="text-sm text-gray-600">Revenu Total</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">
-                {formatPrice(totals.totalRevenue)}
+                {formatCurrency(totals.totalRevenue)}
               </p>
             </div>
             <DollarSign className="w-8 h-8 text-emerald-600" />
@@ -123,7 +124,7 @@ export const ShopPerformanceDashboard: React.FC<ShopPerformanceDashboardProps> =
             <div>
               <p className="text-sm text-gray-600">Bénéfice Total</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">
-                {formatPrice(totals.totalProfit)}
+                {formatCurrency(totals.totalProfit)}
               </p>
             </div>
             <TrendingUp className="w-8 h-8 text-blue-600" />
@@ -185,20 +186,19 @@ export const ShopPerformanceDashboard: React.FC<ShopPerformanceDashboardProps> =
                     {shop.salesCount}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatPrice(shop.totalRevenue)}
+                    {formatCurrency(shop.totalRevenue)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatPrice(shop.totalProfit)}
+                    {formatCurrency(shop.totalProfit)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatPrice(shop.averageOrderValue)}
+                    {formatCurrency(shop.averageOrderValue)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span className={`font-medium ${
-                      shop.profitMargin >= 20 ? 'text-emerald-600' :
+                    <span className={`font-medium ${shop.profitMargin >= 20 ? 'text-emerald-600' :
                       shop.profitMargin >= 10 ? 'text-yellow-600' :
-                      'text-red-600'
-                    }`}>
+                        'text-red-600'
+                      }`}>
                       {shop.profitMargin.toFixed(1)}%
                     </span>
                   </td>

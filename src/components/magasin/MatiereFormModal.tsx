@@ -9,6 +9,7 @@ import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { FirebaseStorageService } from '@services/core/firebaseStorage';
 import { compressImage as compressImageUtil } from '@utils/core/imageCompression';
+import { CURRENCIES } from '@constants/currencies';
 import type { Matiere } from '../../types/models';
 
 interface MatiereFormModalProps {
@@ -25,6 +26,8 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
   onSuccess
 }) => {
   const { user, company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
   const { addMatiere, updateMatiereData } = useMatieres();
   const { suppliers } = useSuppliers();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -84,7 +87,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
-    
+
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
@@ -103,7 +106,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
       };
 
       const compressedFile = await compressImageUtil(file, options);
-      
+
       if (compressedFile instanceof File) {
         return compressedFile;
       } else {
@@ -124,7 +127,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
     try {
       const fileArray = Array.from(files);
       const compressedFiles = await Promise.all(fileArray.map(file => compressImage(file)));
-      
+
       setFormData(prev => ({
         ...prev,
         images: [...prev.images, ...compressedFiles]
@@ -196,7 +199,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
           user.uid,
           tempId
         );
-        
+
         imageUrls = uploadResults.map((result: { url: string }) => result.url);
         imagePaths = uploadResults.map((result: { path: string }) => result.path);
       }
@@ -213,7 +216,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
           images: imageUrls,
           imagePaths: imagePaths
         };
-        
+
         // Only include optional fields if they have values
         if (formData.description.trim()) {
           updateData.description = formData.description.trim();
@@ -221,7 +224,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
         if (formData.unit) {
           updateData.unit = formData.unit;
         }
-        
+
         await updateMatiereData(matiere.id, updateData);
         showSuccessToast('Matière mise à jour avec succès');
       } else {
@@ -243,7 +246,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
           userId: user.uid,
           isDeleted: false
         };
-        
+
         // Only include optional fields if they have values (no undefined values)
         if (formData.description.trim()) {
           matiereData.description = formData.description.trim();
@@ -260,7 +263,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
         if (imagePaths.length > 0) {
           matiereData.imagePaths = imagePaths;
         }
-        
+
         await addMatiere(
           matiereData,
           initialStock,
@@ -348,13 +351,14 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
         {/* Cost Price (only in create mode) */}
         {!matiere && (
           <PriceInput
-            label="Prix d'achat (XAF) *"
+            label={`Prix d'achat (${currencySymbol}) *`}
             name="costPrice"
             value={formData.costPrice}
             onChange={(e) => handleInputChange({ target: { name: 'costPrice', value: e.target.value } } as any)}
             placeholder="0"
             allowDecimals={true}
             required
+            suffix={currencySymbol}
           />
         )}
 
@@ -383,8 +387,8 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
               <select
                 name="supplyType"
                 value={formData.isOwnPurchase ? 'ownPurchase' : 'fromSupplier'}
-                onChange={(e) => setFormData(prev => ({ 
-                  ...prev, 
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
                   isOwnPurchase: e.target.value === 'ownPurchase',
                   supplierId: e.target.value === 'ownPurchase' ? '' : prev.supplierId
                 }))}
@@ -448,7 +452,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
               } else {
                 imageSrc = '/placeholder.png';
               }
-              
+
               return (
                 <div key={idx} className="relative w-20 h-20 rounded-md overflow-hidden group">
                   <ImageWithSkeleton

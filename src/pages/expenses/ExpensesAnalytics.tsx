@@ -16,6 +16,8 @@ import {
   ChartOptions
 } from 'chart.js';
 import Card from '../../components/common/Card';
+import { useAuth } from '@contexts/AuthContext';
+import { CURRENCIES } from '@constants/currencies';
 import { useInfiniteExpenses } from '@hooks/data/useInfiniteExpenses';
 import { useExpenseStats, ExpenseFilterOptions } from '@hooks/business/useExpenseStats';
 import { useExpenseCategories } from '@hooks/business/useExpenseCategories';
@@ -38,9 +40,12 @@ ChartJS.register(
 
 const ExpensesAnalytics = () => {
   const { t } = useTranslation();
+  const { company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
   const { expenses, loading } = useInfiniteExpenses();
   const { expenseTypesList } = useExpenseCategories();
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
@@ -50,7 +55,7 @@ const ExpensesAnalytics = () => {
 
   // Filter expenses
   const visibleExpenses = expenses.filter((exp: Expense) => exp.isAvailable !== false);
-  
+
   const filters: ExpenseFilterOptions = useMemo(() => ({
     category: selectedCategory !== 'All' ? selectedCategory : undefined,
     searchQuery: searchQuery || undefined,
@@ -90,7 +95,7 @@ const ExpensesAnalytics = () => {
         return isDefault ? t(`expenses.categories.${item.category}`, item.category) : item.category;
       }),
       datasets: [{
-        label: 'Montant (XAF)',
+        label: `Montant (${currencySymbol})`,
         data: sortedCategories.map(item => item.totalAmount),
         backgroundColor: [
           'rgba(59, 130, 246, 0.5)',
@@ -148,14 +153,14 @@ const ExpensesAnalytics = () => {
   const lineChartData = useMemo(() => {
     if (!shouldCalculateCharts) return { labels: [], datasets: [] };
     const monthlyData: Record<string, number> = {};
-    
+
     visibleExpenses.forEach((expense: Expense) => {
       const timestamp = expense.date || expense.createdAt;
       if (!timestamp?.seconds) return;
-      
+
       const date = new Date(timestamp.seconds * 1000);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      
+
       if (!monthlyData[monthKey]) {
         monthlyData[monthKey] = 0;
       }
@@ -163,14 +168,14 @@ const ExpensesAnalytics = () => {
     });
 
     const sortedMonths = Object.keys(monthlyData).sort();
-    
+
     return {
       labels: sortedMonths.map(month => {
         const [year, monthNum] = month.split('-');
         return `${monthNum}/${year}`;
       }),
       datasets: [{
-        label: 'Dépenses mensuelles (XAF)',
+        label: `Dépenses mensuelles (${currencySymbol})`,
         data: sortedMonths.map(month => monthlyData[month]),
         borderColor: 'rgba(59, 130, 246, 1)',
         backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -257,7 +262,7 @@ const ExpensesAnalytics = () => {
           onDateRangeChange={setDateRange}
           showDateRange={true}
         />
-        
+
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
           <select
             className="rounded-md border border-gray-300 shadow-sm py-2 px-3 bg-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -268,7 +273,7 @@ const ExpensesAnalytics = () => {
             {expenseTypesList.map((category: ExpenseType) => {
               const defaultCategories = ['transportation', 'purchase', 'other'];
               const isDefault = defaultCategories.includes(category.name);
-              const label = isDefault 
+              const label = isDefault
                 ? t(`expenses.categories.${category.name}`, category.name)
                 : category.name;
               return (
@@ -286,7 +291,7 @@ const ExpensesAnalytics = () => {
         <Card>
           <p className="text-sm font-medium text-gray-600">Total des dépenses</p>
           <p className="text-2xl font-semibold text-gray-900">
-            {stats.totalAmount.toLocaleString()} XAF
+            {stats.totalAmount.toLocaleString()} {currencySymbol}
           </p>
         </Card>
         <Card>
@@ -296,7 +301,7 @@ const ExpensesAnalytics = () => {
         <Card>
           <p className="text-sm font-medium text-gray-600">Moyenne par dépense</p>
           <p className="text-2xl font-semibold text-gray-900">
-            {stats.averageAmount.toLocaleString()} XAF
+            {stats.averageAmount.toLocaleString()} {currencySymbol}
           </p>
         </Card>
       </div>
@@ -358,15 +363,15 @@ const ExpensesAnalytics = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {topExpenses.map((expense) => {
                   const timestamp = expense.date || expense.createdAt;
-                  const date = timestamp?.seconds 
+                  const date = timestamp?.seconds
                     ? new Date(timestamp.seconds * 1000).toLocaleDateString('fr-FR')
                     : 'N/A';
                   const defaultCategories = ['transportation', 'purchase', 'other'];
                   const isDefault = defaultCategories.includes(expense.category);
-                  const categoryLabel = isDefault 
+                  const categoryLabel = isDefault
                     ? t(`expenses.categories.${expense.category}`, expense.category)
                     : expense.category;
-                  
+
                   return (
                     <tr key={expense.id}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -379,7 +384,7 @@ const ExpensesAnalytics = () => {
                         {date}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 text-right">
-                        {expense.amount.toLocaleString()} XAF
+                        {expense.amount.toLocaleString()} {currencySymbol}
                       </td>
                     </tr>
                   );
