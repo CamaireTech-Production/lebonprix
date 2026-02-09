@@ -14,6 +14,8 @@ import { getPeriodStartDate } from '@utils/calculations/profitPeriodUtils';
 import { getPeriodLabel } from '@utils/dashboard/periodUtils';
 import type { DateRange } from '@utils/dashboard/periodUtils';
 import type { ProfitPeriodPreference } from '../../types/models';
+import { useAuth } from '@contexts/AuthContext';
+import { CURRENCIES } from '@constants/currencies';
 
 interface UseDashboardStatsParams {
   filteredSales: Sale[];
@@ -32,8 +34,8 @@ interface UseDashboardStatsParams {
 export interface StatCardData {
   title: string;
   value: string | number;
-  iconType: 'dollar' | 'trending' | 'receipt' | 'users';
-  type: 'products' | 'sales' | 'expenses' | 'profit' | 'orders' | 'delivery' | 'solde';
+  iconType: 'dollar' | 'trending' | 'receipt' | 'users' | 'credit';
+  type: 'products' | 'sales' | 'expenses' | 'profit' | 'orders' | 'delivery' | 'solde' | 'credit';
   loading?: boolean;
   trend?: { value: number; isPositive: boolean };
   trendData?: number[];
@@ -57,29 +59,32 @@ export const useDashboardStats = ({
   stockChangesLoading
 }: UseDashboardStatsParams): { statCards: StatCardData[] } => {
   const { t } = useTranslation();
+  const { company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
 
   // Calculate profit
-  const customDate = profitPeriodPreference?.periodStartDate 
+  const customDate = profitPeriodPreference?.periodStartDate
     ? new Date((profitPeriodPreference.periodStartDate as { seconds: number }).seconds * 1000)
     : null;
-  
+
   const actualStartDate = profitPeriodPreference?.periodType
     ? getPeriodStartDate(profitPeriodPreference.periodType, customDate)
     : null;
 
   const profit = actualStartDate
     ? calculateDashboardProfit(
-        filteredSales,
-        products || [],
-        (stockChanges || []) as StockChange[],
-        actualStartDate,
-        dateRange.from
-      )
+      filteredSales,
+      products || [],
+      (stockChanges || []) as StockChange[],
+      actualStartDate,
+      dateRange.from
+    )
     : calculateTotalProfit(
-        filteredSales,
-        products || [],
-        (stockChanges || []) as StockChange[]
-      );
+      filteredSales,
+      products || [],
+      (stockChanges || []) as StockChange[]
+    );
 
   // Calculate expenses
   const totalExpenses = calculateTotalExpenses(filteredExpenses, []);
@@ -116,7 +121,7 @@ export const useDashboardStats = ({
   }, [previousPeriodSales]);
 
   const clientsTrend = useMemo(() => {
-    const trendValue = previousPeriodClients > 0 
+    const trendValue = previousPeriodClients > 0
       ? ((uniqueClientsCount - previousPeriodClients) / previousPeriodClients) * 100
       : uniqueClientsCount > 0 ? 100 : 0;
     return {
@@ -126,7 +131,7 @@ export const useDashboardStats = ({
   }, [uniqueClientsCount, previousPeriodClients]);
 
   // Calculate trend data for mini graphs (last 7 days)
-  const salesTrendData = useMemo(() => 
+  const salesTrendData = useMemo(() =>
     calculateTrendData(filteredSales, 7),
     [filteredSales]
   );
@@ -141,15 +146,15 @@ export const useDashboardStats = ({
 
   // Build stat cards
   const statCards: StatCardData[] = useMemo(() => [
-    { 
-      title: t('dashboard.stats.totalSalesAmount', { defaultValue: 'Ventes totales' }), 
-      value: `${totalSalesAmount.toLocaleString()} FCFA`, 
-      iconType: 'dollar', 
+    {
+      title: t('dashboard.stats.totalSalesAmount', { defaultValue: 'Ventes totales' }),
+      value: `${totalSalesAmount.toLocaleString()} ${currencySymbol}`,
+      iconType: 'dollar',
       type: 'sales',
       loading: salesLoading,
       trend: (() => {
         const previousSalesAmount = calculateTotalSalesAmount(previousPeriodSales);
-        const trendValue = previousSalesAmount > 0 
+        const trendValue = previousSalesAmount > 0
           ? ((totalSalesAmount - previousSalesAmount) / previousSalesAmount) * 100
           : totalSalesAmount > 0 ? 100 : 0;
         return {
@@ -160,27 +165,27 @@ export const useDashboardStats = ({
       trendData: salesTrendData,
       periodLabel
     },
-    { 
-      title: t('dashboard.stats.profit', { defaultValue: 'Profit' }), 
-      value: `${profit.toLocaleString()} FCFA`, 
-      iconType: 'trending', 
+    {
+      title: t('dashboard.stats.profit', { defaultValue: 'Profit' }),
+      value: `${profit.toLocaleString()} ${currencySymbol}`,
+      iconType: 'trending',
       type: 'profit',
       loading: salesLoading || stockChangesLoading,
       trend: (() => {
         const previousProfit = actualStartDate
           ? calculateDashboardProfit(
-              previousPeriodSales,
-              products || [],
-              (stockChanges || []) as StockChange[],
-              actualStartDate,
-              previousPeriodStart
-            )
+            previousPeriodSales,
+            products || [],
+            (stockChanges || []) as StockChange[],
+            actualStartDate,
+            previousPeriodStart
+          )
           : calculateTotalProfit(
-              previousPeriodSales,
-              products || [],
-              (stockChanges || []) as StockChange[]
-            );
-        const trendValue = previousProfit > 0 
+            previousPeriodSales,
+            products || [],
+            (stockChanges || []) as StockChange[]
+          );
+        const trendValue = previousProfit > 0
           ? ((profit - previousProfit) / previousProfit) * 100
           : profit > 0 ? 100 : 0;
         return {
@@ -191,10 +196,10 @@ export const useDashboardStats = ({
       trendData: salesTrendData,
       periodLabel
     },
-    { 
-      title: t('dashboard.stats.totalExpenses', { defaultValue: 'Dépenses totales' }), 
-      value: `${totalExpenses.toLocaleString()} FCFA`, 
-      iconType: 'receipt', 
+    {
+      title: t('dashboard.stats.totalExpenses', { defaultValue: 'Dépenses totales' }),
+      value: `${totalExpenses.toLocaleString()} ${currencySymbol}`,
+      iconType: 'receipt',
       type: 'expenses',
       loading: expensesLoading,
       trend: (() => {
@@ -205,7 +210,7 @@ export const useDashboardStats = ({
           return expenseDate >= previousPeriodStart && expenseDate <= previousPeriodEnd;
         });
         const previousExpensesAmount = calculateTotalExpenses(previousExpenses, []);
-        const trendValue = previousExpensesAmount > 0 
+        const trendValue = previousExpensesAmount > 0
           ? ((totalExpenses - previousExpensesAmount) / previousExpensesAmount) * 100
           : totalExpenses > 0 ? 100 : 0;
         return {
@@ -216,20 +221,20 @@ export const useDashboardStats = ({
       trendData: salesTrendData,
       periodLabel
     },
-    { 
-      title: t('dashboard.stats.clients', { defaultValue: 'Clients' }), 
-      value: uniqueClientsCount, 
-      iconType: 'users', 
+    {
+      title: t('dashboard.stats.clients', { defaultValue: 'Clients' }),
+      value: uniqueClientsCount,
+      iconType: 'users',
       type: 'sales',
       loading: salesLoading,
       trend: clientsTrend,
       trendData: salesTrendData,
       periodLabel
     },
-    { 
-      title: t('dashboard.stats.creditOutstanding', { defaultValue: 'Crédits en attente' }), 
-      value: `${totalCreditOutstanding.toLocaleString()} FCFA`, 
-      iconType: 'credit', 
+    {
+      title: t('dashboard.stats.creditOutstanding', { defaultValue: 'Crédits en attente' }),
+      value: `${totalCreditOutstanding.toLocaleString()} ${currencySymbol}`,
+      iconType: 'credit',
       type: 'credit',
       loading: salesLoading,
       subtitle: `${creditSalesCount} ${t('dashboard.stats.creditSales', { defaultValue: 'ventes' })}`,

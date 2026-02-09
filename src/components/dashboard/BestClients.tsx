@@ -2,6 +2,8 @@ import { useTranslation } from 'react-i18next';
 import { useCompanyColors } from '@hooks/business/useCompanyColors';
 import Card from '../common/Card';
 import { ExternalLink } from 'lucide-react';
+import { useAuth } from '@contexts/AuthContext';
+import { CURRENCIES } from '@constants/currencies';
 
 interface BestClient {
   initials: string;
@@ -19,6 +21,9 @@ interface BestClientsProps {
 const BestClients = ({ clients, onViewMore, className = '' }: BestClientsProps) => {
   const { t } = useTranslation();
   const colors = useCompanyColors();
+  const { company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
 
   const getInitialsColor = (initials: string) => {
     const colors = [
@@ -32,7 +37,7 @@ const BestClients = ({ clients, onViewMore, className = '' }: BestClientsProps) 
   return (
     <Card className={className}>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold" style={{color: colors.primary}}>
+        <h3 className="text-lg font-semibold" style={{ color: colors.primary }}>
           {t('dashboard.bestClients.title', { defaultValue: 'Meilleurs clients' })}
         </h3>
         {onViewMore && (
@@ -70,8 +75,8 @@ const BestClients = ({ clients, onViewMore, className = '' }: BestClientsProps) 
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-sm font-semibold" style={{color: colors.primary}}>
-                  {client.totalSpent.toLocaleString()} FCFA
+                <p className="text-sm font-semibold" style={{ color: colors.primary }}>
+                  {client.totalSpent.toLocaleString()} {currencySymbol}
                 </p>
               </div>
             </div>

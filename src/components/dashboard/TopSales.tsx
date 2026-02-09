@@ -3,6 +3,8 @@ import { useCompanyColors } from '@hooks/business/useCompanyColors';
 import Card from '../common/Card';
 import { ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
+import { useAuth } from '@contexts/AuthContext';
+import { CURRENCIES } from '@constants/currencies';
 import type { Sale } from '../../types/models';
 
 interface TopSalesProps {
@@ -14,6 +16,9 @@ interface TopSalesProps {
 const TopSales = ({ sales, onViewMore, className = '' }: TopSalesProps) => {
   const { t } = useTranslation();
   const colors = useCompanyColors();
+  const { company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
 
   const formatDate = (timestamp: any) => {
     if (!timestamp?.seconds) return '-';
@@ -24,7 +29,7 @@ const TopSales = ({ sales, onViewMore, className = '' }: TopSalesProps) => {
   return (
     <Card className={className}>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold" style={{color: colors.primary}}>
+        <h3 className="text-lg font-semibold" style={{ color: colors.primary }}>
           {t('dashboard.topSales.title', { defaultValue: 'Meilleures ventes' })}
         </h3>
         {onViewMore && (
@@ -54,8 +59,8 @@ const TopSales = ({ sales, onViewMore, className = '' }: TopSalesProps) => {
                 </p>
               </div>
               <div className="text-right ml-3">
-                <p className="text-sm font-semibold" style={{color: colors.primary}}>
-                  {sale.totalAmount.toLocaleString()} FCFA
+                <p className="text-sm font-semibold" style={{ color: colors.primary }}>
+                  {sale.totalAmount.toLocaleString()} {currencySymbol}
                 </p>
               </div>
             </div>

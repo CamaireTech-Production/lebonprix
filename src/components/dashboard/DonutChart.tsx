@@ -9,6 +9,7 @@ import {
 import Card from '../common/Card';
 import { useTranslation } from 'react-i18next';
 import { useCompanyColors } from '@hooks/business/useCompanyColors';
+import { useAuth } from '@contexts/AuthContext';
 
 // Register Chart.js components
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -27,8 +28,10 @@ interface DonutChartProps {
 }
 
 const DonutChart = ({ title, data, colors: chartColors, periodFilter, className = '' }: DonutChartProps) => {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const companyColors = useCompanyColors();
+  const { company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
 
   // Default color palette
   const defaultColors = [
@@ -77,9 +80,9 @@ const DonutChart = ({ title, data, colors: chartColors, periodFilter, className 
             const value = context.parsed || 0;
             const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
             const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
-            return `${label}: ${new Intl.NumberFormat(i18n.language, { 
-              style: 'currency', 
-              currency: 'XAF',
+            return `${label}: ${new Intl.NumberFormat(i18n.language, {
+              style: 'currency',
+              currency: currencyCode,
               maximumFractionDigits: 0
             }).format(value)} (${percentage}%)`;
           }
@@ -92,7 +95,7 @@ const DonutChart = ({ title, data, colors: chartColors, periodFilter, className 
   return (
     <Card className={className}>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold" style={{color: companyColors.primary}}>
+        <h3 className="text-lg font-semibold" style={{ color: companyColors.primary }}>
           {title}
         </h3>
         {periodFilter}
