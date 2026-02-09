@@ -21,6 +21,8 @@ interface ConsolidatedReportModalProps {
   suppliers: Supplier[];
   productStockBatches: StockBatch[];
   matiereStockBatches: StockBatch[];
+  companyName?: string;
+  companyLogo?: string;
 }
 
 type ReportSection = 'products' | 'expenses' | 'sales' | 'matieres';
@@ -35,7 +37,9 @@ const ConsolidatedReportModal: React.FC<ConsolidatedReportModalProps> = ({
   categories,
   suppliers,
   productStockBatches,
-  matiereStockBatches
+  matiereStockBatches,
+  companyName,
+  companyLogo
 }) => {
   const { company } = useAuth();
   const currencyCode = company?.currency || 'XAF';
@@ -148,8 +152,8 @@ const ConsolidatedReportModal: React.FC<ConsolidatedReportModalProps> = ({
           productStockBatches,
           matiereStockBatches
         },
-        companyName: company?.name,
-        companyLogo: company?.logo,
+        companyName: companyName || company?.name,
+        companyLogo: companyLogo || company?.logo,
         currencyCode: currencyCode // Use currency code for PDF compatibility
       });
 

@@ -27,7 +27,6 @@ import LazyAllProductsSold from '../../components/reports/LazyAllProductsSold';
 import ConsolidatedReportModal from '../../components/reports/ConsolidatedReportModal';
 import { useAuth } from '@contexts/AuthContext';
 import { logWarning } from '@utils/core/logger';
-import { formatPrice } from '@utils/formatting/formatPrice';
 import { useCurrency } from '@hooks/useCurrency';
 
 // Register Chart.js components
@@ -75,15 +74,15 @@ const Reports = () => {
   const [profitabilityRowsPerPage, setProfitabilityRowsPerPage] = useState(10);
 
   // 🚀 PROGRESSIVE LOADING: Tier 1 - Essential data (immediate)
-  const { sales, loading: salesLoading } = useSales();
-  const { products, loading: productsLoading } = useProducts();
+  const { sales } = useSales();
+  const { products } = useProducts();
   const { company } = useAuth();
 
   // 🚀 PROGRESSIVE LOADING: Tier 2 - Secondary data (background)
-  const { expenses, loading: expensesLoading } = useExpenses();
-  const { categories, loading: categoriesLoading } = useCategories();
-  const { suppliers, loading: suppliersLoading } = useSuppliers();
-  const { sources, loading: sourcesLoading } = useCustomerSources();
+  const { expenses } = useExpenses();
+  const { categories } = useCategories();
+  const { suppliers } = useSuppliers();
+  const { sources } = useCustomerSources();
 
   // 🚀 PROGRESSIVE LOADING: Tier 3 - Heavy data (always load, but defer usage)
   const { matieres } = useMatieres();
@@ -198,6 +197,19 @@ const Reports = () => {
   }, []);
   const startOfMonthLocal = useCallback((d: Date) => new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0), []);
   const startOfYearLocal = useCallback((d: Date) => new Date(d.getFullYear(), 0, 1, 0, 0, 0, 0), []);
+
+  const calculateSaleProfit = useCallback((sale: Sale) => {
+    return sale.products.reduce((productSum, sp) => {
+      const unitSalePrice = sp.negotiatedPrice ?? sp.basePrice;
+      if (sp.batchLevelProfits && sp.batchLevelProfits.length > 0) {
+        return productSum + sp.batchLevelProfits.reduce(
+          (batchSum, batch) => batchSum + (unitSalePrice - batch.costPrice) * batch.consumedQuantity,
+          0
+        );
+      }
+      return productSum + (unitSalePrice - sp.costPrice) * sp.quantity;
+    }, 0);
+  }, []);
 
   const filteredSales: Sale[] = useMemo(() => {
     let filtered = sales.filter(s => s.isAvailable !== false && inRange(toDate(s.createdAt)));
@@ -1147,12 +1159,14 @@ const Reports = () => {
               'draft': { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' },
             };
             const colors = statusColors[status] || { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' };
+            const label = statusLabels[status] || status;
+            const textClass900 = colors.text.replace('700', '900');
             return (
               <div key={status} className={`${colors.bg} ${colors.border} border rounded-lg p-4`}>
                 <p className={`text-sm font-medium ${colors.text}`}>
-                  {statusLabels[status] || status}
+                  {label}
                 </p>
-                <p className={`mt-2 text-2xl font-semibold ${colors.text.replace('700', '900')}`}>
+                <p className={`mt-2 text-2xl font-semibold ${textClass900}`}>
                   {formatCurrency(data.amount)}
                 </p>
                 <p className={`mt-1 text-xs ${colors.text}`}>
@@ -1641,7 +1655,7 @@ const Reports = () => {
                         },
                         tooltip: {
                           callbacks: {
-                            label: (context) => {
+                            label: (context: { label: string; parsed: number; dataset: { data: number[]; }; }) => {
                               const label = context.label || '';
                               const value = context.parsed || 0;
                               const total = (context.dataset.data as number[]).reduce(
@@ -1698,18 +1712,7 @@ const Reports = () => {
               {sources.map((source) => {
                 const sourceSales = filteredSales.filter(s => s.customerSourceId === source.id);
                 const sourceRevenue = sourceSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
-                const sourceProfit = sourceSales.reduce((sum, sale) => {
-                  return sum + sale.products.reduce((productSum: number, sp: { negotiatedPrice?: number; basePrice: number; costPrice: number; quantity: number; batchLevelProfits?: Array<{ costPrice: number; consumedQuantity: number }> }) => {
-                    const unitSalePrice = sp.negotiatedPrice ?? sp.basePrice;
-                    if (sp.batchLevelProfits && sp.batchLevelProfits.length > 0) {
-                      return productSum + sp.batchLevelProfits.reduce(
-                        (batchSum: number, batch: { costPrice: number; consumedQuantity: number }) => batchSum + (unitSalePrice - batch.costPrice) * batch.consumedQuantity,
-                        0
-                      );
-                    }
-                    return productSum + (unitSalePrice - sp.costPrice) * sp.quantity;
-                  }, 0);
-                }, 0);
+                const sourceProfit = sourceSales.reduce((sum, sale) => sum + calculateSaleProfit(sale), 0);
                 const sourceCustomers = new Set(sourceSales.map(s => s.customerInfo.phone)).size;
                 const profitMargin = sourceRevenue > 0 ? (sourceProfit / sourceRevenue) * 100 : 0;
 
@@ -1768,18 +1771,7 @@ const Reports = () => {
                   {sources.map((source) => {
                     const sourceSales = filteredSales.filter(s => s.customerSourceId === source.id);
                     const sourceRevenue = sourceSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
-                    const sourceProfit = sourceSales.reduce((sum, sale) => {
-                      return sum + sale.products.reduce((productSum, sp) => {
-                        const unitSalePrice = sp.negotiatedPrice ?? sp.basePrice;
-                        if (sp.batchLevelProfits && sp.batchLevelProfits.length > 0) {
-                          return productSum + sp.batchLevelProfits.reduce(
-                            (batchSum, batch) => batchSum + (unitSalePrice - batch.costPrice) * batch.consumedQuantity,
-                            0
-                          );
-                        }
-                        return productSum + (unitSalePrice - sp.costPrice) * sp.quantity;
-                      }, 0);
-                    }, 0);
+                    const sourceProfit = sourceSales.reduce((sum, sale) => sum + calculateSaleProfit(sale), 0);
                     const sourceCustomers = new Set(sourceSales.map(s => s.customerInfo.phone)).size;
                     const profitMargin = sourceRevenue > 0 ? (sourceProfit / sourceRevenue) * 100 : 0;
 
@@ -1809,18 +1801,7 @@ const Reports = () => {
                     const noSourceSales = filteredSales.filter(s => !s.customerSourceId);
                     if (noSourceSales.length > 0) {
                       const noSourceRevenue = noSourceSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
-                      const noSourceProfit = noSourceSales.reduce((sum, sale) => {
-                        return sum + sale.products.reduce((productSum, sp) => {
-                          const unitSalePrice = sp.negotiatedPrice ?? sp.basePrice;
-                          if (sp.batchLevelProfits && sp.batchLevelProfits.length > 0) {
-                            return productSum + sp.batchLevelProfits.reduce(
-                              (batchSum, batch) => batchSum + (unitSalePrice - batch.costPrice) * batch.consumedQuantity,
-                              0
-                            );
-                          }
-                          return productSum + (unitSalePrice - sp.costPrice) * sp.quantity;
-                        }, 0);
-                      }, 0);
+                      const noSourceProfit = noSourceSales.reduce((sum, sale) => sum + calculateSaleProfit(sale), 0);
                       const noSourceCustomers = new Set(noSourceSales.map(s => s.customerInfo.phone)).size;
                       const noSourceProfitMargin = noSourceRevenue > 0 ? (noSourceProfit / noSourceRevenue) * 100 : 0;
 
