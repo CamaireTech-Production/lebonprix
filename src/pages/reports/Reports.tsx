@@ -28,6 +28,7 @@ import ConsolidatedReportModal from '../../components/reports/ConsolidatedReport
 import { useAuth } from '@contexts/AuthContext';
 import { logWarning } from '@utils/core/logger';
 import { formatPrice } from '@utils/formatting/formatPrice';
+import { useCurrency } from '@hooks/useCurrency';
 
 // Register Chart.js components
 ChartJS.register(
@@ -43,6 +44,7 @@ ChartJS.register(
 
 const Reports = () => {
   const { t } = useTranslation();
+  const { format: formatCurrency } = useCurrency();
   const [searchParams] = useSearchParams();
 
   // Date range state - default to all time (same as DateRangePicker default)
@@ -445,12 +447,7 @@ const Reports = () => {
               label += ': ';
             }
             if (context.parsed.y !== null) {
-              const currencyCode = company?.currency || 'XAF';
-              label += new Intl.NumberFormat('fr-FR', {
-                style: 'currency',
-                currency: currencyCode,
-                maximumFractionDigits: 0
-              }).format(context.parsed.y);
+              label += formatCurrency(context.parsed.y);
             }
             return label;
           }
@@ -470,13 +467,7 @@ const Reports = () => {
         },
         ticks: {
           callback: function (value) {
-            const currencyCode = company?.currency || 'XAF';
-            return new Intl.NumberFormat('fr-FR', {
-              style: 'currency',
-              currency: currencyCode,
-              maximumSignificantDigits: 3,
-              maximumFractionDigits: 0
-            }).format(Number(value));
+            return formatCurrency(Number(value));
           }
         }
       },
@@ -1079,14 +1070,14 @@ const Reports = () => {
         <Card className="bg-emerald-50 border border-emerald-100">
           <div className="text-center">
             <p className="text-sm font-medium text-emerald-700">{t('reports.summary.totalSales')}</p>
-            <p className="mt-1 text-3xl font-semibold text-emerald-900">{formatPrice(totalSales)} XAF</p>
+            <p className="mt-1 text-3xl font-semibold text-emerald-900">{formatCurrency(totalSales)}</p>
             <p className="mt-1 text-sm text-emerald-600">
               <span className="font-medium">{filteredSales.length}</span> {t('reports.summary.orders')}
             </p>
             <ComparisonIndicator
               current={totalSales}
               previous={previousPeriodData.totalSales}
-              formatValue={(v) => `${formatPrice(v)} XAF`}
+              formatValue={(v) => formatCurrency(v)}
             />
           </div>
         </Card>
@@ -1094,14 +1085,14 @@ const Reports = () => {
         <Card className="bg-amber-50 border border-amber-100">
           <div className="text-center">
             <p className="text-sm font-medium text-amber-700">{t('reports.summary.costOfGoodsSold')}</p>
-            <p className="mt-1 text-3xl font-semibold text-amber-900">{formatPrice(totalCostOfGoodsSold)} XAF</p>
+            <p className="mt-1 text-3xl font-semibold text-amber-900">{formatCurrency(totalCostOfGoodsSold)}</p>
             <p className="mt-1 text-sm text-amber-600">
               <span className="font-medium">{(totalSales > 0 ? Math.round(((totalCostOfGoodsSold) / totalSales) * 100) : 0)}%</span> {t('reports.summary.ofSales')}
             </p>
             <ComparisonIndicator
               current={totalCostOfGoodsSold}
               previous={previousPeriodData.totalCostOfGoodsSold}
-              formatValue={(v) => `${formatPrice(v)} XAF`}
+              formatValue={(v) => formatCurrency(v)}
             />
           </div>
         </Card>
@@ -1109,14 +1100,14 @@ const Reports = () => {
         <Card className="bg-red-50 border border-red-100">
           <div className="text-center">
             <p className="text-sm font-medium text-red-700">{t('reports.summary.totalExpenses')}</p>
-            <p className="mt-1 text-3xl font-semibold text-red-900">{formatPrice(totalExpenses)} XAF</p>
+            <p className="mt-1 text-3xl font-semibold text-red-900">{formatCurrency(totalExpenses)}</p>
             <p className="mt-1 text-sm text-red-600">
               <span className="font-medium">{filteredExpenses.length}</span> {t('reports.summary.entries')}
             </p>
             <ComparisonIndicator
               current={totalExpenses}
               previous={previousPeriodData.totalExpenses}
-              formatValue={(v) => `${formatPrice(v)} XAF`}
+              formatValue={(v) => formatCurrency(v)}
             />
           </div>
         </Card>
@@ -1124,14 +1115,14 @@ const Reports = () => {
         <Card className="bg-indigo-50 border border-indigo-100">
           <div className="text-center">
             <p className="text-sm font-medium text-indigo-700">{t('reports.summary.netProfit')}</p>
-            <p className="mt-1 text-3xl font-semibold text-indigo-900">{formatPrice(netProfit)} XAF</p>
+            <p className="mt-1 text-3xl font-semibold text-indigo-900">{formatCurrency(netProfit)}</p>
             <p className="mt-1 text-sm text-indigo-600">
               <span className="font-medium">{(totalSales > 0 ? Math.round(((netProfit) / totalSales) * 100) : 0)}%</span> {t('reports.summary.margin')}
             </p>
             <ComparisonIndicator
               current={netProfit}
               previous={previousPeriodData.netProfit}
-              formatValue={(v) => `${formatPrice(v)} XAF`}
+              formatValue={(v) => formatCurrency(v)}
             />
           </div>
         </Card>
@@ -1162,7 +1153,7 @@ const Reports = () => {
                   {statusLabels[status] || status}
                 </p>
                 <p className={`mt-2 text-2xl font-semibold ${colors.text.replace('700', '900')}`}>
-                  {formatPrice(data.amount)} XAF
+                  {formatCurrency(data.amount)}
                 </p>
                 <p className={`mt-1 text-xs ${colors.text}`}>
                   {data.count} {t('reports.statusBreakdown.sales') || 'sales'}
@@ -1183,7 +1174,7 @@ const Reports = () => {
                   {t('reports.creditSales.totalCreditSales') || 'Total Credit Sales'}
                 </p>
                 <p className="mt-2 text-2xl font-semibold text-orange-900">
-                  {formatPrice(creditSalesMetrics.totalAmount)} XAF
+                  {formatCurrency(creditSalesMetrics.totalAmount)}
                 </p>
                 <p className="mt-1 text-xs text-orange-600">
                   {creditSalesMetrics.count} {t('reports.creditSales.sales') || 'sales'}
@@ -1194,7 +1185,7 @@ const Reports = () => {
                   {t('reports.creditSales.totalOutstanding') || 'Total Outstanding'}
                 </p>
                 <p className="mt-2 text-2xl font-semibold text-red-900">
-                  {formatPrice(creditSalesMetrics.totalOutstanding)} XAF
+                  {formatCurrency(creditSalesMetrics.totalOutstanding)}
                 </p>
                 <p className="mt-1 text-xs text-red-600">
                   {t('reports.creditSales.unpaid') || 'Unpaid amount'}
@@ -1205,7 +1196,7 @@ const Reports = () => {
                   {t('reports.creditSales.totalPaid') || 'Total Paid'}
                 </p>
                 <p className="mt-2 text-2xl font-semibold text-green-900">
-                  {formatPrice(creditSalesMetrics.totalAmount - creditSalesMetrics.totalOutstanding)} XAF
+                  {formatCurrency(creditSalesMetrics.totalAmount - creditSalesMetrics.totalOutstanding)}
                 </p>
                 <p className="mt-1 text-xs text-green-600">
                   {t('reports.creditSales.paidAmount') || 'Paid amount'}
@@ -1256,13 +1247,13 @@ const Reports = () => {
                             {sale.customerInfo?.name || '-'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {formatPrice(sale.totalAmount)} XAF
+                            {formatCurrency(sale.totalAmount)}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600">
-                            {formatPrice(paidAmount)} XAF
+                            {formatCurrency(paidAmount)}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-red-600">
-                            {formatPrice(remainingAmount)} XAF
+                            {formatCurrency(remainingAmount)}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                             {dueDate ? dueDate.toLocaleDateString() : '-'}
@@ -1335,8 +1326,8 @@ const Reports = () => {
           <button
             onClick={() => setShowTrend(!showTrend)}
             className={`px-3 py-1 text-sm rounded-md border ${showTrend
-                ? 'bg-gray-100 border-gray-300 text-gray-700'
-                : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+              ? 'bg-gray-100 border-gray-300 text-gray-700'
+              : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
               }`}
           >
             {showTrend ? t('reports.chart.hideTrendLine') : t('reports.chart.showTrendLine')}
@@ -1392,10 +1383,10 @@ const Reports = () => {
                       {product.customersCount}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatPrice(product.totalSales)} XAF
+                      {formatCurrency(product.totalSales)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                      {formatPrice(product.cumulativeSales)} XAF
+                      {formatCurrency(product.cumulativeSales)}
                     </td>
                   </tr>
                 ))}
@@ -1430,13 +1421,13 @@ const Reports = () => {
                       {customer.name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatPrice(customer.sales)} XAF
+                      {formatCurrency(customer.sales)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {customer.orders}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                      {formatPrice(customer.cumulativeSales)} XAF
+                      {formatCurrency(customer.cumulativeSales)}
                     </td>
                   </tr>
                 ))}
@@ -1486,8 +1477,8 @@ const Reports = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dateStr}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{ex.description}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{ex.category}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatPrice(ex.amount)} XAF</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{formatPrice(cumulative)} XAF</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency(ex.amount)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{formatCurrency(cumulative)}</td>
                       </tr>
                     );
                   });
@@ -1524,10 +1515,10 @@ const Reports = () => {
                     <tr key={idx}>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.quantitySold}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.totalSales} XAF</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.totalCOGS} XAF</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{formatCurrency(product.totalSales)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{formatCurrency(product.totalCOGS)}</td>
                       <td className={`px-4 py-3 whitespace-nowrap text-sm font-semibold ${product.grossProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {product.grossProfit} XAF
+                        {formatCurrency(product.grossProfit)}
                       </td>
                       <td className={`px-4 py-3 whitespace-nowrap text-sm font-semibold ${product.profitMargin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                         {product.profitMargin.toFixed(1)}%
@@ -1658,7 +1649,7 @@ const Reports = () => {
                                 0
                               );
                               const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
-                              return `${label}: ${value} XAF (${percentage}%)`;
+                              return `${label}: ${formatCurrency(value)} (${percentage}%)`;
                             },
                           },
                         },
@@ -1684,10 +1675,10 @@ const Reports = () => {
                     {expenseCategoryAnalysis.map((exp, idx) => (
                       <tr key={idx}>
                         <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{exp.category}</td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.amount.toLocaleString()} XAF</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatCurrency(exp.amount)}</td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.percentage.toFixed(1)}%</td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.count}</td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.average.toLocaleString()} XAF</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatCurrency(exp.average)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1738,13 +1729,13 @@ const Reports = () => {
                         <span className="text-gray-600">{t('reports.customerSourceStats.sales')}:</span>
                         <span className="font-semibold">{sourceSales.length}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">{t('reports.customerSourceStats.revenue')}:</span>
-                        <span className="font-semibold">{sourceRevenue.toLocaleString()} XAF</span>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Revenu:</span>
+                        <span className="font-semibold">{formatCurrency(sourceRevenue)}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">{t('reports.customerSourceStats.profit')}:</span>
-                        <span className="font-semibold text-emerald-600">{sourceProfit.toLocaleString()} XAF</span>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Profit:</span>
+                        <span className="font-semibold text-emerald-600">{formatCurrency(sourceProfit)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">{t('reports.customerSourceStats.customers')}:</span>
@@ -1807,8 +1798,8 @@ const Reports = () => {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{sourceSales.length}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{sourceCustomers}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{sourceRevenue.toLocaleString()} XAF</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-emerald-600 font-semibold">{sourceProfit.toLocaleString()} XAF</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{formatCurrency(sourceRevenue)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-emerald-600 font-semibold">{formatCurrency(sourceProfit)}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{profitMargin.toFixed(1)}%</td>
                       </tr>
                     );
@@ -1840,8 +1831,8 @@ const Reports = () => {
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceSales.length}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceCustomers}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceRevenue.toLocaleString()} XAF</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-emerald-600 font-semibold">{noSourceProfit.toLocaleString()} XAF</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{formatCurrency(noSourceRevenue)}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-emerald-600 font-semibold">{formatCurrency(noSourceProfit)}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceProfitMargin.toFixed(1)}%</td>
                         </tr>
                       );
@@ -1868,7 +1859,7 @@ const Reports = () => {
           </div>
           <div className="text-center">
             <p className="text-sm font-medium text-gray-700">{t('reports.customerMetrics.averageBasket')}</p>
-            <p className="mt-1 text-2xl font-semibold text-gray-900">{customerMetrics.averageBasket.toLocaleString()} XAF</p>
+            <p className="mt-1 text-2xl font-semibold text-gray-900">{formatCurrency(customerMetrics.averageBasket)}</p>
           </div>
           <div className="text-center">
             <p className="text-sm font-medium text-gray-700">{t('reports.customerMetrics.repeatCustomers')}</p>

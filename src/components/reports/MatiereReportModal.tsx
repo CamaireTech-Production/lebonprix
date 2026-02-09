@@ -11,6 +11,7 @@ import {
   DateRangeFilter,
   ReportFormat
 } from '../../types/reports';
+import { useCurrency } from '@hooks/useCurrency';
 import {
   MATIERE_REPORT_FIELDS,
   generateMatiereReport,
@@ -41,6 +42,7 @@ const MatiereReportModal: React.FC<MatiereReportModalProps> = ({
   companyName = '',
   companyLogo = ''
 }) => {
+  const { format: formatCurrency } = useCurrency();
   const { company } = useAuth();
   const currencyCode = company?.currency || 'XAF';
 
@@ -410,7 +412,7 @@ const MatiereReportModal: React.FC<MatiereReportModalProps> = ({
                       {MATIERE_REPORT_FIELDS.filter(f => selectedFields.includes(f.key)).map(field => (
                         <td key={field.key} className="px-3 py-2 text-gray-600">
                           {field.type === 'currency'
-                            ? `${Number(item[field.key as keyof MatiereReportData]).toLocaleString('fr-FR')} ${currencyCode}`
+                            ? formatCurrency(Number(item[field.key as keyof MatiereReportData]))
                             : String(item[field.key as keyof MatiereReportData] ?? '-')}
                         </td>
                       ))}

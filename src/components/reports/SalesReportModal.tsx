@@ -11,6 +11,7 @@ import {
   ReportFormat,
   DateRangeFilter
 } from '../../types/reports';
+import { useCurrency } from '@hooks/useCurrency';
 import {
   SALES_REPORT_FIELDS,
   transformSalesToReportData,
@@ -39,6 +40,7 @@ const SalesReportModal: React.FC<SalesReportModalProps> = ({
   companyName = '',
   companyLogo = ''
 }) => {
+  const { format: formatCurrency } = useCurrency();
   // Get shops and warehouses
   const { shops } = useShops(companyId);
   const { warehouses } = useWarehouses(companyId);
@@ -111,7 +113,7 @@ const SalesReportModal: React.FC<SalesReportModalProps> = ({
     const activeSales = sales.filter(s => s.isAvailable !== false);
 
     const reportData = transformSalesToReportData(
-      activeSales, 
+      activeSales,
       products,
       shops?.map(s => ({ id: s.id, name: s.name })),
       warehouses?.map(w => ({ id: w.id, name: w.name }))
@@ -241,21 +243,19 @@ const SalesReportModal: React.FC<SalesReportModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => setReportFormat('csv')}
-              className={`px-4 py-2.5 rounded-md border text-sm font-medium transition-colors ${
-                reportFormat === 'csv'
+              className={`px-4 py-2.5 rounded-md border text-sm font-medium transition-colors ${reportFormat === 'csv'
                   ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
                   : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-              }`}
+                }`}
             >
               CSV
             </button>
             <button
               onClick={() => setReportFormat('pdf')}
-              className={`px-4 py-2.5 rounded-md border text-sm font-medium transition-colors ${
-                reportFormat === 'pdf'
+              className={`px-4 py-2.5 rounded-md border text-sm font-medium transition-colors ${reportFormat === 'pdf'
                   ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
                   : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-              }`}
+                }`}
             >
               PDF
             </button>
@@ -279,11 +279,10 @@ const SalesReportModal: React.FC<SalesReportModalProps> = ({
               <button
                 key={period.value}
                 onClick={() => handlePeriodChange(period.value as any)}
-                className={`px-3 py-2 rounded-md text-xs font-medium transition-colors ${
-                  periodType === period.value
+                className={`px-3 py-2 rounded-md text-xs font-medium transition-colors ${periodType === period.value
                     ? 'bg-emerald-600 text-white'
                     : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 {period.label}
               </button>
@@ -310,9 +309,8 @@ const SalesReportModal: React.FC<SalesReportModalProps> = ({
               Filtres avancés
             </h4>
             <svg
-              className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${
-                showAdvancedFilters ? 'rotate-180' : ''
-              }`}
+              className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${showAdvancedFilters ? 'rotate-180' : ''
+                }`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -348,11 +346,10 @@ const SalesReportModal: React.FC<SalesReportModalProps> = ({
                             : [...prev, status.value]
                         );
                       }}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                        selectedStatuses.includes(status.value)
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedStatuses.includes(status.value)
                           ? 'bg-emerald-600 text-white'
                           : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                      }`}
+                        }`}
                     >
                       {status.label}
                     </button>
@@ -376,11 +373,10 @@ const SalesReportModal: React.FC<SalesReportModalProps> = ({
                             : [...prev, status.value]
                         );
                       }}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                        selectedPaymentStatuses.includes(status.value)
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedPaymentStatuses.includes(status.value)
                           ? 'bg-emerald-600 text-white'
                           : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                      }`}
+                        }`}
                     >
                       {status.label}
                     </button>
@@ -512,12 +508,12 @@ const SalesReportModal: React.FC<SalesReportModalProps> = ({
                       {SALES_REPORT_FIELDS.filter(f => selectedFields.includes(f.key)).map(field => (
                         <td key={field.key} className="px-3 py-2 text-gray-600">
                           {field.type === 'currency'
-                            ? `${Number(item[field.key as keyof SalesReportData] || 0).toLocaleString('fr-FR')} F`
+                            ? formatCurrency(Number(item[field.key as keyof SalesReportData] || 0))
                             : field.type === 'date' && item[field.key as keyof SalesReportData]
-                            ? new Date(item[field.key as keyof SalesReportData] as Date).toLocaleDateString('fr-FR')
-                            : field.key === 'products'
-                            ? Array.isArray(item.products) ? item.products.join(', ') : item.products
-                            : String(item[field.key as keyof SalesReportData] ?? '-')}
+                              ? new Date(item[field.key as keyof SalesReportData] as Date).toLocaleDateString('fr-FR')
+                              : field.key === 'products'
+                                ? Array.isArray(item.products) ? item.products.join(', ') : item.products
+                                : String(item[field.key as keyof SalesReportData] ?? '-')}
                         </td>
                       ))}
                     </tr>
