@@ -30,6 +30,7 @@ import BarcodeGenerator from '../../components/products/BarcodeGenerator';
 import ProductsReportModal from '../../components/reports/ProductsReportModal';
 import { PermissionButton, usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
+import { CURRENCIES } from '@constants/currencies';
 import { useModules } from '@hooks/business/useModules';
 
 interface CsvRow {
@@ -69,6 +70,8 @@ const Products = () => {
   const { warehouses, loading: warehousesLoading, error: warehousesError } = useWarehouses();
   const { batches: allStockBatches, loading: batchesLoading } = useAllStockBatches();
   const { user, company, currentEmployee, isOwner } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.PRODUCTS);
 
   // Use the new hybrid search system
@@ -1817,7 +1820,7 @@ const Products = () => {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.sellingPrice')}:</span>
-                      <span className="text-emerald-600 font-medium">{product.sellingPrice.toLocaleString()} XAF</span>
+                      <span className="text-emerald-600 font-medium">{product.sellingPrice.toLocaleString()} {currencySymbol}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.stock')}:</span>
@@ -2001,7 +2004,7 @@ const Products = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-emerald-600 font-medium">{product.sellingPrice.toLocaleString()} XAF</div>
+                      <div className="text-sm text-emerald-600 font-medium">{product.sellingPrice.toLocaleString()} {currencySymbol}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {batchesLoading ? (
@@ -2873,10 +2876,10 @@ const Products = () => {
             {/* Profit/Cost Info */}
             <div className="space-y-1">
               <div className="text-sm text-gray-700">
-                {t('products.form.latestCostPrice', 'Latest Cost Price')}: {currentProduct?.id ? (getLatestCostPriceFromBatches(currentProduct.id)?.toLocaleString() || '0') : '0'} XAF
+                {t('products.form.latestCostPrice', 'Latest Cost Price')}: {currentProduct?.id ? (getLatestCostPriceFromBatches(currentProduct.id)?.toLocaleString() || '0') : '0'} {currencySymbol}
               </div>
               <div className="text-sm text-gray-700">
-                {t('products.form.profitPerUnit', 'Profit per unit')}: {editPrices.sellingPrice && currentProduct?.id && getLatestCostPriceFromBatches(currentProduct.id) !== undefined ? (parseFloat(editPrices.sellingPrice) - (getLatestCostPriceFromBatches(currentProduct.id) ?? 0)).toLocaleString() : '-'} XAF
+                {t('products.form.profitPerUnit', 'Profit per unit')}: {editPrices.sellingPrice && currentProduct?.id && getLatestCostPriceFromBatches(currentProduct.id) !== undefined ? (parseFloat(editPrices.sellingPrice) - (getLatestCostPriceFromBatches(currentProduct.id) ?? 0)).toLocaleString() : '-'} {currencySymbol}
               </div>
               {editPrices.sellingPrice && currentProduct?.id && getLatestCostPriceFromBatches(currentProduct.id) !== undefined && parseFloat(editPrices.sellingPrice) < (getLatestCostPriceFromBatches(currentProduct.id) ?? 0) && (
                 <div className="flex items-center bg-red-50 border-l-4 border-red-400 p-2 rounded-md mt-2">
@@ -3057,7 +3060,7 @@ const Products = () => {
                                 )}
                               </td>
                               <td className="px-2 py-1">
-                                {sc.costPrice ? `${sc.costPrice.toLocaleString()} XAF` : '-'}
+                                {sc.costPrice ? `${sc.costPrice.toLocaleString()} ${currencySymbol}` : '-'}
                               </td>
                             </tr>
                           );
@@ -3423,12 +3426,12 @@ const Products = () => {
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">{t('products.form.step2.sellingPrice')}</label>
-                    <p className="mt-1 text-sm font-semibold text-emerald-600">{detailProduct?.sellingPrice?.toLocaleString()} XAF</p>
+                    <p className="mt-1 text-sm font-semibold text-emerald-600">{detailProduct?.sellingPrice?.toLocaleString()} {currencySymbol}</p>
                   </div>
                   {detailProduct?.cataloguePrice && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700">{t('products.form.step2.cataloguePrice')}</label>
-                      <p className="mt-1 text-sm text-gray-900">{detailProduct.cataloguePrice.toLocaleString()} XAF</p>
+                      <p className="mt-1 text-sm text-gray-900">{detailProduct.cataloguePrice.toLocaleString()} {currencySymbol}</p>
                     </div>
                   )}
                   <div>
@@ -3436,7 +3439,7 @@ const Products = () => {
                     {detailProduct?.id ? (
                       <CostPriceCarousel batches={getProductBatches(detailProduct.id)} />
                     ) : (
-                      <p className="mt-1 text-sm text-gray-900">0 XAF</p>
+                      <p className="mt-1 text-sm text-gray-900">0 {currencySymbol}</p>
                     )}
                   </div>
                 </div>

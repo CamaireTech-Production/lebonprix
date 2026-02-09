@@ -122,7 +122,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
 
     return null;
-  }, [company?.id, company?.name]); // Only depend on id and name, not the whole object
+  }, [company]); // Depend on the full company object to capture all updates (currency, logo, etc.)
 
   // Check localStorage session on mount and wait for Firebase auth to restore
   useEffect(() => {
