@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
 import { ImageWithSkeleton, PriceInput } from '@components/common';
 import { formatPrice } from '@utils/formatting/formatPrice';
+import { useAuth } from '@contexts/AuthContext';
+import { CURRENCIES } from '@constants/currencies';
 import type { CartItem } from '@hooks/forms/usePOS';
 import { getEffectiveProductStock, type ProductStockTotals } from '@utils/inventory/stockHelpers';
 
@@ -36,6 +38,9 @@ export const POSCart: React.FC<POSCartProps> = ({
   stockMap,
 }) => {
   const { t } = useTranslation();
+  const { company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Cart Header */}
@@ -79,6 +84,7 @@ export const POSCart: React.FC<POSCartProps> = ({
                 onUpdateQuantity={onUpdateQuantity}
                 onRemoveItem={onRemoveItem}
                 onUpdateNegotiatedPrice={onUpdateNegotiatedPrice}
+                currencySymbol={currencySymbol}
               />
             );
           })
@@ -103,17 +109,17 @@ export const POSCart: React.FC<POSCartProps> = ({
           <div className="space-y-1">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">{t('pos.cart.subtotal')}:</span>
-              <span className="font-medium">{formatPrice(subtotal)} XAF</span>
+              <span className="font-medium">{formatPrice(subtotal, currencySymbol)}</span>
             </div>
             {deliveryFee > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">{t('pos.cart.deliveryFee')}:</span>
-                <span className="font-medium">{formatPrice(deliveryFee)} XAF</span>
+                <span className="font-medium">{formatPrice(deliveryFee, currencySymbol)}</span>
               </div>
             )}
             <div className="flex justify-between text-lg font-bold border-t pt-2">
               <span>{t('pos.cart.total')}:</span>
-              <span className="text-emerald-600">{formatPrice(total)} XAF</span>
+              <span className="text-emerald-600">{formatPrice(total, currencySymbol)}</span>
             </div>
           </div>
 
@@ -140,6 +146,7 @@ interface QuantityInputItemProps {
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveItem: (productId: string) => void;
   onUpdateNegotiatedPrice: (productId: string, price: number | undefined) => void;
+  currencySymbol: string;
 }
 
 const QuantityInputItem: React.FC<QuantityInputItemProps> = ({
@@ -150,6 +157,7 @@ const QuantityInputItem: React.FC<QuantityInputItemProps> = ({
   onUpdateQuantity,
   onRemoveItem,
   onUpdateNegotiatedPrice,
+  currencySymbol,
 }) => {
   const [inputValue, setInputValue] = useState<string>(item.quantity.toString());
   const [isFocused, setIsFocused] = useState(false);
@@ -172,7 +180,7 @@ const QuantityInputItem: React.FC<QuantityInputItemProps> = ({
   const handleInputBlur = () => {
     setIsFocused(false);
     const numValue = parseInt(inputValue, 10);
-    
+
     if (inputValue === '' || isNaN(numValue) || numValue < 1) {
       // Reset to current quantity if invalid
       setInputValue(item.quantity.toString());
@@ -216,13 +224,13 @@ const QuantityInputItem: React.FC<QuantityInputItemProps> = ({
             placeholder="/placeholder.png"
           />
         </div>
-        
+
         <div className="flex-1 min-w-0">
           <div className="font-medium text-sm mb-1">{item.product.name}</div>
           <div className="text-xs text-gray-600 mb-2">
-            {formatPrice(price)} XAF × {item.quantity}
+            {formatPrice(price, currencySymbol)} × {item.quantity}
           </div>
-          
+
           {/* Quantity Controls */}
           <div className="flex items-center space-x-2 mb-2">
             <button
@@ -273,7 +281,7 @@ const QuantityInputItem: React.FC<QuantityInputItemProps> = ({
             <Trash2 size={16} />
           </button>
           <div className="text-sm font-semibold text-emerald-600">
-            {formatPrice(itemTotal)} XAF
+            {formatPrice(itemTotal, currencySymbol)}
           </div>
         </div>
       </div>

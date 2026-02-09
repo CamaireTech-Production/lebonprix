@@ -9,8 +9,10 @@ import { useProductSearch } from '@hooks/search/useProductSearch';
 import ProductRestockModal from '../../components/products/ProductRestockModal';
 import UnifiedBatchAdjustmentModal from '../../components/products/UnifiedBatchAdjustmentModal';
 import BatchDeleteModal from '../../components/common/BatchDeleteModal';
-import { usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
+import { CURRENCIES } from '@constants/currencies';
+import { useAuth } from '@contexts/AuthContext';
+import { usePermissionCheck } from '@components/permissions';
 import { getUserById } from '@services/utilities/userService';
 import { canDeleteBatch } from '@services/firestore/stock/stockAdjustments';
 import type { Product, StockBatch, StockChange } from '../../types/models';
@@ -72,6 +74,9 @@ const formatNumber = (value: number | undefined) =>
 
 const Stocks = () => {
   const { t } = useTranslation();
+  const { company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
   const { products, loading, loadingMore, hasMore, loadMore, refresh, error: productsError } = useInfiniteProducts();
   const { batches, loading: batchesLoading, error: batchesError } = useAllStockBatches('product');
   const { stockChanges } = useStockChanges('product');
@@ -94,7 +99,7 @@ const Stocks = () => {
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
-  
+
   // Modal states
   const [restockModalOpen, setRestockModalOpen] = useState(false);
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
@@ -406,14 +411,14 @@ const Stocks = () => {
                         {t('products.stocksPage.status.activeDepleted', { active: activeBatches.length, depleted: depletedBatches.length })}
                       </div>
                       <div className="col-span-2 flex justify-end space-x-2">
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
                           onClick={() => handleHistory(product)}
                         >
                           {t('products.stocksPage.actions.history')}
                         </Button>
-                        <Button 
+                        <Button
                           size="sm"
                           onClick={() => handleRestock(product)}
                         >
@@ -462,10 +467,10 @@ const Stocks = () => {
                                       {formatNumber(batch.remainingQuantity)} / {formatNumber(batch.quantity)}
                                     </td>
                                     <td className="py-3 pr-4">
-                                      {batch.costPrice ? `${batch.costPrice.toLocaleString()} XAF` : '—'}
+                                      {batch.costPrice ? `${batch.costPrice.toLocaleString()} ${currencySymbol}` : '—'}
                                     </td>
                                     <td className="py-3 pr-4">
-                                      {batch.supplierId 
+                                      {batch.supplierId
                                         ? (suppliersMap.get(batch.supplierId) || batch.supplierId)
                                         : t('products.stocksPage.payment.ownPurchase')}
                                     </td>
@@ -479,8 +484,8 @@ const Stocks = () => {
                                     <td className="py-3 pr-4 text-right space-x-3">
                                       {batch.status === 'active' ? (
                                         <>
-                                          <Button 
-                                            size="sm" 
+                                          <Button
+                                            size="sm"
                                             variant="outline"
                                             className="px-3 py-1.5 text-sm"
                                             onClick={() => handleAdjust(product, batch)}
@@ -688,10 +693,10 @@ const Stocks = () => {
                     const supplierName = change.supplierId
                       ? (suppliersMap.get(change.supplierId) || change.supplierId)
                       : change.isOwnPurchase
-                      ? t('products.stocksPage.payment.ownPurchase')
-                      : '—';
+                        ? t('products.stocksPage.payment.ownPurchase')
+                        : '—';
                     const userName = change.userId ? (userNamesMap.get(change.userId) || change.userId) : '—';
-                    
+
                     return (
                       <tr key={change.id} className="hover:bg-gray-50">
                         <td className="px-4 py-2 text-gray-700">
@@ -702,9 +707,8 @@ const Stocks = () => {
                         <td className="px-4 py-2 text-gray-700">
                           {userName}
                         </td>
-                        <td className={`px-4 py-2 font-medium ${
-                          change.change > 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
+                        <td className={`px-4 py-2 font-medium ${change.change > 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
                           {change.change > 0 ? '+' : ''}{change.change}
                         </td>
                         <td className="px-4 py-2 text-gray-700 capitalize">{change.reason}</td>
@@ -719,7 +723,7 @@ const Stocks = () => {
                           )}
                         </td>
                         <td className="px-4 py-2 text-gray-700">
-                          {change.costPrice ? `${change.costPrice.toLocaleString()} XAF` : '—'}
+                          {change.costPrice ? `${change.costPrice.toLocaleString()} ${currencySymbol}` : '—'}
                         </td>
                       </tr>
                     );

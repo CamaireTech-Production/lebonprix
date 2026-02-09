@@ -13,7 +13,8 @@ import { useExpenseCategories } from '@hooks/business/useExpenseCategories';
 import { getUserById } from '@services/utilities/userService';
 import { getCurrentEmployeeRef } from '@utils/business/employeeUtils';
 import imageCompression from 'browser-image-compression';
-import type { Expense} from '../../../types/models';
+import { CURRENCIES } from '@constants/currencies';
+import type { Expense } from '../../../types/models';
 
 interface ExpenseFormModalProps {
   isOpen: boolean;
@@ -26,8 +27,10 @@ interface ExpenseFormModalProps {
 const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: ExpenseFormModalProps) => {
   const { t } = useTranslation();
   const { user, company, currentEmployee, isOwner } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
   const { expenseTypes, expenseTypesList, createCategory, loadExpenseTypes } = useExpenseCategories();
-  
+
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
@@ -52,7 +55,7 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
         } else if (expense.createdAt?.seconds) {
           dateValue = new Date(expense.createdAt.seconds * 1000).toISOString().split('T')[0];
         }
-        
+
         setFormData({
           description: expense.description,
           amount: expense.amount.toString(),
@@ -62,9 +65,9 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
           imagePath: expense.imagePath || '',
           compressedImageFile: null,
         });
-        setSelectedType({ 
-          label: t(`expenses.categories.${expense.category}`, expense.category), 
-          value: expense.category 
+        setSelectedType({
+          label: t(`expenses.categories.${expense.category}`, expense.category),
+          value: expense.category
         });
       } else {
         // Reset form for add mode
@@ -129,8 +132,8 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
       });
 
       // Store the compressed file in state (don't upload yet)
-      setFormData(prev => ({ 
-        ...prev, 
+      setFormData(prev => ({
+        ...prev,
         compressedImageFile: compressedFile,
         image: URL.createObjectURL(compressedFile) // For preview only
       }));
@@ -168,38 +171,38 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
 
     try {
       const typeValue = selectedType?.value || formData.category;
-      
+
       // Validation
       if (!formData.description?.trim()) {
         showWarningToast(t('errors.fillAllFields') || 'Veuillez remplir tous les champs');
         return;
       }
-      
+
       const amount = parseFloat(formData.amount);
       if (isNaN(amount) || amount <= 0) {
         showWarningToast('Le montant doit être un nombre positif');
         return;
       }
-      
+
       if (!typeValue) {
         showWarningToast('Veuillez sélectionner une catégorie');
         return;
       }
-      
+
       // Validate category exists
       const categoryExists = expenseTypesList.some(cat => cat.name === typeValue) ||
-                             ['transportation', 'purchase', 'other'].includes(typeValue);
+        ['transportation', 'purchase', 'other'].includes(typeValue);
       if (!categoryExists) {
         showWarningToast('Catégorie invalide');
         return;
       }
-      
+
       // Validate date
       if (!formData.date) {
         showWarningToast('Veuillez sélectionner une date');
         return;
       }
-      
+
       const expenseDate = new Date(formData.date + 'T00:00:00');
       const today = new Date();
       today.setHours(23, 59, 59, 999);
@@ -209,7 +212,7 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
       }
 
       setIsSubmitting(true);
-      
+
       if (mode === 'add') {
         // Get createdBy employee reference
         let createdBy = null;
@@ -224,16 +227,16 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
             }
           }
           createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
-          
+
           // Verify createdBy
           if (!createdBy) {
             logWarning('[ExpenseFormModal] createdBy is null');
           }
         }
-        
+
         let imageUrl = '';
         let imagePath = '';
-        
+
         // Upload image first if available
         if (formData.compressedImageFile) {
           try {
@@ -246,7 +249,7 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
               const storageService = new FirebaseStorageService();
               // Generate a temporary ID for the upload
               const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-              
+
               console.log('Uploading expense image:', {
                 size: formData.compressedImageFile.size,
                 type: formData.compressedImageFile.type,
@@ -254,7 +257,7 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
                 companyId: company.id,
                 tempId
               });
-              
+
               const uploadResult = await storageService.uploadExpenseImage(
                 formData.compressedImageFile,
                 user.uid, // Use user.uid, not company.id
@@ -277,7 +280,7 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
             showWarningToast('Image upload failed. Expense will be created without image.');
           }
         }
-        
+
         const newExpense = await createExpense({
           description: formData.description.trim(),
           amount: amount,
@@ -288,14 +291,14 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
           image: imageUrl,
           imagePath: imagePath,
         }, company.id, createdBy);
-        
+
         // Verify createdBy is in the returned expense
         if (newExpense.createdBy) {
           console.log('[ExpenseFormModal] Expense created with createdBy:', newExpense.createdBy);
         } else {
           logWarning('[ExpenseFormModal] Expense created but createdBy is missing in returned object');
         }
-        
+
         await syncFinanceEntryWithExpense(newExpense);
         resetForm();
         onSuccess(newExpense);
@@ -303,11 +306,11 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
       } else {
         // Edit mode
         if (!expense) return;
-        
+
         // Handle new image upload if one was selected
         let imageUrl = formData.image;
         let imagePath = formData.imagePath;
-        
+
         if (formData.compressedImageFile) {
           try {
             const storageService = new FirebaseStorageService();
@@ -324,9 +327,9 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
             return;
           }
         }
-        
+
         const transactionDate = expenseDate;
-        
+
         try {
           await updateExpense(expense.id, {
             description: formData.description.trim(),
@@ -337,7 +340,7 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
             image: imageUrl,
             imagePath: imagePath,
           }, company.id);
-          
+
           // Construct updated expense for optimistic update
           const updatedExpense: Expense = {
             ...expense,
@@ -349,7 +352,7 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
             imagePath: imagePath,
             updatedAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 }
           };
-          
+
           onSuccess(updatedExpense);
           showSuccessToast(t('expenses.messages.updateSuccess'));
         } catch (error) {
@@ -357,12 +360,12 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
           throw error;
         }
       }
-      
+
       handleClose();
     } catch (err) {
       logError(`Failed to ${mode} expense`, err);
       showErrorToast(
-        mode === 'add' 
+        mode === 'add'
           ? t('expenses.messages.addError')
           : t('expenses.messages.updateError')
       );
@@ -385,7 +388,7 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
       onClose={handleClose}
       title={mode === 'add' ? t('expenses.modals.add.title') : t('expenses.modals.edit.title')}
       footer={
-        <ModalFooter 
+        <ModalFooter
           onCancel={handleClose}
           onConfirm={handleSubmit}
           confirmText={mode === 'add' ? t('expenses.modals.add.confirm') : t('expenses.modals.edit.confirm')}
@@ -401,7 +404,7 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
           onChange={handleInputChange}
           required
         />
-        
+
         <PriceInput
           label={t('expenses.form.amount')}
           name="amount"
@@ -410,8 +413,9 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
             setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
           }}
           required
+          suffix={currencySymbol}
         />
-        
+
         <Input
           label={t('expenses.form.date') || 'Date'}
           name="date"
@@ -421,7 +425,7 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
           required
           max={new Date().toISOString().split('T')[0]}
         />
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             {t('expenses.form.category')}
@@ -446,7 +450,7 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Expense Image
           </label>
-          
+
           {formData.image ? (
             <div className="space-y-3">
               <div className="w-32 h-32 rounded-lg overflow-hidden bg-gray-100">
@@ -483,7 +487,7 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
               </label>
             </div>
           )}
-          
+
           {isUploadingImage && (
             <div className="flex items-center space-x-2 text-sm text-gray-600 mt-2">
               <div className="animate-pulse bg-gray-200 h-4 w-4 rounded-full"></div>

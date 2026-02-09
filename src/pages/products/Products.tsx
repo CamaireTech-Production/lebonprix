@@ -2605,6 +2605,7 @@ const Products = () => {
                 helpText={step2Errors.stockCostPrice ? undefined : t('products.form.step2.stockCostPriceHelp')}
                 allowDecimals={true}
                 required
+                suffix={currencySymbol}
               />
               <PriceInput
                 label={t('products.form.step2.sellingPrice')}
@@ -2615,6 +2616,7 @@ const Products = () => {
                 helpText={step2Errors.sellingPrice ? undefined : t('products.form.step2.sellingPriceHelp')}
                 allowDecimals={false}
                 required
+                suffix={currencySymbol}
               />
               <PriceInput
                 label={t('products.form.step2.cataloguePrice')}
@@ -2623,6 +2625,7 @@ const Products = () => {
                 onChange={handleStep2InputChange}
                 helpText={t('products.form.step2.cataloguePriceHelp')}
                 allowDecimals={false}
+                suffix={currencySymbol}
               />
 
               <div className="flex justify-between pt-4">
@@ -2864,6 +2867,7 @@ const Products = () => {
               onChange={(e) => setEditPrices((p: typeof editPrices) => ({ ...p, sellingPrice: e.target.value }))}
               required
               helpText={t('products.form.sellingPriceHelp', 'Required: The price at which you sell this product.')}
+              suffix={currencySymbol}
             />
             {/* Catalogue Price */}
             <PriceInput
@@ -2872,6 +2876,7 @@ const Products = () => {
               value={editPrices.cataloguePrice || ''}
               onChange={(e) => setEditPrices((p: typeof editPrices) => ({ ...p, cataloguePrice: e.target.value }))}
               helpText={t('products.form.cataloguePriceHelp', 'Optional: Used for reference or promotions.')}
+              suffix={currencySymbol}
             />
             {/* Profit/Cost Info */}
             <div className="space-y-1">

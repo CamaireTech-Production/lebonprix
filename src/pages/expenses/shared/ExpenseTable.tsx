@@ -5,6 +5,8 @@ import { Table, Badge, ImageWithSkeleton } from '@components/common';
 import { formatCreatorName } from '@utils/business/employeeUtils';
 import { usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
+import { CURRENCIES } from '@constants/currencies';
+import { useAuth } from '@contexts/AuthContext';
 import type { Expense } from '../../../types/models';
 
 interface ExpenseTableProps {
@@ -18,11 +20,14 @@ interface ExpenseTableProps {
 
 const ExpenseTable = ({ expenses, onEdit, onDelete, deleteLoading, deleteLoadingId }: ExpenseTableProps) => {
   const { t } = useTranslation();
+  const { company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.EXPENSES);
 
   const columns = [
-    { 
-      header: 'Image', 
+    {
+      header: 'Image',
       accessor: (expense: Expense) => (
         <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
           {expense.image ? (
@@ -41,18 +46,18 @@ const ExpenseTable = ({ expenses, onEdit, onDelete, deleteLoading, deleteLoading
       ),
       className: 'w-16',
     },
-    { 
-      header: t('expenses.table.description'), 
+    {
+      header: t('expenses.table.description'),
       accessor: 'description' as const,
     },
-    { 
-      header: t('expenses.table.amount'), 
+    {
+      header: t('expenses.table.amount'),
       accessor: (expense: Expense) => (
-        <span>{expense.amount.toLocaleString()} XAF</span>
+        <span>{expense.amount.toLocaleString()} {currencySymbol}</span>
       ),
     },
-    { 
-      header: t('expenses.table.category'), 
+    {
+      header: t('expenses.table.category'),
       accessor: (expense: Expense) => {
         const defaultCategories = ['transportation', 'purchase', 'other'];
         const isDefault = defaultCategories.includes(expense.category);
@@ -64,8 +69,8 @@ const ExpenseTable = ({ expenses, onEdit, onDelete, deleteLoading, deleteLoading
         return <Badge variant={variant}>{label}</Badge>;
       },
     },
-    { 
-      header: t('expenses.table.date'), 
+    {
+      header: t('expenses.table.date'),
       accessor: (expense: Expense) => {
         // Use date (transaction date) if available, otherwise createdAt (backward compatibility)
         const timestamp = expense.date || expense.createdAt;
@@ -73,8 +78,8 @@ const ExpenseTable = ({ expenses, onEdit, onDelete, deleteLoading, deleteLoading
         return new Date(timestamp.seconds * 1000).toLocaleDateString();
       },
     },
-    { 
-      header: 'Créé par', 
+    {
+      header: 'Créé par',
       accessor: (expense: Expense) => (
         <span className="text-gray-600">{formatCreatorName(expense.createdBy)}</span>
       ),

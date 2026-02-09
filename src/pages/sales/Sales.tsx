@@ -24,6 +24,7 @@ import { useProducts, useCustomers } from '@hooks/data/useFirestore';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
 import { useInfiniteSales } from '@hooks/data/useInfiniteSales';
 import { formatPrice } from '@utils/formatting/formatPrice';
+import { CURRENCIES } from '@constants/currencies';
 import type { Product, OrderStatus, Sale, SaleProduct, Customer, PaymentStatus } from '../../types/models';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import Invoice from '../../components/sales/Invoice';
@@ -81,6 +82,8 @@ const Sales: React.FC = () => {
   const { customers } = useCustomers();
   const { activeSources } = useCustomerSources();
   const { user, company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
   // OPTIMIZATION: Removed useSales() hook to avoid duplicate subscription
   // useInfiniteSales() already provides real-time updates via subscription
   // We'll use updateSaleDocument directly from service instead
@@ -711,10 +714,10 @@ const Sales: React.FC = () => {
           </td>
           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{sp.quantity}</td>
           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-            {formatPrice(sp.basePrice)} XAF
+            {formatPrice(sp.basePrice, currencySymbol)}
           </td>
           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-            {sp.negotiatedPrice ? formatPrice(sp.negotiatedPrice) : '-'} XAF
+            {sp.negotiatedPrice ? formatPrice(sp.negotiatedPrice, currencySymbol) : '-'}
           </td>
           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
             {product ? product.reference : '-'}
@@ -753,7 +756,7 @@ const Sales: React.FC = () => {
           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
             {sale.customerInfo.name}
             <div className="text-xs text-gray-600 mt-1">
-              Profit: {formatPrice(saleProfit)} XAF
+              Profit: {formatPrice(saleProfit, currencySymbol)}
             </div>
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -768,7 +771,7 @@ const Sales: React.FC = () => {
             })}
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm">
-            {formatPrice(sale.totalAmount)} XAF
+            {formatPrice(sale.totalAmount, currencySymbol)}
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm">
             {sale.createdAt && typeof sale.createdAt.seconds === 'number'

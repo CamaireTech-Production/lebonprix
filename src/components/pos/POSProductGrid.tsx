@@ -2,6 +2,8 @@ import React, { useMemo } from 'react';
 import { Package } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import ImageWithSkeleton from '../common/ImageWithSkeleton';
+import { useAuth } from '@contexts/AuthContext';
+import { CURRENCIES } from '@constants/currencies';
 import type { Product } from '../../types/models';
 import { getEffectiveProductStock, type ProductStockTotals } from '@utils/inventory/stockHelpers';
 
@@ -25,11 +27,14 @@ export const POSProductGrid: React.FC<POSProductGridProps> = ({
   stockMap,
 }) => {
   const { t } = useTranslation();
+  const { company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
 
   // Calculate product count per category (only counting products with stock > 0)
   const categoryProductCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    
+
     allProducts.forEach(product => {
       if (product.category && product.isAvailable !== false) {
         const stock = getEffectiveProductStock(product, stockMap);
@@ -38,7 +43,7 @@ export const POSProductGrid: React.FC<POSProductGridProps> = ({
         }
       }
     });
-    
+
     return counts;
   }, [allProducts, stockMap]);
 
@@ -47,13 +52,12 @@ export const POSProductGrid: React.FC<POSProductGridProps> = ({
       {/* Category Filter */}
       {categories.length > 0 && (
         <div className="mb-4 flex flex-nowrap gap-2 overflow-x-auto pb-2 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-gray-400">
-            <button
+          <button
             onClick={() => onCategoryChange(null)}
-            className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
-              selectedCategory === null
-                ? 'bg-emerald-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
+            className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${selectedCategory === null
+              ? 'bg-emerald-600 text-white'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
           >
             {t('pos.products.all')} ({allProducts.filter(p => p.isAvailable !== false && getEffectiveProductStock(p, stockMap) > 0).length})
           </button>
@@ -61,11 +65,10 @@ export const POSProductGrid: React.FC<POSProductGridProps> = ({
             <button
               key={category}
               onClick={() => onCategoryChange(category)}
-              className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
-                selectedCategory === category
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
+              className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${selectedCategory === category
+                ? 'bg-emerald-600 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
             >
               {category} ({categoryProductCounts[category] || 0})
             </button>
@@ -81,7 +84,7 @@ export const POSProductGrid: React.FC<POSProductGridProps> = ({
             <p>{t('pos.products.noProducts')}</p>
           </div>
         ) : (
-          <div 
+          <div
             className="grid gap-3"
             style={{
               gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 140px), 1fr))'
@@ -94,11 +97,10 @@ export const POSProductGrid: React.FC<POSProductGridProps> = ({
                   key={product.id}
                   onClick={() => onAddToCart(product)}
                   disabled={stock <= 0}
-                  className={`p-3 bg-white border-2 rounded-lg hover:border-emerald-500 transition-all text-left flex flex-col ${
-                    stock <= 0
-                      ? 'opacity-50 cursor-not-allowed border-gray-200'
-                      : 'border-gray-200 hover:shadow-md'
-                  }`}
+                  className={`p-3 bg-white border-2 rounded-lg hover:border-emerald-500 transition-all text-left flex flex-col ${stock <= 0
+                    ? 'opacity-50 cursor-not-allowed border-gray-200'
+                    : 'border-gray-200 hover:shadow-md'
+                    }`}
                 >
                   <div className="w-full h-28 mb-2 rounded overflow-hidden bg-gray-100 flex-shrink-0">
                     <ImageWithSkeleton
@@ -110,15 +112,14 @@ export const POSProductGrid: React.FC<POSProductGridProps> = ({
                   </div>
                   <div className="font-medium text-xs mb-1 line-clamp-2 flex-grow">{product.name}</div>
                   <div className="text-emerald-600 font-semibold text-sm mb-1">
-                    {product.sellingPrice.toLocaleString()} XAF
+                    {product.sellingPrice.toLocaleString()} {currencySymbol}
                   </div>
-                  <div className={`text-xs ${
-                    stock <= 5
-                      ? 'text-red-600 font-semibold'
-                      : stock <= 10
+                  <div className={`text-xs ${stock <= 5
+                    ? 'text-red-600 font-semibold'
+                    : stock <= 10
                       ? 'text-orange-600'
                       : 'text-gray-600'
-                  }`}>
+                    }`}>
                     {t('pos.products.stock')}: {stock}
                   </div>
                 </button>

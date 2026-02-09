@@ -8,6 +8,7 @@ import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
 import { useExpenseStats } from '@hooks/business/useExpenseStats';
 import { useCategories } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
+import { CURRENCIES } from '@constants/currencies';
 import ExpenseFilters from './shared/ExpenseFilters';
 import ExpenseTable from './shared/ExpenseTable';
 import ExpenseFormModal from './shared/ExpenseFormModal';
@@ -19,6 +20,9 @@ import type { Expense } from '../../types/models';
 
 const ExpensesList = () => {
   const { t } = useTranslation();
+  const { company } = useAuth();
+  const currencyCode = company?.currency || 'XAF';
+  const currencySymbol = CURRENCIES.find(c => c.code === currencyCode)?.symbol || currencyCode;
   const {
     expenses,
     loading,
@@ -46,9 +50,8 @@ const ExpensesList = () => {
   const [currentExpense, setCurrentExpense] = useState<Expense | null>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
 
-  // Get categories and auth context for report
+  // Get categories for report
   const { categories } = useCategories('product');
-  const { company } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
@@ -58,13 +61,13 @@ const ExpensesList = () => {
 
   // Filter expenses
   const visibleExpenses = expenses.filter(exp => exp.isAvailable !== false);
-  
+
   const filteredExpenses = useMemo(() => {
     return visibleExpenses.filter(expense => {
       // Filter by search query
-      const searchMatch = !searchQuery || 
+      const searchMatch = !searchQuery ||
         expense.description.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       // Filter by date range
       const timestamp = expense.date || expense.createdAt;
       let dateMatch = true;
@@ -72,7 +75,7 @@ const ExpensesList = () => {
         const expenseDate = new Date(timestamp.seconds * 1000);
         dateMatch = expenseDate >= dateRange.from && expenseDate <= dateRange.to;
       }
-      
+
       return searchMatch && dateMatch;
     });
   }, [visibleExpenses, searchQuery, dateRange]);
@@ -145,9 +148,9 @@ const ExpensesList = () => {
       </div>
 
       {/* Sync Indicator */}
-      <SyncIndicator 
-        isSyncing={expensesSyncing} 
-        message="Mise à jour des dépenses..." 
+      <SyncIndicator
+        isSyncing={expensesSyncing}
+        message="Mise à jour des dépenses..."
         className="mb-4"
       />
 
@@ -157,10 +160,10 @@ const ExpensesList = () => {
           {topCategories.map((item, index) => {
             const defaultCategories = ['transportation', 'purchase', 'other'];
             const isDefault = defaultCategories.includes(item.category);
-            const label = isDefault 
+            const label = isDefault
               ? t(`expenses.categories.${item.category}`, item.category)
               : item.category;
-            
+
             const colorClasses = [
               'text-blue-700',
               'text-red-700',
@@ -168,12 +171,12 @@ const ExpensesList = () => {
               'text-green-700',
             ];
             const colorClass = colorClasses[index % colorClasses.length] || 'text-gray-700';
-            
+
             return (
               <Card key={item.category}>
                 <p className={`text-sm font-medium ${colorClass}`}>{label}</p>
                 <p className="text-xl font-semibold text-gray-900">
-                  {item.totalAmount.toLocaleString()} XAF
+                  {item.totalAmount.toLocaleString()} {currencySymbol}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   {item.count} {item.count === 1 ? 'dépense' : 'dépenses'}
@@ -202,7 +205,7 @@ const ExpensesList = () => {
           onEdit={handleEdit}
           onDelete={handleDelete}
         />
-        
+
         {/* Infinite Scroll Loading Indicator */}
         {expensesLoadingMore && (
           <div className="py-8">
