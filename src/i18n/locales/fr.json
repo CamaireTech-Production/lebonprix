@@ -2763,7 +2763,7 @@
       "additionalOptions": "Options Supplémentaires",
       "additionalInfo": "Infos Supplémentaires",
       "calculator": "Calculatrice",
-      "discountAmount": "Montant (XAF)",
+      "discountAmount": "Montant",
       "discountPercentage": "Pourcentage (%)",
       "notes": "Notes",
       "notesPlaceholder": "Ajouter des notes supplémentaires sur cette vente...",
