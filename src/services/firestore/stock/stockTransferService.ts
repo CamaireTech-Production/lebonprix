@@ -11,18 +11,16 @@ import {
   getDoc,
   writeBatch,
   serverTimestamp,
-  onSnapshot,
-  type WriteBatch
+  onSnapshot
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import { logError } from '@utils/core/logger';
 import type { StockTransfer, StockBatch, EmployeeRef } from '../../../types/models';
 import type { InventoryMethod } from '@utils/inventory/inventoryManagement';
-import { 
-  getAvailableStockBatches, 
-  consumeStockFromBatches, 
-  createStockBatch,
-  createStockChange 
+import {
+  getAvailableStockBatches,
+  consumeStockFromBatches,
+  createStockChange
 } from './stockService';
 import { notifyTransferCreated } from '../../../utils/notifications/notificationHelpers';
 
@@ -37,8 +35,7 @@ import { notifyTransferCreated } from '../../../utils/notifications/notification
 export const transferStockBetweenLocations = async (
   transferData: {
     transferType: StockTransfer['transferType'];
-    productId: string;
-    quantity: number;
+    products: { productId: string; quantity: number }[];
     companyId: string;
     userId: string;
     // Source location (one required based on transferType)
@@ -52,12 +49,12 @@ export const transferStockBetweenLocations = async (
     inventoryMethod?: InventoryMethod;
     notes?: string;
     createdBy?: EmployeeRef | null;
+    date?: Date | any;
   }
-): Promise<StockTransfer> => {
+): Promise<StockTransfer[]> => {
   const {
     transferType,
-    productId,
-    quantity,
+    products,
     companyId,
     userId,
     fromWarehouseId,
@@ -67,7 +64,8 @@ export const transferStockBetweenLocations = async (
     toShopId,
     inventoryMethod = 'FIFO',
     notes,
-    createdBy
+    createdBy,
+    date
   } = transferData;
 
   // Validate transfer type and required fields
@@ -91,154 +89,132 @@ export const transferStockBetweenLocations = async (
     throw new Error(`Invalid transfer type: ${transferType}`);
   }
 
-  if (quantity <= 0) {
-    throw new Error('Transfer quantity must be greater than 0');
+  if (!products || products.length === 0) {
+    throw new Error('No products provided for transfer');
   }
 
   const batch = writeBatch(db);
-  const transferRef = doc(collection(db, 'stockTransfers'));
+  const createdTransfers: StockTransfer[] = [];
 
   try {
-    // Determine source location filters
-    let sourceShopId: string | undefined;
-    let sourceWarehouseId: string | undefined;
-    let sourceLocationType: 'warehouse' | 'shop' | 'production' | 'global' | undefined;
+    for (const productData of products) {
+      const { productId, quantity } = productData;
 
-    if (transferType === 'warehouse_to_shop' || transferType === 'warehouse_to_warehouse') {
-      sourceWarehouseId = fromWarehouseId;
-      sourceLocationType = 'warehouse';
-    } else if (transferType === 'shop_to_shop' || transferType === 'shop_to_warehouse') {
-      sourceShopId = fromShopId;
-      sourceLocationType = 'shop';
-    }
-
-    // Get available batches from source location
-    const availableBatches = await getAvailableStockBatches(
-      productId,
-      companyId,
-      'product',
-      sourceShopId,
-      sourceWarehouseId,
-      sourceLocationType
-    );
-
-    if (availableBatches.length === 0) {
-      const locationInfo = sourceShopId ? `shop ${sourceShopId}` : 
-                          sourceWarehouseId ? `warehouse ${sourceWarehouseId}` : '';
-      throw new Error(`No available stock found in ${locationInfo}`);
-    }
-
-    // Check total available stock
-    const totalAvailable = availableBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
-    if (totalAvailable < quantity) {
-      throw new Error(`Insufficient stock. Available: ${totalAvailable}, Requested: ${quantity}`);
-    }
-
-    // Consume stock from source location
-    const inventoryResult = await consumeStockFromBatches(
-      batch,
-      productId,
-      companyId,
-      quantity,
-      inventoryMethod,
-      'product',
-      sourceShopId,
-      sourceWarehouseId,
-      sourceLocationType
-    );
-
-    // Determine destination location
-    let destShopId: string | undefined;
-    let destWarehouseId: string | undefined;
-    let destLocationType: 'warehouse' | 'shop' | 'production' | 'global';
-
-    if (transferType === 'warehouse_to_warehouse' || transferType === 'shop_to_warehouse') {
-      destWarehouseId = toWarehouseId;
-      destLocationType = 'warehouse';
-    } else {
-      destShopId = toShopId;
-      destLocationType = 'shop';
-    }
-
-    // Create new batches at destination location
-    // We'll create one batch per consumed batch to maintain traceability
-    const transferredBatchIds: string[] = [];
-
-    for (const consumedBatch of inventoryResult.consumedBatches) {
-      // Get the original batch to copy its properties
-      const originalBatchRef = doc(db, 'stockBatches', consumedBatch.batchId);
-      const originalBatchSnap = await getDoc(originalBatchRef);
-      
-      if (!originalBatchSnap.exists()) {
-        throw new Error(`Original batch ${consumedBatch.batchId} not found`);
+      if (quantity <= 0) {
+        throw new Error(`Transfer quantity for product ${productId} must be greater than 0`);
       }
 
-      const originalBatch = originalBatchSnap.data() as StockBatch;
+      const transferRef = doc(collection(db, 'stockTransfers'));
 
-      // Create new batch at destination within the batch transaction
-      const newBatchRef = doc(collection(db, 'stockBatches'));
-      const newBatchData: any = {
-        id: newBatchRef.id,
-        type: 'product',
+      // Determine source location filters
+      let sourceShopId: string | undefined;
+      let sourceWarehouseId: string | undefined;
+      let sourceLocationType: 'warehouse' | 'shop' | 'production' | 'global' | undefined;
+
+      if (transferType === 'warehouse_to_shop' || transferType === 'warehouse_to_warehouse') {
+        sourceWarehouseId = fromWarehouseId;
+        sourceLocationType = 'warehouse';
+      } else if (transferType === 'shop_to_shop' || transferType === 'shop_to_warehouse') {
+        sourceShopId = fromShopId;
+        sourceLocationType = 'shop';
+      }
+
+      // Get available batches from source location
+      const availableBatches = await getAvailableStockBatches(
         productId,
-        quantity: consumedBatch.consumedQuantity,
-        costPrice: originalBatch.costPrice,
-        userId,
-        companyId,
-        remainingQuantity: consumedBatch.consumedQuantity,
-        status: 'active',
-        locationType: destLocationType,
-        createdAt: serverTimestamp(),
-      };
-
-      // Copy optional fields from original batch
-      if (originalBatch.supplierId) newBatchData.supplierId = originalBatch.supplierId;
-      if (originalBatch.isOwnPurchase !== undefined) newBatchData.isOwnPurchase = originalBatch.isOwnPurchase;
-      if (originalBatch.isCredit !== undefined) newBatchData.isCredit = originalBatch.isCredit;
-      if (notes) newBatchData.notes = notes || `Transferred from ${sourceLocationType}`;
-
-      // Set destination location fields
-      if (destShopId) newBatchData.shopId = destShopId;
-      if (destWarehouseId) newBatchData.warehouseId = destWarehouseId;
-
-      batch.set(newBatchRef, newBatchData);
-      transferredBatchIds.push(newBatchRef.id);
-
-      // Create stock change for destination (increase)
-      createStockChange(
-        batch,
-        productId,
-        consumedBatch.consumedQuantity,
-        'transfer',
-        userId,
         companyId,
         'product',
-        originalBatch.supplierId,
-        originalBatch.isOwnPurchase,
-        originalBatch.isCredit,
-        originalBatch.costPrice,
-        newBatchRef.id,
-        undefined,
-        undefined,
-        destLocationType,
-        destShopId,
-        destWarehouseId,
-        transferRef.id
+        sourceShopId,
+        sourceWarehouseId,
+        sourceLocationType
       );
-    }
 
-    // Create stock change for source (decrease)
-    for (const consumedBatch of inventoryResult.consumedBatches) {
-      const originalBatchRef = doc(db, 'stockBatches', consumedBatch.batchId);
-      const originalBatchSnap = await getDoc(originalBatchRef);
-      
-      if (originalBatchSnap.exists()) {
+      if (availableBatches.length === 0) {
+        const locationInfo = sourceShopId ? `shop ${sourceShopId}` :
+          sourceWarehouseId ? `warehouse ${sourceWarehouseId}` : '';
+        throw new Error(`No available stock found for product ${productId} in ${locationInfo}`);
+      }
+
+      // Check total available stock
+      const totalAvailable = availableBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+      if (totalAvailable < quantity) {
+        throw new Error(`Insufficient stock for product ${productId}. Available: ${totalAvailable}, Requested: ${quantity}`);
+      }
+
+      // Consume stock from source location
+      const inventoryResult = await consumeStockFromBatches(
+        batch,
+        productId,
+        companyId,
+        quantity,
+        inventoryMethod,
+        'product',
+        sourceShopId,
+        sourceWarehouseId,
+        sourceLocationType
+      );
+
+      // Determine destination location
+      let destShopId: string | undefined;
+      let destWarehouseId: string | undefined;
+      let destLocationType: 'warehouse' | 'shop' | 'production' | 'global';
+
+      if (transferType === 'warehouse_to_warehouse' || transferType === 'shop_to_warehouse') {
+        destWarehouseId = toWarehouseId;
+        destLocationType = 'warehouse';
+      } else {
+        destShopId = toShopId;
+        destLocationType = 'shop';
+      }
+
+      // Create new batches at destination location
+      const transferredBatchIds: string[] = [];
+
+      for (const consumedBatch of inventoryResult.consumedBatches) {
+        // Get the original batch to copy its properties
+        const originalBatchRef = doc(db, 'stockBatches', consumedBatch.batchId);
+        const originalBatchSnap = await getDoc(originalBatchRef);
+
+        if (!originalBatchSnap.exists()) {
+          throw new Error(`Original batch ${consumedBatch.batchId} not found`);
+        }
+
         const originalBatch = originalBatchSnap.data() as StockBatch;
-        
+
+        // Create new batch at destination within the batch transaction
+        const newBatchRef = doc(collection(db, 'stockBatches'));
+        const newBatchData: any = {
+          id: newBatchRef.id,
+          type: 'product',
+          productId,
+          quantity: consumedBatch.consumedQuantity,
+          costPrice: originalBatch.costPrice,
+          userId,
+          companyId,
+          remainingQuantity: consumedBatch.consumedQuantity,
+          status: 'active',
+          locationType: destLocationType,
+          createdAt: serverTimestamp(),
+        };
+
+        // Copy optional fields from original batch
+        if (originalBatch.supplierId) newBatchData.supplierId = originalBatch.supplierId;
+        if (originalBatch.isOwnPurchase !== undefined) newBatchData.isOwnPurchase = originalBatch.isOwnPurchase;
+        if (originalBatch.isCredit !== undefined) newBatchData.isCredit = originalBatch.isCredit;
+        if (notes) newBatchData.notes = notes || `Transferred from ${sourceLocationType}`;
+
+        // Set destination location fields
+        if (destShopId) newBatchData.shopId = destShopId;
+        if (destWarehouseId) newBatchData.warehouseId = destWarehouseId;
+
+        batch.set(newBatchRef, newBatchData);
+        transferredBatchIds.push(newBatchRef.id);
+
+        // Create stock change for destination (increase)
         createStockChange(
           batch,
           productId,
-          -consumedBatch.consumedQuantity,
+          consumedBatch.consumedQuantity,
           'transfer',
           userId,
           companyId,
@@ -247,67 +223,101 @@ export const transferStockBetweenLocations = async (
           originalBatch.isOwnPurchase,
           originalBatch.isCredit,
           originalBatch.costPrice,
-          consumedBatch.batchId,
+          newBatchRef.id,
           undefined,
           undefined,
-          sourceLocationType,
-          sourceShopId,
-          sourceWarehouseId,
+          destLocationType,
+          destShopId,
+          destWarehouseId,
           transferRef.id
         );
       }
+
+      // Create stock change for source (decrease)
+      for (const consumedBatch of inventoryResult.consumedBatches) {
+        const originalBatchRef = doc(db, 'stockBatches', consumedBatch.batchId);
+        const originalBatchSnap = await getDoc(originalBatchRef);
+
+        if (originalBatchSnap.exists()) {
+          const originalBatch = originalBatchSnap.data() as StockBatch;
+
+          createStockChange(
+            batch,
+            productId,
+            -consumedBatch.consumedQuantity,
+            'transfer',
+            userId,
+            companyId,
+            'product',
+            originalBatch.supplierId,
+            originalBatch.isOwnPurchase,
+            originalBatch.isCredit,
+            originalBatch.costPrice,
+            consumedBatch.batchId,
+            undefined,
+            undefined,
+            sourceLocationType,
+            sourceShopId,
+            sourceWarehouseId,
+            transferRef.id
+          );
+        }
+      }
+
+      // Create transfer record
+      const transferRecordData: any = {
+        id: transferRef.id,
+        transferType,
+        productId,
+        quantity,
+        batchIds: transferredBatchIds,
+        status: 'completed' as StockTransfer['status'],
+        companyId,
+        userId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      // Set source and destination based on transfer type
+      if (fromWarehouseId) transferRecordData.fromWarehouseId = fromWarehouseId;
+      if (fromShopId) transferRecordData.fromShopId = fromShopId;
+      if (fromProductionId) transferRecordData.fromProductionId = fromProductionId;
+      if (toWarehouseId) transferRecordData.toWarehouseId = toWarehouseId;
+      if (toShopId) transferRecordData.toShopId = toShopId;
+      if (notes) transferRecordData.notes = notes;
+      if (createdBy) transferRecordData.createdBy = createdBy;
+      if (date) transferRecordData.date = date;
+
+      batch.set(transferRef, transferRecordData);
+
+      createdTransfers.push({
+        id: transferRef.id,
+        ...transferRecordData,
+        createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+        updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
+      } as StockTransfer);
     }
-
-    // Create transfer record
-    const transferData: any = {
-      id: transferRef.id,
-      transferType,
-      productId,
-      quantity,
-      batchIds: transferredBatchIds,
-      status: 'completed',
-      companyId,
-      userId,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
-
-    // Set source and destination based on transfer type
-    if (fromWarehouseId) transferData.fromWarehouseId = fromWarehouseId;
-    if (fromShopId) transferData.fromShopId = fromShopId;
-    if (fromProductionId) transferData.fromProductionId = fromProductionId;
-    if (toWarehouseId) transferData.toWarehouseId = toWarehouseId;
-    if (toShopId) transferData.toShopId = toShopId;
-    if (notes) transferData.notes = notes;
-    if (createdBy) transferData.createdBy = createdBy;
-
-    batch.set(transferRef, transferData);
 
     await batch.commit();
 
-    const createdTransfer = {
-      id: transferRef.id,
-      ...transferData,
-      createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
-      updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
-    } as StockTransfer;
+    // Notify users about each transfer (async)
+    for (const transfer of createdTransfers) {
+      notifyTransferCreated(
+        companyId,
+        transfer.id,
+        transferType,
+        transfer.productId,
+        transfer.quantity,
+        fromShopId,
+        fromWarehouseId,
+        toShopId,
+        toWarehouseId
+      ).catch(err => {
+        logError('Error sending notification for transfer', err);
+      });
+    }
 
-    // Notify users about the transfer (async, don't wait)
-    notifyTransferCreated(
-      companyId,
-      transferRef.id,
-      transferType,
-      productId,
-      quantity,
-      fromShopId,
-      fromWarehouseId,
-      toShopId,
-      toWarehouseId
-    ).catch(err => {
-      logError('Error sending notification for transfer', err);
-    });
-
-    return createdTransfer;
+    return createdTransfers;
 
   } catch (error) {
     logError('Error transferring stock', error);
@@ -342,7 +352,7 @@ export const getStockTransfers = async (
   ];
 
   const q = query(collection(db, 'stockTransfers'), ...constraints);
-  
+
   const snapshot = await getDocs(q);
   let transfers = snapshot.docs.map(doc => ({
     id: doc.id,
@@ -355,12 +365,12 @@ export const getStockTransfers = async (
       transfers = transfers.filter(t => t.productId === filters.productId);
     }
     if (filters.shopId) {
-      transfers = transfers.filter(t => 
+      transfers = transfers.filter(t =>
         t.fromShopId === filters.shopId || t.toShopId === filters.shopId
       );
     }
     if (filters.warehouseId) {
-      transfers = transfers.filter(t => 
+      transfers = transfers.filter(t =>
         t.fromWarehouseId === filters.warehouseId || t.toWarehouseId === filters.warehouseId
       );
     }
@@ -477,12 +487,12 @@ export const subscribeToStockTransfers = (
             transfers = transfers.filter(t => t.productId === filters.productId);
           }
           if (filters.shopId) {
-            transfers = transfers.filter(t => 
+            transfers = transfers.filter(t =>
               t.fromShopId === filters.shopId || t.toShopId === filters.shopId
             );
           }
           if (filters.warehouseId) {
-            transfers = transfers.filter(t => 
+            transfers = transfers.filter(t =>
               t.fromWarehouseId === filters.warehouseId || t.toWarehouseId === filters.warehouseId
             );
           }
@@ -493,7 +503,7 @@ export const subscribeToStockTransfers = (
             transfers = transfers.filter(t => t.status === filters.status);
           }
         }
-        
+
         console.log(`[StockTransfers] Loaded ${transfers.length} transfers for company ${companyId}`);
         callback(transfers);
       } catch (error) {
@@ -506,7 +516,7 @@ export const subscribeToStockTransfers = (
     },
     (error: any) => {
       console.error('[StockTransfers] Subscription error:', error);
-      
+
       // Check if it's an index error
       if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
         const errorMessage = `Index requis pour les transferts de stock. 
@@ -515,12 +525,12 @@ Veuillez créer l'index dans Firebase Console:
 - Champs: companyId (ASC), createdAt (DESC)
 
 Ou cliquez sur le lien dans la console du navigateur pour créer l'index automatiquement.`;
-        
+
         logError('Index manquant pour stockTransfers', error);
         if (onError) {
           onError(new Error(errorMessage));
         }
-        
+
         // Try to extract and log the index creation URL if available
         if (error.message) {
           console.error('Détails de l\'erreur:', error.message);

@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Modal, ModalFooter, Input, Select, Textarea } from '@components/common';
+import { Modal, ModalFooter, Input, Select, Textarea, Button } from '@components/common';
 import { useAuth } from '@contexts/AuthContext';
 import { useProducts } from '@hooks/data/useFirestore';
 import { useShops } from '@hooks/data/useFirestore';
 import { useWarehouses } from '@hooks/data/useFirestore';
 import { getAvailableStockBatches, getStockBatchesByLocation } from '@services/firestore/stock/stockService';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
-import type { StockTransfer, Product, Shop, Warehouse, StockBatch } from '../../types/models';
+import { Plus } from 'lucide-react';
+import type { StockTransfer, Product } from '../../types/models';
 
 interface StockTransferModalProps {
   isOpen: boolean;
@@ -15,8 +15,7 @@ interface StockTransferModalProps {
   onSuccess?: () => void;
   onCreateTransfer: (transferData: {
     transferType: StockTransfer['transferType'];
-    productId: string;
-    quantity: number;
+    products: { productId: string; quantity: number }[];
     fromWarehouseId?: string;
     fromShopId?: string;
     fromProductionId?: string;
@@ -24,6 +23,7 @@ interface StockTransferModalProps {
     toShopId?: string;
     inventoryMethod?: 'FIFO' | 'LIFO';
     notes?: string;
+    date?: Date | any;
   }) => Promise<void>;
   initialProductId?: string;
   initialTransferType?: StockTransfer['transferType'];
@@ -34,6 +34,13 @@ interface ProductWithStock {
   stock: number;
 }
 
+interface SelectedProduct {
+  productId: string;
+  productName: string;
+  quantity: string;
+  availableStock: number;
+}
+
 const StockTransferModal: React.FC<StockTransferModalProps> = ({
   isOpen,
   onClose,
@@ -42,25 +49,30 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
   initialProductId,
   initialTransferType
 }) => {
-  const { t } = useTranslation();
-  const { user, company } = useAuth();
+  const { company } = useAuth();
   const { products } = useProducts();
   const { shops } = useShops();
   const { warehouses } = useWarehouses();
 
+  // Get current date string in YYYY-MM-DD format for the date input
+  const today = new Date().toISOString().split('T')[0];
+
   const [formData, setFormData] = useState({
     transferType: initialTransferType || ('' as StockTransfer['transferType'] | ''),
-    productId: initialProductId || '',
-    quantity: '',
     fromWarehouseId: '',
     fromShopId: '',
     fromProductionId: '',
     toWarehouseId: '',
     toShopId: '',
     inventoryMethod: 'FIFO' as 'FIFO' | 'LIFO',
-    notes: ''
+    notes: '',
+    date: today,
+    // Temporary fields for the product currently being added
+    currentProductId: initialProductId || '',
+    currentQuantity: ''
   });
 
+  const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
   const [availableStock, setAvailableStock] = useState<number>(0);
   const [loadingStock, setLoadingStock] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
@@ -73,21 +85,24 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
     if (isOpen) {
       setFormData({
         transferType: initialTransferType || ('' as StockTransfer['transferType'] | ''),
-        productId: initialProductId || '',
-        quantity: '',
         fromWarehouseId: '',
         fromShopId: '',
         fromProductionId: '',
         toWarehouseId: '',
         toShopId: '',
         inventoryMethod: 'FIFO',
-        notes: ''
+        notes: '',
+        date: today,
+        currentProductId: initialProductId || '',
+        currentQuantity: ''
       });
+      setSelectedProducts([]);
       setAvailableStock(0);
+      setLoadingStock(false);
       setProductsWithStock(new Map());
       setValidationErrors([]);
     }
-  }, [isOpen, initialProductId, initialTransferType]);
+  }, [isOpen, initialProductId, initialTransferType, today]);
 
   // Load products with stock when source location is selected
   useEffect(() => {
@@ -173,9 +188,9 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
     loadProductsWithStock();
   }, [isOpen, formData.transferType, formData.fromWarehouseId, formData.fromShopId, company?.id, products]);
 
-  // Load available stock when product and source location change
+  // Load available stock when current product and source location change
   useEffect(() => {
-    if (!isOpen || !formData.productId || !company?.id || !formData.transferType) {
+    if (!isOpen || !formData.currentProductId || !company?.id || !formData.transferType) {
       setAvailableStock(0);
       return;
     }
@@ -207,7 +222,7 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
       setLoadingStock(true);
       try {
         const batches = await getAvailableStockBatches(
-          formData.productId,
+          formData.currentProductId,
           company.id,
           'product',
           sourceShopId,
@@ -226,7 +241,7 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
     };
 
     loadAvailableStock();
-  }, [isOpen, formData.productId, formData.transferType, formData.fromWarehouseId, formData.fromShopId, company?.id]);
+  }, [isOpen, formData.currentProductId, formData.transferType, formData.fromWarehouseId, formData.fromShopId, company?.id]);
 
   const handleInputChange = (field: string, value: string) => {
     // When transfer type changes, reset dependent fields
@@ -238,18 +253,20 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
         fromShopId: '',
         toWarehouseId: '',
         toShopId: '',
-        productId: '',
-        quantity: ''
+        currentProductId: '',
+        currentQuantity: ''
       }));
+      setSelectedProducts([]);
     }
-    // When source location changes, reset product and quantity
+    // When source location changes, reset products and current selection
     else if (field === 'fromWarehouseId' || field === 'fromShopId') {
       setFormData(prev => ({
         ...prev,
         [field]: value,
-        productId: '',
-        quantity: ''
+        currentProductId: '',
+        currentQuantity: ''
       }));
+      setSelectedProducts([]);
     }
     // When destination changes, no reset needed
     else {
@@ -261,6 +278,56 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
     setValidationErrors([]);
   };
 
+  const addProduct = () => {
+    if (!formData.currentProductId || !formData.currentQuantity) {
+      setValidationErrors(['Veuillez sélectionner un produit et une quantité']);
+      return;
+    }
+
+    const qty = parseFloat(formData.currentQuantity);
+    if (isNaN(qty) || qty <= 0) {
+      setValidationErrors(['La quantité doit être supérieure à 0']);
+      return;
+    }
+
+    if (qty > availableStock) {
+      setValidationErrors([`Stock insuffisant. Disponible: ${availableStock}`]);
+      return;
+    }
+
+    // Check if product already added
+    if (selectedProducts.some(p => p.productId === formData.currentProductId)) {
+      setValidationErrors(['Ce produit est déjà dans la liste']);
+      return;
+    }
+
+    const product = products?.find(p => p.id === formData.currentProductId);
+    if (!product) return;
+
+    setSelectedProducts(prev => [
+      ...prev,
+      {
+        productId: formData.currentProductId,
+        productName: product.name,
+        quantity: formData.currentQuantity,
+        availableStock: availableStock
+      }
+    ]);
+
+    // Reset current product fields
+    setFormData(prev => ({
+      ...prev,
+      currentProductId: '',
+      currentQuantity: ''
+    }));
+    setAvailableStock(0);
+    setValidationErrors([]);
+  };
+
+  const removeProduct = (productId: string) => {
+    setSelectedProducts(prev => prev.filter(p => p.productId !== productId));
+  };
+
   const validateForm = (): boolean => {
     const errors: string[] = [];
 
@@ -268,53 +335,28 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
       errors.push('Le type de transfert est requis');
     }
 
-    if (!formData.productId) {
-      errors.push('Le produit est requis');
+    if (selectedProducts.length === 0) {
+      errors.push('Veuillez ajouter au moins un produit pour le transfert');
     }
 
-    const quantity = parseFloat(formData.quantity);
-    if (isNaN(quantity) || quantity <= 0) {
-      errors.push('La quantité doit être supérieure à 0');
-    }
-
-    if (formData.productId && quantity > availableStock) {
-      errors.push(`Stock insuffisant. Disponible: ${availableStock}`);
+    if (!formData.date) {
+      errors.push('La date de transfert est requise');
     }
 
     // Validate based on transfer type
     if (formData.transferType === 'warehouse_to_shop') {
       if (!formData.fromWarehouseId) {
         errors.push('L\'entrepôt source est requis');
-      } else {
-        const sourceWarehouse = warehouses?.find(w => w.id === formData.fromWarehouseId);
-        if (sourceWarehouse && sourceWarehouse.isActive === false) {
-          errors.push('L\'entrepôt source est désactivé');
-        }
       }
       if (!formData.toShopId) {
         errors.push('La boutique de destination est requise');
-      } else {
-        const destShop = shops?.find(s => s.id === formData.toShopId);
-        if (destShop && destShop.isActive === false) {
-          errors.push('La boutique de destination est désactivée');
-        }
       }
     } else if (formData.transferType === 'warehouse_to_warehouse') {
       if (!formData.fromWarehouseId) {
         errors.push('L\'entrepôt source est requis');
-      } else {
-        const sourceWarehouse = warehouses?.find(w => w.id === formData.fromWarehouseId);
-        if (sourceWarehouse && sourceWarehouse.isActive === false) {
-          errors.push('L\'entrepôt source est désactivé');
-        }
       }
       if (!formData.toWarehouseId) {
         errors.push('L\'entrepôt de destination est requis');
-      } else {
-        const destWarehouse = warehouses?.find(w => w.id === formData.toWarehouseId);
-        if (destWarehouse && destWarehouse.isActive === false) {
-          errors.push('L\'entrepôt de destination est désactivé');
-        }
       }
       if (formData.fromWarehouseId === formData.toWarehouseId) {
         errors.push('L\'entrepôt source et de destination doivent être différents');
@@ -322,19 +364,9 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
     } else if (formData.transferType === 'shop_to_shop') {
       if (!formData.fromShopId) {
         errors.push('La boutique source est requise');
-      } else {
-        const sourceShop = shops?.find(s => s.id === formData.fromShopId);
-        if (sourceShop && sourceShop.isActive === false) {
-          errors.push('La boutique source est désactivée');
-        }
       }
       if (!formData.toShopId) {
         errors.push('La boutique de destination est requise');
-      } else {
-        const destShop = shops?.find(s => s.id === formData.toShopId);
-        if (destShop && destShop.isActive === false) {
-          errors.push('La boutique de destination est désactivée');
-        }
       }
       if (formData.fromShopId === formData.toShopId) {
         errors.push('La boutique source et de destination doivent être différentes');
@@ -342,19 +374,9 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
     } else if (formData.transferType === 'shop_to_warehouse') {
       if (!formData.fromShopId) {
         errors.push('La boutique source est requise');
-      } else {
-        const sourceShop = shops?.find(s => s.id === formData.fromShopId);
-        if (sourceShop && sourceShop.isActive === false) {
-          errors.push('La boutique source est désactivée');
-        }
       }
       if (!formData.toWarehouseId) {
         errors.push('L\'entrepôt de destination est requis');
-      } else {
-        const destWarehouse = warehouses?.find(w => w.id === formData.toWarehouseId);
-        if (destWarehouse && destWarehouse.isActive === false) {
-          errors.push('L\'entrepôt de destination est désactivé');
-        }
       }
     }
 
@@ -375,15 +397,18 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
     try {
       await onCreateTransfer({
         transferType: formData.transferType as StockTransfer['transferType'],
-        productId: formData.productId,
-        quantity: parseFloat(formData.quantity),
+        products: selectedProducts.map(p => ({
+          productId: p.productId,
+          quantity: parseFloat(p.quantity)
+        })),
         fromWarehouseId: formData.fromWarehouseId || undefined,
         fromShopId: formData.fromShopId || undefined,
         fromProductionId: formData.fromProductionId || undefined,
         toWarehouseId: formData.toWarehouseId || undefined,
         toShopId: formData.toShopId || undefined,
         inventoryMethod: formData.inventoryMethod,
-        notes: formData.notes || undefined
+        notes: formData.notes || undefined,
+        date: new Date(formData.date)
       });
 
       showSuccessToast('Transfert effectué avec succès');
@@ -413,7 +438,7 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
   const productOptions = useMemo(() => {
     const options: Array<{ label: string; value: string }> = [];
     const productEnabled = isProductEnabled();
-    
+
     // Add placeholder option
     if (!productEnabled || productsWithStock.size === 0) {
       options.push({
@@ -428,7 +453,7 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
         label: "Sélectionner un produit",
         value: ''
       });
-      
+
       // Add products with stock
       const productList = Array.from(productsWithStock.values())
         .sort((a, b) => a.product.name.localeCompare(b.product.name))
@@ -436,14 +461,14 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
           label: `${product.name} (Stock: ${stock})`,
           value: product.id
         }));
-      
+
       options.push(...productList);
     }
 
     return options;
   }, [productsWithStock, formData.transferType, formData.fromWarehouseId, formData.fromShopId]);
 
-  // Shop options - filter out inactive shops
+  // Shop options
   const shopOptions = useMemo(() => {
     const options: Array<{ label: string; value: string }> = [
       { label: 'Sélectionner une boutique', value: '' }
@@ -458,7 +483,7 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
     return options;
   }, [shops]);
 
-  // Warehouse options - filter out inactive warehouses
+  // Warehouse options
   const warehouseOptions = useMemo(() => {
     const options: Array<{ label: string; value: string }> = [
       { label: 'Sélectionner un entrepôt', value: '' }
@@ -473,7 +498,6 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
     return options;
   }, [warehouses]);
 
-  // Transfer type options - removed production_to_warehouse, added shop_to_warehouse
   const transferTypeOptions = [
     { label: 'Sélectionner un type de transfert', value: '' },
     { label: 'Entrepôt → Boutique', value: 'warehouse_to_shop' },
@@ -482,34 +506,11 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
     { label: 'Boutique → Entrepôt', value: 'shop_to_warehouse' }
   ];
 
-  // Helper to determine if source location field should be enabled
-  const isSourceLocationEnabled = () => {
-    return !!formData.transferType;
-  };
-
-  // Helper to determine if destination location field should be enabled
-  const isDestinationLocationEnabled = () => {
-    if (!formData.transferType) return false;
-    if (formData.transferType === 'warehouse_to_shop' || formData.transferType === 'warehouse_to_warehouse') {
-      return !!formData.fromWarehouseId;
-    } else if (formData.transferType === 'shop_to_shop' || formData.transferType === 'shop_to_warehouse') {
-      return !!formData.fromShopId;
-    }
-    return false;
-  };
-
-  // Helper to determine if quantity field should be enabled
-  const isQuantityEnabled = () => {
-    return !!formData.productId && availableStock > 0;
-  };
-
-  const selectedProduct = products?.find(p => p.id === formData.productId);
-
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Transfert de Stock"
+      title="Transfert de Stock Multi-Produits"
       size="lg"
       footer={
         <ModalFooter
@@ -518,7 +519,7 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
           cancelText="Annuler"
           confirmText="Effectuer le transfert"
           isLoading={isSubmitting}
-          disabled={isSubmitting}
+          disabled={isSubmitting || selectedProducts.length === 0}
         />
       }
     >
@@ -533,157 +534,195 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
           </div>
         )}
 
-        {/* Step 1: Transfer Type */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Type de transfert <span className="text-red-500">*</span>
-          </label>
-          <Select
-            value={formData.transferType || ''}
-            onChange={(e) => handleInputChange('transferType', e.target.value)}
-            options={transferTypeOptions}
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Transfer Date */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date du transfert <span className="text-red-500">*</span>
+            </label>
+            <Input
+              type="date"
+              value={formData.date}
+              onChange={(e) => handleInputChange('date', e.target.value)}
+            />
+          </div>
+
+          {/* Transfer Type */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Type de transfert <span className="text-red-500">*</span>
+            </label>
+            <Select
+              value={formData.transferType || ''}
+              onChange={(e) => handleInputChange('transferType', e.target.value)}
+              options={transferTypeOptions}
+            />
+          </div>
         </div>
 
-        {/* Step 2: Source Location */}
-        {(formData.transferType === 'warehouse_to_shop' || formData.transferType === 'warehouse_to_warehouse') && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Entrepôt source <span className="text-red-500">*</span>
-            </label>
-            <Select
-              value={formData.fromWarehouseId || ''}
-              onChange={(e) => handleInputChange('fromWarehouseId', e.target.value)}
-              options={warehouseOptions}
-              disabled={!isSourceLocationEnabled()}
-            />
-          </div>
-        )}
-
-        {(formData.transferType === 'shop_to_shop' || formData.transferType === 'shop_to_warehouse') && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Boutique source <span className="text-red-500">*</span>
-            </label>
-            <Select
-              value={formData.fromShopId || ''}
-              onChange={(e) => handleInputChange('fromShopId', e.target.value)}
-              options={shopOptions}
-              disabled={!isSourceLocationEnabled()}
-            />
-          </div>
-        )}
-
-        {/* Step 3: Destination Location */}
-        {(formData.transferType === 'warehouse_to_shop' || formData.transferType === 'shop_to_shop') && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Boutique de destination <span className="text-red-500">*</span>
-            </label>
-            <Select
-              value={formData.toShopId || ''}
-              onChange={(e) => handleInputChange('toShopId', e.target.value)}
-              options={shopOptions}
-              disabled={!isDestinationLocationEnabled()}
-            />
-          </div>
-        )}
-
-        {(formData.transferType === 'warehouse_to_warehouse' || formData.transferType === 'shop_to_warehouse') && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Entrepôt de destination <span className="text-red-500">*</span>
-            </label>
-            <Select
-              value={formData.toWarehouseId || ''}
-              onChange={(e) => handleInputChange('toWarehouseId', e.target.value)}
-              options={warehouseOptions}
-              disabled={!isDestinationLocationEnabled()}
-            />
-          </div>
-        )}
-
-        {/* Step 4: Product Selection */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Produit <span className="text-red-500">*</span>
-          </label>
-          {loadingProducts ? (
-            <div className="text-sm text-gray-500">Chargement des produits...</div>
-          ) : (
-            <Select
-              value={formData.productId || ''}
-              onChange={(e) => handleInputChange('productId', e.target.value)}
-              options={productOptions}
-              disabled={!isProductEnabled() || loadingProducts}
-            />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Source Location */}
+          {(formData.transferType === 'warehouse_to_shop' || formData.transferType === 'warehouse_to_warehouse') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Entrepôt source <span className="text-red-500">*</span>
+              </label>
+              <Select
+                value={formData.fromWarehouseId || ''}
+                onChange={(e) => handleInputChange('fromWarehouseId', e.target.value)}
+                options={warehouseOptions}
+                disabled={!formData.transferType}
+              />
+            </div>
           )}
-          {isProductEnabled() && productsWithStock.size === 0 && !loadingProducts && (
-            <p className="text-xs text-gray-500 mt-1">
-              Aucun produit avec stock disponible dans cette source
-            </p>
+
+          {(formData.transferType === 'shop_to_shop' || formData.transferType === 'shop_to_warehouse') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Boutique source <span className="text-red-500">*</span>
+              </label>
+              <Select
+                value={formData.fromShopId || ''}
+                onChange={(e) => handleInputChange('fromShopId', e.target.value)}
+                options={shopOptions}
+                disabled={!formData.transferType}
+              />
+            </div>
+          )}
+
+          {/* Destination Location */}
+          {(formData.transferType === 'warehouse_to_shop' || formData.transferType === 'shop_to_shop') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Boutique de destination <span className="text-red-500">*</span>
+              </label>
+              <Select
+                value={formData.toShopId || ''}
+                onChange={(e) => handleInputChange('toShopId', e.target.value)}
+                options={shopOptions}
+                disabled={!isProductEnabled()}
+              />
+            </div>
+          )}
+
+          {(formData.transferType === 'warehouse_to_warehouse' || formData.transferType === 'shop_to_warehouse') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Entrepôt de destination <span className="text-red-500">*</span>
+              </label>
+              <Select
+                value={formData.toWarehouseId || ''}
+                onChange={(e) => handleInputChange('toWarehouseId', e.target.value)}
+                options={warehouseOptions}
+                disabled={!isProductEnabled()}
+              />
+            </div>
           )}
         </div>
 
-        {/* Available Stock Display */}
-        {formData.productId && availableStock > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700">Stock disponible:</span>
-              <span className="text-lg font-bold text-blue-600">
-                {loadingStock ? '...' : availableStock}
-              </span>
+        <hr className="my-4 border-gray-200" />
+
+        {/* Product Selection Area */}
+        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-800 mb-3">Ajouter des produits</h3>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+            <div className="md:col-span-7">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Produit</label>
+              <Select
+                value={formData.currentProductId || ''}
+                onChange={(e) => handleInputChange('currentProductId', e.target.value)}
+                options={productOptions}
+                disabled={!isProductEnabled() || loadingProducts}
+              />
+            </div>
+            <div className="md:col-span-3">
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Quantité {availableStock > 0 && `(Dispo: ${availableStock})`}
+              </label>
+              <Input
+                type="number"
+                value={formData.currentQuantity}
+                onChange={(e) => handleInputChange('currentQuantity', e.target.value)}
+                placeholder="0"
+                disabled={!formData.currentProductId || availableStock <= 0 || loadingStock}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Button
+                type="button"
+                onClick={addProduct}
+                disabled={!formData.currentProductId || !formData.currentQuantity}
+                icon={<Plus size={16} />}
+                className="w-full"
+              >
+                {null}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Selected Products List */}
+        {selectedProducts.length > 0 && (
+          <div className="mt-4">
+            <h3 className="text-sm font-semibold text-gray-800 mb-2">Produits à transférer</h3>
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Produit</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Quantité</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {selectedProducts.map((p) => (
+                    <tr key={p.productId}>
+                      <td className="px-4 py-2 text-sm text-gray-900">{p.productName}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900 font-medium">{p.quantity}</td>
+                      <td className="px-4 py-2 text-right">
+                        <button
+                          onClick={() => removeProduct(p.productId)}
+                          className="text-red-600 hover:text-red-800 text-xs font-medium"
+                        >
+                          Retirer
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
 
-        {/* Step 5: Quantity */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Quantité <span className="text-red-500">*</span>
-          </label>
-          <Input
-            type="number"
-            value={formData.quantity}
-            onChange={(e) => handleInputChange('quantity', e.target.value)}
-            placeholder="Quantité à transférer"
-            min="1"
-            step="1"
-            disabled={!isQuantityEnabled()}
-          />
-          {formData.quantity && parseFloat(formData.quantity) > availableStock && (
-            <p className="text-xs text-red-500 mt-1">
-              La quantité ne peut pas dépasser le stock disponible ({availableStock})
-            </p>
-          )}
-        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          {/* Inventory Method */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Méthode d'inventaire
+            </label>
+            <Select
+              value={formData.inventoryMethod}
+              onChange={(e) => handleInputChange('inventoryMethod', e.target.value)}
+              options={[
+                { label: 'FIFO (Premier entré, premier sorti)', value: 'FIFO' },
+                { label: 'LIFO (Dernier entré, premier sorti)', value: 'LIFO' }
+              ]}
+            />
+          </div>
 
-        {/* Step 6: Inventory Method */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Méthode d'inventaire
-          </label>
-          <Select
-            value={formData.inventoryMethod}
-            onChange={(e) => handleInputChange('inventoryMethod', e.target.value)}
-            options={[
-              { label: 'FIFO (Premier entré, premier sorti)', value: 'FIFO' },
-              { label: 'LIFO (Dernier entré, premier sorti)', value: 'LIFO' }
-            ]}
-          />
-        </div>
-
-        {/* Step 7: Notes */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Notes (optionnel)
-          </label>
-          <Textarea
-            value={formData.notes}
-            onChange={(e) => handleInputChange('notes', e.target.value)}
-            placeholder="Notes sur le transfert"
-            rows={3}
-          />
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Notes (optionnel)
+            </label>
+            <Textarea
+              value={formData.notes}
+              onChange={(e) => handleInputChange('notes', e.target.value)}
+              placeholder="Notes sur le transfert"
+              rows={2}
+            />
+          </div>
         </div>
       </div>
     </Modal>

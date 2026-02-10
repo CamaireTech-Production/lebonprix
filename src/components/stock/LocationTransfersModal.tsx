@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Modal, Button, Badge, Table, SkeletonLoader } from '@components/common';
-import { useStockTransfers, useProducts } from '@hooks/data/useFirestore';
-import { Plus, ArrowRight, Package } from 'lucide-react';
+import { useStockTransfers, useProducts, useShops, useWarehouses } from '@hooks/data/useFirestore';
+import { Plus, ArrowRight, Package, Eye } from 'lucide-react';
 import StockTransferModal from './StockTransferModal';
+import StockTransferDetailModal from './StockTransferDetailModal';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import type { StockTransfer } from '../../types/models';
 import { format } from 'date-fns';
@@ -23,15 +23,23 @@ const LocationTransfersModal: React.FC<LocationTransfersModalProps> = ({
   locationId,
   locationName
 }) => {
-  const { t } = useTranslation();
   const { transfers, loading, error, createTransfer } = useStockTransfers();
   const { products } = useProducts();
+  const { shops } = useShops();
+  const { warehouses } = useWarehouses();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedTransfer, setSelectedTransfer] = useState<StockTransfer | null>(null);
+
+  const handleViewDetails = (transfer: StockTransfer) => {
+    setSelectedTransfer(transfer);
+    setIsDetailModalOpen(true);
+  };
 
   // Filter transfers related to this location
   const locationTransfers = useMemo(() => {
     if (!transfers) return [];
-    
+
     return transfers.filter(transfer => {
       // Check if transfer is from this location
       if (locationType === 'shop' && transfer.fromShopId === locationId) {
@@ -40,7 +48,7 @@ const LocationTransfersModal: React.FC<LocationTransfersModalProps> = ({
       if (locationType === 'warehouse' && transfer.fromWarehouseId === locationId) {
         return true;
       }
-      
+
       // Check if transfer is to this location
       if (locationType === 'shop' && transfer.toShopId === locationId) {
         return true;
@@ -48,7 +56,7 @@ const LocationTransfersModal: React.FC<LocationTransfersModalProps> = ({
       if (locationType === 'warehouse' && transfer.toWarehouseId === locationId) {
         return true;
       }
-      
+
       return false;
     });
   }, [transfers, locationType, locationId]);
@@ -73,10 +81,10 @@ const LocationTransfersModal: React.FC<LocationTransfersModalProps> = ({
   };
 
   const getStatusBadge = (status: StockTransfer['status']) => {
-    const variants: Record<StockTransfer['status'], 'success' | 'warning' | 'danger'> = {
+    const variants: Record<StockTransfer['status'], 'success' | 'warning' | 'error'> = {
       'completed': 'success',
       'pending': 'warning',
-      'cancelled': 'danger'
+      'cancelled': 'error'
     };
     return (
       <Badge variant={variants[status]}>
@@ -85,22 +93,77 @@ const LocationTransfersModal: React.FC<LocationTransfersModalProps> = ({
     );
   };
 
-  const handleCreateTransfer = async (transferData: {
-    transferType: StockTransfer['transferType'];
-    productId: string;
-    quantity: number;
-    fromWarehouseId?: string;
-    fromShopId?: string;
-    fromProductionId?: string;
-    toWarehouseId?: string;
-    toShopId?: string;
-    inventoryMethod?: 'FIFO' | 'LIFO';
-    notes?: string;
-  }) => {
-    // This will be handled by the parent component
-    // For now, we'll use the useStockTransfers hook
-    // The modal will handle the creation
-  };
+  const columns = useMemo(() => [
+    {
+      header: 'Date',
+      accessor: (transfer: StockTransfer) => transfer.createdAt?.seconds
+        ? format(new Date(transfer.createdAt.seconds * 1000), 'dd/MM/yyyy HH:mm')
+        : '-'
+    },
+    {
+      header: 'Produit',
+      accessor: (transfer: StockTransfer) => {
+        const product = products?.find(p => p.id === transfer.productId);
+        return product?.name || transfer.productId;
+      }
+    },
+    {
+      header: 'Type',
+      accessor: (transfer: StockTransfer) => getTransferTypeLabel(transfer.transferType)
+    },
+    {
+      header: 'Direction',
+      accessor: (transfer: StockTransfer) => {
+        const isFrom =
+          (locationType === 'shop' && transfer.fromShopId === locationId) ||
+          (locationType === 'warehouse' && transfer.fromWarehouseId === locationId);
+        const isTo =
+          (locationType === 'shop' && transfer.toShopId === locationId) ||
+          (locationType === 'warehouse' && transfer.toWarehouseId === locationId);
+
+        return (
+          <div className="flex items-center gap-1">
+            {isFrom && (
+              <span className="flex items-center gap-1 text-orange-600">
+                <ArrowRight size={14} />
+                Sortant
+              </span>
+            )}
+            {isTo && (
+              <span className="flex items-center gap-1 text-green-600">
+                <ArrowRight size={14} className="rotate-180" />
+                Entrant
+              </span>
+            )}
+          </div>
+        );
+      }
+    },
+    {
+      header: 'Quantité',
+      accessor: (transfer: StockTransfer) => transfer.quantity,
+      className: 'font-medium'
+    },
+    {
+      header: 'Statut',
+      accessor: (transfer: StockTransfer) => getStatusBadge(transfer.status)
+    },
+    {
+      header: 'Actions',
+      accessor: (transfer: StockTransfer) => (
+        <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => handleViewDetails(transfer)}
+            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+            title="Voir les détails"
+          >
+            <Eye size={18} />
+          </button>
+        </div>
+      ),
+      className: 'text-center'
+    }
+  ], [products, locationType, locationId]);
 
   if (loading) {
     return (
@@ -125,7 +188,7 @@ const LocationTransfersModal: React.FC<LocationTransfersModalProps> = ({
         isOpen={isOpen}
         onClose={onClose}
         title={`Transferts - ${locationName}`}
-        size="large"
+        size="lg"
       >
         <div className="space-y-4">
           {/* Header with create button */}
@@ -165,59 +228,12 @@ const LocationTransfersModal: React.FC<LocationTransfersModalProps> = ({
               </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Produit</th>
-                    <th>Type</th>
-                    <th>Direction</th>
-                    <th>Quantité</th>
-                    <th>Statut</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedTransfers.map((transfer) => {
-                    const product = products?.find(p => p.id === transfer.productId);
-                    const isFrom = 
-                      (locationType === 'shop' && transfer.fromShopId === locationId) ||
-                      (locationType === 'warehouse' && transfer.fromWarehouseId === locationId);
-                    const isTo = 
-                      (locationType === 'shop' && transfer.toShopId === locationId) ||
-                      (locationType === 'warehouse' && transfer.toWarehouseId === locationId);
-                    
-                    return (
-                      <tr key={transfer.id}>
-                        <td>
-                          {transfer.createdAt?.seconds
-                            ? format(new Date(transfer.createdAt.seconds * 1000), 'dd/MM/yyyy HH:mm')
-                            : '-'}
-                        </td>
-                        <td className="font-medium">{product?.name || transfer.productId}</td>
-                        <td>{getTransferTypeLabel(transfer.transferType)}</td>
-                        <td>
-                          {isFrom && (
-                            <span className="flex items-center gap-1 text-orange-600">
-                              <ArrowRight size={14} />
-                              Sortant
-                            </span>
-                          )}
-                          {isTo && (
-                            <span className="flex items-center gap-1 text-green-600">
-                              <ArrowRight size={14} className="rotate-180" />
-                              Entrant
-                            </span>
-                          )}
-                        </td>
-                        <td className="font-medium">{transfer.quantity}</td>
-                        <td>{getStatusBadge(transfer.status)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </Table>
-            </div>
+            <Table
+              data={sortedTransfers}
+              columns={columns as any}
+              keyExtractor={(item) => item.id}
+              onRowClick={handleViewDetails}
+            />
           )}
         </div>
       </Modal>
@@ -242,6 +258,16 @@ const LocationTransfersModal: React.FC<LocationTransfersModalProps> = ({
         onSuccess={() => {
           setIsCreateModalOpen(false);
         }}
+      />
+
+      {/* Detail Modal */}
+      <StockTransferDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        transfer={selectedTransfer}
+        products={products || []}
+        shops={shops || []}
+        warehouses={warehouses || []}
       />
     </>
   );

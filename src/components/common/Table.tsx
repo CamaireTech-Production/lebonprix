@@ -12,6 +12,7 @@ interface TableProps<T> {
   keyExtractor: (item: T) => string;
   isLoading?: boolean;
   emptyMessage?: string;
+  onRowClick?: (item: T) => void;
 }
 
 function Table<T>({
@@ -19,7 +20,8 @@ function Table<T>({
   columns = [],
   keyExtractor,
   isLoading = false,
-  emptyMessage = 'No data available'
+  emptyMessage = 'No data available',
+  onRowClick
 }: TableProps<T>) {
   if (isLoading) {
     return (
@@ -53,8 +55,8 @@ function Table<T>({
         <tbody className="bg-white divide-y divide-gray-200">
           {!data?.length ? (
             <tr>
-              <td 
-                colSpan={columns?.length || 1} 
+              <td
+                colSpan={columns?.length || 1}
                 className="px-6 py-4 text-center text-sm text-gray-500"
               >
                 {emptyMessage}
@@ -62,7 +64,11 @@ function Table<T>({
             </tr>
           ) : (
             data.map((item) => (
-              <tr key={keyExtractor(item)}>
+              <tr
+                key={keyExtractor(item)}
+                onClick={() => onRowClick?.(item)}
+                className={`transition-colors ${onRowClick ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+              >
                 {columns.map((column, idx) => (
                   <td key={idx} className={`px-6 py-4 whitespace-nowrap text-sm text-gray-500 ${column.className || ''}`}>
                     {typeof column.accessor === 'function'

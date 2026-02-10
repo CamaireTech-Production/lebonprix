@@ -1037,12 +1037,14 @@ export interface StockTransfer extends BaseModel {
   // Destination location (one of these will be set based on transferType)
   toWarehouseId?: string; // If transferring to warehouse
   toShopId?: string; // If transferring to shop
-  // Product and quantity
+  // Products and quantities
   productId: string; // Product being transferred
   quantity: number; // Quantity being transferred
   batchIds: string[]; // Array of stock batch IDs being transferred
   // Status
   status: 'pending' | 'completed' | 'cancelled';
+  // Date
+  date?: any; // The business date of the transfer (Timestamp or Date)
   // Notes
   notes?: string; // Optional notes about the transfer
 }

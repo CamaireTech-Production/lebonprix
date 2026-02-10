@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, ArrowRight, Package, Search, Filter, X } from 'lucide-react';
-import { SkeletonStockTransfers, Badge, Modal, ModalFooter, Card, Input } from "@components/common";
+import { Plus, ArrowRight, Package, Search, Filter, X, Eye, Warehouse as WarehouseIcon, Store } from 'lucide-react';
+import { SkeletonStockTransfers, Badge, Modal, ModalFooter, Card, Input, Button } from "@components/common";
 import { useStockTransfers, useProducts, useShops, useWarehouses } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { PermissionButton, usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
 import StockTransferModal from '@components/stock/StockTransferModal';
+import StockTransferDetailModal from '@components/stock/StockTransferDetailModal';
 import type { StockTransfer } from '../../types/models';
 import { format } from 'date-fns';
 
@@ -21,7 +22,13 @@ const StockTransfers = () => {
   // Modal states
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedTransfer, setSelectedTransfer] = useState<StockTransfer | null>(null);
+
+  const handleViewDetails = (transfer: StockTransfer) => {
+    setSelectedTransfer(transfer);
+    setIsDetailModalOpen(true);
+  };
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,14 +64,14 @@ const StockTransfers = () => {
 
     // Filter by shop
     if (filterShopId !== 'all') {
-      result = result.filter(transfer => 
+      result = result.filter(transfer =>
         transfer.fromShopId === filterShopId || transfer.toShopId === filterShopId
       );
     }
 
     // Filter by warehouse
     if (filterWarehouseId !== 'all') {
-      result = result.filter(transfer => 
+      result = result.filter(transfer =>
         transfer.fromWarehouseId === filterWarehouseId || transfer.toWarehouseId === filterWarehouseId
       );
     }
@@ -229,67 +236,67 @@ const StockTransfers = () => {
         </div>
 
         {/* Active Filters */}
-        {(searchQuery || filterType !== 'all' || filterStatus !== 'all' || 
+        {(searchQuery || filterType !== 'all' || filterStatus !== 'all' ||
           filterShopId !== 'all' || filterWarehouseId !== 'all' || filterDateFrom || filterDateTo) && (
-          <div className="flex flex-wrap gap-2 mt-4">
-            {searchQuery && (
-              <Badge variant="default" className="flex items-center gap-1">
-                Recherche: {searchQuery}
-                <button onClick={() => setSearchQuery('')} className="ml-1">
-                  <X size={14} />
-                </button>
-              </Badge>
-            )}
-            {filterType !== 'all' && (
-              <Badge variant="default" className="flex items-center gap-1">
-                Type: {getTransferTypeLabel(filterType)}
-                <button onClick={() => setFilterType('all')} className="ml-1">
-                  <X size={14} />
-                </button>
-              </Badge>
-            )}
-            {filterStatus !== 'all' && (
-              <Badge variant="default" className="flex items-center gap-1">
-                Statut: {filterStatus}
-                <button onClick={() => setFilterStatus('all')} className="ml-1">
-                  <X size={14} />
-                </button>
-              </Badge>
-            )}
-            {filterShopId !== 'all' && (
-              <Badge variant="default" className="flex items-center gap-1">
-                Boutique: {shops?.find(s => s.id === filterShopId)?.name || filterShopId}
-                <button onClick={() => setFilterShopId('all')} className="ml-1">
-                  <X size={14} />
-                </button>
-              </Badge>
-            )}
-            {filterWarehouseId !== 'all' && (
-              <Badge variant="default" className="flex items-center gap-1">
-                Entrepôt: {warehouses?.find(w => w.id === filterWarehouseId)?.name || filterWarehouseId}
-                <button onClick={() => setFilterWarehouseId('all')} className="ml-1">
-                  <X size={14} />
-                </button>
-              </Badge>
-            )}
-            {filterDateFrom && (
-              <Badge variant="default" className="flex items-center gap-1">
-                Du: {filterDateFrom}
-                <button onClick={() => setFilterDateFrom('')} className="ml-1">
-                  <X size={14} />
-                </button>
-              </Badge>
-            )}
-            {filterDateTo && (
-              <Badge variant="default" className="flex items-center gap-1">
-                Au: {filterDateTo}
-                <button onClick={() => setFilterDateTo('')} className="ml-1">
-                  <X size={14} />
-                </button>
-              </Badge>
-            )}
-          </div>
-        )}
+            <div className="flex flex-wrap gap-2 mt-4">
+              {searchQuery && (
+                <Badge variant="default" className="flex items-center gap-1">
+                  Recherche: {searchQuery}
+                  <button onClick={() => setSearchQuery('')} className="ml-1">
+                    <X size={14} />
+                  </button>
+                </Badge>
+              )}
+              {filterType !== 'all' && (
+                <Badge variant="default" className="flex items-center gap-1">
+                  Type: {getTransferTypeLabel(filterType)}
+                  <button onClick={() => setFilterType('all')} className="ml-1">
+                    <X size={14} />
+                  </button>
+                </Badge>
+              )}
+              {filterStatus !== 'all' && (
+                <Badge variant="default" className="flex items-center gap-1">
+                  Statut: {filterStatus}
+                  <button onClick={() => setFilterStatus('all')} className="ml-1">
+                    <X size={14} />
+                  </button>
+                </Badge>
+              )}
+              {filterShopId !== 'all' && (
+                <Badge variant="default" className="flex items-center gap-1">
+                  Boutique: {shops?.find(s => s.id === filterShopId)?.name || filterShopId}
+                  <button onClick={() => setFilterShopId('all')} className="ml-1">
+                    <X size={14} />
+                  </button>
+                </Badge>
+              )}
+              {filterWarehouseId !== 'all' && (
+                <Badge variant="default" className="flex items-center gap-1">
+                  Entrepôt: {warehouses?.find(w => w.id === filterWarehouseId)?.name || filterWarehouseId}
+                  <button onClick={() => setFilterWarehouseId('all')} className="ml-1">
+                    <X size={14} />
+                  </button>
+                </Badge>
+              )}
+              {filterDateFrom && (
+                <Badge variant="default" className="flex items-center gap-1">
+                  Du: {filterDateFrom}
+                  <button onClick={() => setFilterDateFrom('')} className="ml-1">
+                    <X size={14} />
+                  </button>
+                </Badge>
+              )}
+              {filterDateTo && (
+                <Badge variant="default" className="flex items-center gap-1">
+                  Au: {filterDateTo}
+                  <button onClick={() => setFilterDateTo('')} className="ml-1">
+                    <X size={14} />
+                  </button>
+                </Badge>
+              )}
+            </div>
+          )}
       </Card>
 
       {/* Error Display */}
@@ -370,8 +377,8 @@ const StockTransfers = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destination</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantité</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">STATUT</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-right">ACTIONS</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -382,13 +389,17 @@ const StockTransfers = () => {
                   }
                   const product = products?.find(p => p.id === transfer.productId);
                   return (
-                    <tr key={transfer.id} className="hover:bg-gray-50">
+                    <tr
+                      key={transfer.id}
+                      onClick={() => handleViewDetails(transfer)}
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {transfer.createdAt?.seconds
                           ? format(new Date(transfer.createdAt.seconds * 1000), 'dd/MM/yyyy HH:mm')
                           : transfer.createdAt
-                          ? format(new Date(transfer.createdAt as any), 'dd/MM/yyyy HH:mm')
-                          : '-'}
+                            ? format(new Date(transfer.createdAt as any), 'dd/MM/yyyy HH:mm')
+                            : '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {product?.name || transfer.productId || 'N/A'}
@@ -397,29 +408,48 @@ const StockTransfers = () => {
                         {transfer.transferType ? getTransferTypeLabel(transfer.transferType) : 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {transfer.fromWarehouseId && (
-                          <span>📦 {getLocationName(transfer.fromWarehouseId, 'warehouse')}</span>
-                        )}
-                        {transfer.fromShopId && (
-                          <span>🏪 {getLocationName(transfer.fromShopId, 'shop')}</span>
-                        )}
-                        {transfer.fromProductionId && (
-                          <span>🏭 Production {transfer.fromProductionId.slice(0, 8)}</span>
-                        )}
-                        {!transfer.fromWarehouseId && !transfer.fromShopId && !transfer.fromProductionId && (
-                          <span className="text-gray-400">-</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {transfer.fromWarehouseId && (
+                            <>
+                              <WarehouseIcon size={14} className="text-gray-400" />
+                              <span>{getLocationName(transfer.fromWarehouseId, 'warehouse')}</span>
+                            </>
+                          )}
+                          {transfer.fromShopId && (
+                            <>
+                              <Store size={14} className="text-gray-400" />
+                              <span>{getLocationName(transfer.fromShopId, 'shop')}</span>
+                            </>
+                          )}
+                          {transfer.fromProductionId && (
+                            <>
+                              <Package size={14} className="text-gray-400" />
+                              <span>Production {transfer.fromProductionId.slice(0, 8)}</span>
+                            </>
+                          )}
+                          {!transfer.fromWarehouseId && !transfer.fromShopId && !transfer.fromProductionId && (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {transfer.toWarehouseId && (
-                          <span>📦 {getLocationName(transfer.toWarehouseId, 'warehouse')}</span>
-                        )}
-                        {transfer.toShopId && (
-                          <span>🏪 {getLocationName(transfer.toShopId, 'shop')}</span>
-                        )}
-                        {!transfer.toWarehouseId && !transfer.toShopId && (
-                          <span className="text-gray-400">-</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {transfer.toWarehouseId && (
+                            <>
+                              <WarehouseIcon size={14} className="text-gray-400" />
+                              <span>{getLocationName(transfer.toWarehouseId, 'warehouse')}</span>
+                            </>
+                          )}
+                          {transfer.toShopId && (
+                            <>
+                              <Store size={14} className="text-gray-400" />
+                              <span>{getLocationName(transfer.toShopId, 'shop')}</span>
+                            </>
+                          )}
+                          {!transfer.toWarehouseId && !transfer.toShopId && (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {transfer.quantity || 0}
@@ -427,20 +457,29 @@ const StockTransfers = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {getStatusBadge(transfer.status || 'completed')}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {transfer.status === 'pending' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedTransfer(transfer);
-                              setIsCancelModalOpen(true);
-                            }}
-                            className="text-red-600 hover:text-red-700"
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                        <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => handleViewDetails(transfer)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                            title="Voir les détails"
                           >
-                            Annuler
-                          </Button>
-                        )}
+                            <Eye size={18} />
+                          </button>
+                          {transfer.status === 'pending' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedTransfer(transfer);
+                                setIsCancelModalOpen(true);
+                              }}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                            >
+                              Annuler
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -486,6 +525,19 @@ const StockTransfers = () => {
           Êtes-vous sûr de vouloir annuler ce transfert ? Cette action est irréversible.
         </p>
       </Modal>
+
+      {/* Detail Modal */}
+      <StockTransferDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedTransfer(null);
+        }}
+        transfer={selectedTransfer}
+        products={products || []}
+        shops={shops || []}
+        warehouses={warehouses || []}
+      />
     </div>
   );
 };
