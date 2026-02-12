@@ -17,6 +17,7 @@ import { validateUsername, generateUsernameFromEmail, normalizeUsername } from '
 
 export interface UserSignUpData {
   username: string; // Required unique username
+  phone?: string;   // Optional phone number
 }
 
 /**
@@ -67,7 +68,8 @@ export const signUpUser = async (
       {
         username: userData.username,
         email: email,
-        photoURL: undefined
+        photoURL: undefined,
+        phone: userData.phone
       },
       undefined, // companyId
       undefined, // role

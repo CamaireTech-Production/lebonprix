@@ -11,7 +11,7 @@ import {
   sendEmailVerification
 } from 'firebase/auth';
 import { doc, getDoc, getDocFromCache, updateDoc, Timestamp, onSnapshot, type DocumentReference } from 'firebase/firestore';
-import type { Company, UserRole, UserCompanyRef, CompanyEmployee } from '../types/models';
+import type { Company, UserRole, UserCompanyRef, CompanyEmployee, User } from '../types/models';
 import { ensureDefaultFinanceEntryTypes } from '@services/firestore/finance/financeService';
 import CompanyManager from '@services/storage/CompanyManager';
 import FinanceTypesManager from '@services/storage/FinanceTypesManager';
@@ -32,6 +32,7 @@ interface AuthContextType {
   effectiveRole: UserRole | 'owner' | 'vendeur' | 'gestionnaire' | 'magasinier' | null; // Role effectif de l'utilisateur
   isOwner: boolean; // Si l'utilisateur est propriétaire de l'entreprise
   currentEmployee: CompanyEmployee | null; // Informations de l'employé connecté
+  userData: User | null; // Firestore user document
   userCompanies: UserCompanyRef[]; // Liste des entreprises de l'utilisateur
   selectedCompanyId: string | null; // Entreprise actuellement sélectionnée
   signUp: (email: string, password: string, companyData: Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'companyId'>) => Promise<FirebaseUser>;
@@ -93,6 +94,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [isOwner, setIsOwner] = useState(false);
   const [currentEmployee, setCurrentEmployee] = useState<CompanyEmployee | null>(null);
   const [userCompanies, setUserCompanies] = useState<UserCompanyRef[]>([]);
+  const [userData, setUserData] = useState<User | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const isInitialLoginRef = useRef(false);
 
@@ -181,6 +183,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         loadFinanceTypesInBackground();
       } else {
         setCompany(null);
+        setUserData(null);
         setEffectiveRole(null);
         setIsOwner(false);
         setCurrentEmployee(null);
@@ -209,11 +212,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         return;
       }
 
-      const userData = userSnap.data();
-      const userCompanyRef = userData.companies?.find((c: UserCompanyRef) => c.companyId === company.id);
+      const userDataSnap = userSnap.data() as User;
+      setUserData(userDataSnap);
+
+      const userCompanyRef = userDataSnap.companies?.find((c: UserCompanyRef) => c.companyId === company.id);
 
       // Mettre à jour userCompanies
-      setUserCompanies(userData.companies || []);
+      setUserCompanies(userDataSnap.companies || []);
 
       // Si le rôle a changé pour la company actuelle, mettre à jour le rôle effectif
       if (userCompanyRef) {
@@ -909,6 +914,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     effectiveRole,
     isOwner,
     currentEmployee,
+    userData,
     userCompanies: memoizedUserCompanies, // Use memoized version to prevent unnecessary re-renders
     selectedCompanyId,
     signUp,

@@ -28,6 +28,7 @@ export interface UserData {
   username: string; // Required unique username (used for display name)
   email: string;
   photoURL?: string;
+  phone?: string;
 }
 
 /**
@@ -48,11 +49,11 @@ export const createUser = async (
 ): Promise<User> => {
   try {
     const now = Timestamp.now();
-    
+
     // Normalize username for storage (lowercase for case-insensitive uniqueness)
     // We store it normalized to ensure uniqueness while preserving original case in UI if needed
     const normalizedUsername = normalizeUsername(userData.username);
-    
+
     // Créer l'objet utilisateur en filtrant les valeurs undefined
     const newUser: User = {
       id: userId,
@@ -63,7 +64,8 @@ export const createUser = async (
       companies: [],
       status: 'active',
       // Ajouter seulement les champs non-undefined
-      ...(userData.photoURL && { photoURL: userData.photoURL })
+      ...(userData.photoURL && { photoURL: userData.photoURL }),
+      ...(userData.phone && { phone: userData.phone })
     };
 
     // Si une entreprise est fournie, l'ajouter à la liste
@@ -79,12 +81,12 @@ export const createUser = async (
 
     // Utiliser l'instance Firestore fournie ou l'instance par défaut
     const firestoreDb = firestoreInstance || db;
-    
+
     // Créer le document Firestore directement
     // L'utilisateur est déjà authentifié (créé via createUserWithEmailAndPassword)
     // Les security rules vérifieront que request.auth.uid == userId
     await setDoc(doc(firestoreDb, 'users', userId), newUser);
-    
+
     return newUser;
   } catch (error: any) {
     console.error('❌ Erreur lors de la création de l\'utilisateur:', error);
@@ -100,11 +102,11 @@ export const createUser = async (
 export const getUserById = async (userId: string): Promise<User | null> => {
   try {
     const userDoc = await getDocWithCache(doc(db, 'users', userId));
-    
+
     if (userDoc.exists()) {
       return { id: userDoc.id, ...userDoc.data() } as User;
     }
-    
+
     return null;
   } catch (error: any) {
     // Si c'est une erreur de permission et que le document n'existe pas encore,
@@ -114,7 +116,7 @@ export const getUserById = async (userId: string): Promise<User | null> => {
       console.warn('Permission denied lors de la récupération de l\'utilisateur. Le document n\'existe peut-être pas encore:', userId);
       return null;
     }
-    
+
     console.error('Erreur lors de la récupération de l\'utilisateur:', error);
     throw error;
   }
@@ -278,26 +280,26 @@ export const checkUsernameAvailability = async (
     if (!username || username.trim().length === 0) {
       return false;
     }
-    
+
     const normalizedUsername = normalizeUsername(username);
-    
+
     // Query Firestore for users with the same normalized username
     // Since we store usernames normalized (lowercase), we can query directly
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where('username', '==', normalizedUsername));
     const querySnapshot = await getDocs(q);
-    
+
     // If no documents found, username is available
     if (querySnapshot.empty) {
       return true;
     }
-    
+
     // If excludeUserId is provided, check if the only match is the excluded user
     if (excludeUserId) {
       const matchingUsers = querySnapshot.docs.filter(doc => doc.id !== excludeUserId);
       return matchingUsers.length === 0;
     }
-    
+
     // Username is already taken
     return false;
   } catch (error: any) {

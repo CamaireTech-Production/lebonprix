@@ -1,7 +1,7 @@
 import { useState, FormEvent, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
-import { Button, Input, SkeletonTable } from '@components/common';
+import { Button, Input, SkeletonTable, PhoneInput } from '@components/common';
 import LanguageSwitcher from '@components/common/LanguageSwitcher';
 import { useTranslation } from 'react-i18next';
 import { FirebaseError } from 'firebase/app';
@@ -17,6 +17,7 @@ const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [phone, setPhone] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -133,7 +134,8 @@ const Register = () => {
       setIsLoading(true);
 
       const userData = {
-        username: username.trim()
+        username: username.trim(),
+        phone: phone.trim() || undefined
       };
 
       await signUpUser(email, password, userData);
@@ -207,6 +209,17 @@ const Register = () => {
               helpText={t('auth.register.usernameHelp')}
               className={fieldErrors.username ? 'border-red-500' : ''}
               required
+            />
+          </div>
+
+          <div>
+            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+              Numéro de téléphone <span className="text-gray-400 text-xs">(Optionnel)</span>
+            </label>
+            <PhoneInput
+              value={phone}
+              onChange={setPhone}
+              helpText="Vôtre numéro de téléphone pour vous contacter"
             />
           </div>
 

@@ -1,20 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { updateUser } from '../../services/utilities/userService';
 import { User, Mail, Phone, Briefcase, Edit2, Save, X, Loader2 } from 'lucide-react';
+import { PhoneInput } from '../../components/common';
 import UserAvatar from '../../components/common/UserAvatar';
 
 const Profile: React.FC = () => {
   const { t } = useTranslation();
-  const { user, company, currentEmployee, userCompanies } = useAuth();
+  const { user, userData, company, currentEmployee, userCompanies } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
-    username: currentEmployee?.username || '',
+    username: userData?.username || currentEmployee?.username || '',
     email: user?.email || '',
-    phone: currentEmployee?.phone || '',
+    phone: userData?.phone || currentEmployee?.phone || '',
   });
+
+  // Sync with userData when it becomes available (or changed)
+  useEffect(() => {
+    if (userData) {
+      setFormData(prev => ({
+        ...prev,
+        username: userData.username || prev.username,
+        phone: userData.phone || prev.phone,
+        email: userData.email || prev.email
+      }));
+    }
+  }, [userData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -54,9 +67,9 @@ const Profile: React.FC = () => {
 
   const handleCancel = () => {
     setFormData({
-      username: currentEmployee?.username || '',
+      username: userData?.username || currentEmployee?.username || '',
       email: user?.email || '',
-      phone: currentEmployee?.phone || '',
+      phone: userData?.phone || currentEmployee?.phone || '',
     });
     setIsEditing(false);
   };
@@ -124,7 +137,7 @@ const Profile: React.FC = () => {
 
             <div className="mt-6 space-y-2">
               <h2 className="text-2xl font-bold text-gray-900 tracking-tight leading-tight">
-                {currentEmployee?.username || user?.email?.split('@')[0]}
+                {userData?.username || currentEmployee?.username || user?.email?.split('@')[0]}
               </h2>
               <div className="inline-flex items-center px-4 py-1 rounded-full text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse" />
@@ -199,7 +212,7 @@ const Profile: React.FC = () => {
                       className="w-full px-4 py-2.5 bg-gray-50 border-0 rounded-xl focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 font-semibold"
                     />
                   ) : (
-                    <p className="text-lg font-bold text-gray-900">{currentEmployee?.username || '-'}</p>
+                    <p className="text-lg font-bold text-gray-900">{userData?.username || currentEmployee?.username || '-'}</p>
                   )}
                 </div>
               </div>
@@ -231,15 +244,12 @@ const Profile: React.FC = () => {
                 </div>
                 <div className="sm:flex-1">
                   {isEditing ? (
-                    <input
-                      type="tel"
-                      name="phone"
+                    <PhoneInput
                       value={formData.phone}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2.5 bg-gray-50 border-0 rounded-xl focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 font-semibold"
+                      onChange={(value) => setFormData(prev => ({ ...prev, phone: value }))}
                     />
                   ) : (
-                    <p className="text-lg font-bold text-gray-900">{currentEmployee?.phone || '-'}</p>
+                    <p className="text-lg font-bold text-gray-900">{userData?.phone || currentEmployee?.phone || '-'}</p>
                   )}
                 </div>
               </div>
