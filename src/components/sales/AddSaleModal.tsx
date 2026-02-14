@@ -1,5 +1,5 @@
 import { useAddSaleForm } from '@hooks/forms/useAddSaleForm';
-import { Modal, ModalFooter, Input, PriceInput, Button, ImageWithSkeleton, LocationAutocomplete, Select as CommonSelect } from '@components/common';
+import { Modal, ModalFooter, Input, PriceInput, Button, ImageWithSkeleton, LocationAutocomplete, Select as CommonSelect, PhoneInput } from '@components/common';
 import Select from 'react-select';
 import { Plus, Trash2, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -9,7 +9,7 @@ import { useCurrency } from '@hooks/useCurrency';
 import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
 import type { Sale, StockBatch } from '../../types/models';
 import SaleDetailsModal from './SaleDetailsModal';
-import { getProductStockBatches, getAvailableStockBatches, getStockBatchesByLocation } from '@services/firestore/stock/stockService';
+import { getAvailableStockBatches, getStockBatchesByLocation } from '@services/firestore/stock/stockService';
 import { showWarningToast } from '@utils/core/toast';
 import { useAuth } from '@contexts/AuthContext';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
@@ -37,7 +37,7 @@ interface ProductStockInfo {
 const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdded }) => {
   const { t } = useTranslation();
   const { format } = useCurrency();
-  const { company, user, isOwner } = useAuth();
+  const { company, isOwner } = useAuth();
   const { isStarter } = useModules(); // Check if Starter plan
   const { shops, loading: shopsLoading, error: shopsError } = useShops();
   const { warehouses, loading: warehousesLoading, error: warehousesError } = useWarehouses();
@@ -625,24 +625,15 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
             {/* Customer Information Section */}
             <div className="space-y-4">
               <div className="relative">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone
-                </label>
-                <div className="flex space-x-2">
-                  <Input
-                    type="tel"
-                    name="customerPhone"
+                <div ref={phoneInputRef}>
+                  <PhoneInput
+                    label="Phone"
                     value={formData.customerPhone}
                     onChange={handlePhoneChange}
-                    onFocus={() => {
-                      // Set active field to phone when focusing on phone input
-                      setActiveSearchField('phone');
-                    }}
+                    onFocus={() => setActiveSearchField('phone')}
                     onBlur={handlePhoneBlur}
-                    placeholder="Phone"
-                    className="flex-1"
                     helpText="Enter customer phone number (optional for credit sales)"
-                    ref={phoneInputRef}
+                    className="flex-1"
                   />
                 </div>
 

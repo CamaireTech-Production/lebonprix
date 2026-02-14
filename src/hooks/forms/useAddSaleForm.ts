@@ -71,7 +71,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
   const [customerSearch, setCustomerSearch] = useState('');
   const [activeSearchField, setActiveSearchField] = useState<'phone' | 'name' | null>(null);
 
-  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const phoneInputRef = useRef<HTMLDivElement>(null);
 
   // Get default inventory method from settings (lowercase for form, will be converted to uppercase for API)
   const getDefaultInventoryMethod = (): 'fifo' | 'lifo' | 'cmup' => {
@@ -173,8 +173,8 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
     }
   };
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement> | string) => {
+    const value = typeof e === 'string' ? e : e.target.value;
 
     // Mark that we're searching in the phone field
     setActiveSearchField('phone');

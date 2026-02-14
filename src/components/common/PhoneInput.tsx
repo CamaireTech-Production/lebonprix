@@ -12,6 +12,8 @@ interface PhoneInputProps {
   disabled?: boolean;
   className?: string; // Additional classes for the container
   required?: boolean;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }
 
 const PhoneInput: React.FC<PhoneInputProps> = ({
@@ -22,7 +24,9 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
   helpText,
   disabled = false,
   className = '',
-  required = false
+  required = false,
+  onFocus,
+  onBlur
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<Country>(DEFAULT_COUNTRY);
@@ -229,6 +233,8 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
           placeholder={selectedCountry.format.replace(/#/g, '0')} // e.g. 699 00 00 00
           value={displayValue}
           onChange={handleInputChange}
+          onFocus={onFocus}
+          onBlur={onBlur}
           disabled={disabled}
         />
       </div>
