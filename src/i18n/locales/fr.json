@@ -90,7 +90,9 @@
     "all": "Tous",
     "optional": "Optionnel",
     "active": "Actuelle",
-    "rememberMe": "Se souvenir de moi"
+    "rememberMe": "Se souvenir de moi",
+    "deleted": "Supprimé",
+    "unknownProduct": "Produit inconnu"
   },
   "auth": {
     "login": "Connexion",

@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { sharedSubscriptions } from '@services/firestore/sharedSubscriptions';
-import { 
-  createSale, 
-  updateSaleStatus, 
-  subscribeToSales,
+import {
+  createSale,
+  updateSaleStatus,
   updateSaleDocument
 } from '@services/firestore/sales/saleService';
 import {
@@ -11,7 +10,6 @@ import {
   createCategory
 } from '@services/firestore/categories/categoryService';
 import {
-  subscribeToProducts,
   createProduct,
   updateProduct
 } from '@services/firestore/products/productService';
@@ -50,7 +48,6 @@ import { subscribeToStockChanges } from '@services/firestore/stock/stockService'
 import {
   subscribeToReplenishmentRequests,
   createReplenishmentRequest,
-  updateReplenishmentRequest,
   approveReplenishmentRequest,
   rejectReplenishmentRequest,
   fulfillReplenishmentRequest
@@ -58,7 +55,6 @@ import {
 import {
   subscribeToNotifications,
   createNotification,
-  createNotificationsForUsers,
   markNotificationAsRead,
   markNotificationsAsRead,
   markAllNotificationsAsRead,
@@ -97,10 +93,7 @@ import {
   subscribeToCustomCharges,
   createCharge,
   updateCharge,
-  deleteCharge,
-  getFixedCharges,
-  getCustomCharges,
-  getAllCharges
+  deleteCharge
 } from '@services/firestore/charges/chargeService';
 import {
   subscribeToShops,
@@ -121,7 +114,7 @@ import {
   transferStockBetweenLocations,
   cancelStockTransfer
 } from '@services/firestore/stock/stockTransferService';
-import { dataCache, cacheKeys, invalidateSpecificCache } from '@utils/storage/dataCache';
+import { dataCache, cacheKeys } from '@utils/storage/dataCache';
 import { logError } from '@utils/core/logger';
 import ProductsManager from '@services/storage/ProductsManager';
 import SalesManager from '@services/storage/SalesManager';
@@ -146,14 +139,13 @@ import type {
   ProductionFlowStep,
   ProductionFlow,
   ProductionCategory,
-  ProductionCharge,
   Charge,
   Shop,
   Warehouse,
   StockTransfer,
   StockReplenishmentRequest,
   Notification
-} from '../types/models';
+} from '../../types/models';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 import { doc, getDoc, deleteDoc, collection, query, where, orderBy, limit, getDocs, onSnapshot } from 'firebase/firestore';
@@ -211,7 +203,7 @@ export const useProducts = () => {
       isCredit?: boolean;
       costPrice?: number;
     },
-    createdBy?: import('../types/models').EmployeeRef | null,
+    createdBy?: import('../../types/models').EmployeeRef | null,
     locationInfo?: {
       locationType?: 'warehouse' | 'shop' | 'production' | 'global';
       warehouseId?: string;
@@ -255,26 +247,26 @@ export const useProducts = () => {
       }
 
       const createdProduct = await createProduct(
-        { ...productData, userId: user.uid, companyId: company.id },
+        { ...productData, userId: user.uid, companyId: company.id } as any,
         company.id,
         supplierInfo,
         createdBy,
         effectiveLocationInfo
       );
-      
+
       // Invalidate products cache
       ProductsManager.remove(company.id);
       if (user.uid) {
         ProductsManager.remove(user.uid);
       }
-      
+
       // Notify product list to refresh
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('products:refresh', {
           detail: { companyId: company.id }
         }));
       }
-      
+
       return createdProduct;
     } catch (err) {
       setError(err as Error);
@@ -283,7 +275,7 @@ export const useProducts = () => {
   };
 
   const updateProductData = async (
-    productId: string, 
+    productId: string,
     data: Partial<Product>,
     stockReason?: 'sale' | 'restock' | 'adjustment' | 'creation',
     stockChange?: number,
@@ -300,10 +292,10 @@ export const useProducts = () => {
         ...data,
         updatedAt: Timestamp.now()
       }, company.id, stockReason, stockChange, supplierInfo);
-      
+
       // Invalidate products cache
       ProductsManager.remove(company.id);
-      
+
       // Notify product list to refresh
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('products:refresh', {
@@ -320,10 +312,10 @@ export const useProducts = () => {
     if (!user?.uid || !company) throw new Error('User not authenticated');
     try {
       await deleteDoc(doc(db, 'products', productId));
-      
+
       // Invalidate products cache
       ProductsManager.remove(company.id);
-      
+
       // Notify product list to refresh
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('products:refresh', {
@@ -347,6 +339,45 @@ export const useProducts = () => {
   };
 };
 
+// Sales Products Hook - Fetches all products including deleted/unavailable for historical sales
+export const useSalesProducts = () => {
+  const { user, company } = useAuth();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!user || !company) {
+      setProducts([]);
+      setLoading(false);
+      setSyncing(false);
+      return;
+    }
+
+    // Initialize shared subscription (includes deleted/unavailable products)
+    sharedSubscriptions.initializeSalesProducts(company.id);
+
+    // Subscribe to updates from shared subscription
+    const unsubscribe = sharedSubscriptions.subscribeToSalesProducts((data) => {
+      setProducts(data);
+      const state = sharedSubscriptions.getSalesProductsState();
+      setLoading(state.loading);
+      setSyncing(state.syncing);
+      setError(state.error);
+    });
+
+    return () => unsubscribe();
+  }, [user, company]);
+
+  return {
+    products,
+    loading,
+    syncing,
+    error
+  };
+};
+
 // Categories Hook with Caching (backward compatible, supports optional type filter)
 export const useCategories = (type?: 'product' | 'matiere') => {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -356,20 +387,20 @@ export const useCategories = (type?: 'product' | 'matiere') => {
 
   useEffect(() => {
     if (!user || !company) return;
-    
+
     const cacheKey = type ? cacheKeys.categories(company.id, type) : cacheKeys.categories(company.id);
-    
+
     // Check cache first
     const cachedCategories = dataCache.get<Category[]>(cacheKey);
     if (cachedCategories) {
       setCategories(cachedCategories);
       setLoading(false);
     }
-    
+
     const unsubscribe = subscribeToCategories(company.id, (data) => {
       setCategories(data);
       setLoading(false);
-      
+
       // Cache the data for 10 minutes (categories change rarely)
       dataCache.set(cacheKey, data, 10 * 60 * 1000);
     }, type);
@@ -394,15 +425,15 @@ export const useCategories = (type?: 'product' | 'matiere') => {
         }
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
       }
-      
+
       // Use provided type, or fallback to hook type, or default to 'product' for backward compatibility
       const finalType = categoryType || type || 'product';
-      
-      const category = await createCategory({ 
-        name, 
+
+      const category = await createCategory({
+        name,
         type: finalType,
-        userId: user.uid, 
-        companyId: company.id 
+        userId: user.uid,
+        companyId: company.id
       }, company.id, createdBy);
       return category;
     } catch (err) {
@@ -461,37 +492,37 @@ export const useSales = () => {
       throw new Error('User not authenticated');
     }
     try {
-      const newSale = await createSale({ ...data, userId: user.uid, companyId: company.id }, company.id, createdBy);
-      
+      const newSale = await createSale({ ...data, userId: user.uid, companyId: company.id } as any, company.id, createdBy);
+
       // Invalidate sales cache
       SalesManager.remove(company.id);
-      
+
       // Force sync to update localStorage
-      BackgroundSyncService.forceSyncSales(company.id, (freshSales) => {
+      BackgroundSyncService.forceSyncSales(company.id, () => {
         sharedSubscriptions.initializeSales(company.id); // Re-initialize to update shared state
       });
-      
+
       // Invalidate product caches so stock values refresh
       ProductsManager.remove(company.id);
       if (user.uid) {
         ProductsManager.remove(user.uid);
       }
-      
+
       // Notify product list to refresh immediately if mounted
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('products:refresh', {
           detail: { companyId: company.id }
         }));
       }
-      
+
       // Wait for syncFinanceEntryWithSale to complete
       await new Promise(resolve => setTimeout(resolve, 300));
-      
+
       // Trigger finance refresh to update balance immediately
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('finance:refresh'));
       }
-      
+
       return newSale;
     } catch (err) {
       setError(err as Error);
@@ -507,7 +538,7 @@ export const useSales = () => {
     try {
       const saleRef = doc(db, 'sales', saleId);
       const saleDoc = await getDoc(saleRef);
-      
+
       if (!saleDoc.exists()) {
         throw new Error('Sale not found');
       }
@@ -528,7 +559,7 @@ export const useSales = () => {
 
       // Update in Firestore
       await updateSaleDocument(saleId, cleanedSale as Partial<Sale>, company.id);
-      
+
       // Create a complete sale object with ID for finance sync
       const saleForSync = {
         ...(cleanedSale as Sale),
@@ -538,7 +569,7 @@ export const useSales = () => {
 
       // Wait for finance entry to be updated
       await new Promise(resolve => setTimeout(resolve, 300));
-      
+
       // Trigger finance refresh to update balance immediately
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('finance:refresh'));
@@ -547,7 +578,7 @@ export const useSales = () => {
       // Invalidate sales cache when sale is updated
       SalesManager.remove(company.id);
       // Force sync to update localStorage
-      BackgroundSyncService.forceSyncSales(company.id, (freshSales) => {
+      BackgroundSyncService.forceSyncSales(company.id, () => {
         sharedSubscriptions.initializeSales(company.id); // Re-initialize to update shared state
       });
     } catch (err) {
@@ -558,10 +589,10 @@ export const useSales = () => {
 
   const deleteSale = async (saleId: string) => {
     if (!user) throw new Error('User not authenticated');
-    
+
     try {
       const saleRef = doc(db, 'sales', saleId);
-      
+
       // Get sale data before deleting
       const saleDoc = await getDoc(saleRef);
       if (saleDoc.exists()) {
@@ -569,18 +600,18 @@ export const useSales = () => {
         // Sync finance entry (mark as deleted) before deleting the sale
         await syncFinanceEntryWithSale({ ...saleData, id: saleId, isAvailable: false });
       }
-      
+
       // Delete the sale document
       await deleteDoc(saleRef);
-      
+
       // Invalidate sales cache
       if (company) {
         SalesManager.remove(company.id);
-        BackgroundSyncService.forceSyncSales(company.id, (freshSales) => {
+        BackgroundSyncService.forceSyncSales(company.id, () => {
           sharedSubscriptions.initializeSales(company.id); // Re-initialize to update shared state
         });
       }
-      
+
       return true;
     } catch (error) {
       logError('Error deleting sale', error);
@@ -592,10 +623,10 @@ export const useSales = () => {
     if (!user || !company) throw new Error('User not authenticated');
     try {
       await updateSaleStatus(id, status, paymentStatus, company.id);
-      
+
       // Invalidate sales cache
       SalesManager.remove(company.id);
-      BackgroundSyncService.forceSyncSales(company.id, (freshSales) => {
+      BackgroundSyncService.forceSyncSales(company.id, () => {
         sharedSubscriptions.initializeSales(company.id); // Re-initialize to update shared state
       });
     } catch (err) {
@@ -617,7 +648,7 @@ export const useExpenses = () => {
 
   useEffect(() => {
     if (!user || !company) return;
-    
+
     // 1. Check localStorage FIRST - instant display if data exists
     const localExpenses = ExpensesManager.load(company.id);
     if (localExpenses && localExpenses.length > 0) {
@@ -627,7 +658,7 @@ export const useExpenses = () => {
     } else {
       setLoading(true); // Only show loading spinner if no cached data
     }
-    
+
     // 2. Start background sync with Firebase
     BackgroundSyncService.syncExpenses(company.id, (freshExpenses) => {
       setExpenses(freshExpenses);
@@ -640,7 +671,7 @@ export const useExpenses = () => {
       setExpenses(data);
       setLoading(false);
       setSyncing(false);
-      
+
       // Save to localStorage for future instant loads
       ExpensesManager.save(company.id, data);
     });
@@ -730,28 +761,28 @@ export const useStockChanges = (type?: 'product' | 'matiere') => {
 
   useEffect(() => {
     if (!user || !company) return;
-    
+
     const cacheKey = cacheKeys.stockChanges(company.id);
-    
+
     // Check cache first
     const cachedStockChanges = dataCache.get<StockChange[]>(cacheKey);
     if (cachedStockChanges) {
       // Filter by type if provided
-      const filtered = type 
+      const filtered = type
         ? cachedStockChanges.filter(sc => sc.type === type)
         : cachedStockChanges;
       setStockChanges(filtered);
       setLoading(false);
     }
-    
+
     const unsubscribe = subscribeToStockChanges(company.id, (data) => {
       // Filter by type if provided
-      const filtered = type 
+      const filtered = type
         ? data.filter(sc => sc.type === type)
         : data;
       setStockChanges(filtered);
       setLoading(false);
-      
+
       // Cache the data for 3 minutes (stock changes frequently)
       dataCache.set(cacheKey, data, 3 * 60 * 1000);
     }, type);
@@ -807,10 +838,10 @@ export const useCustomers = () => {
     }
   };
 
-  return { 
-    customers, 
-    loading, 
-    error, 
+  return {
+    customers,
+    loading,
+    error,
     addCustomer: addCustomerToStore,
     updateCustomer: updateCustomerData,
     deleteCustomer: deleteCustomerData
@@ -825,14 +856,14 @@ export const useFinanceEntries = () => {
   // Simple refresh function - manually reload data from Firestore
   const refresh = useCallback(async () => {
     if (!user || !company) return;
-    
+
     setLoading(true);
     const q = query(
       collection(db, 'finances'),
       where('companyId', '==', company.id),
       orderBy('createdAt', 'desc')
     );
-    
+
     try {
       const snapshot = await getDocs(q);
       const financeEntries = snapshot.docs
@@ -843,10 +874,10 @@ export const useFinanceEntries = () => {
           const bTime = b.createdAt?.seconds || 0;
           return bTime - aTime;
         });
-      
+
       setEntries([...financeEntries]);
       setLoading(false);
-      
+
     } catch (error) {
       logError('Error refreshing finance entries', error);
       setLoading(false);
@@ -880,19 +911,19 @@ export const useFinanceEntries = () => {
       (snapshot) => {
         // Process server-confirmed updates only
         // This reduces Firebase reads by 50% (no duplicate reads for pending + confirmed)
-        
+
         // Success callback - filter isDeleted on client-side for better real-time performance
         const financeEntries = snapshot.docs
           .map(d => ({ id: d.id, ...d.data() } as FinanceEntry))
           .filter(entry => entry.isDeleted !== true); // Filter soft-deleted entries client-side
-        
+
         // Sort by createdAt (descending) - already sorted by Firestore, but ensure consistency
         financeEntries.sort((a, b) => {
           const aTime = a.createdAt?.seconds || 0;
           const bTime = b.createdAt?.seconds || 0;
           return bTime - aTime;
         });
-        
+
         // Always update state - Firestore guarantees consistency
         // CRITICAL: Create new array reference to ensure React detects the change
         setEntries([...financeEntries]);
@@ -901,7 +932,7 @@ export const useFinanceEntries = () => {
       (error) => {
         // Error callback - log error and provide helpful information
         logError('Error listening to finance entries', error);
-        
+
         setLoading(false);
         // Fallback: Try to get data without orderBy (simpler query)
         const fallbackQuery = query(
@@ -939,22 +970,22 @@ export const useSuppliers = () => {
 
   useEffect(() => {
     if (!user || !company) return;
-    
+
     const cacheKey = cacheKeys.suppliers(company.id);
-    
+
     // Check cache first
     const cachedSuppliers = dataCache.get<Supplier[]>(cacheKey);
     if (cachedSuppliers) {
       setSuppliers(cachedSuppliers);
       setLoading(false);
     }
-    
+
     const unsubscribe = subscribeToSuppliers(company.id, (data) => {
       // Filter out soft-deleted suppliers (user filtering already done by Firebase)
       const activeSuppliers = data.filter(supplier => !supplier.isDeleted);
       setSuppliers(activeSuppliers);
       setLoading(false);
-      
+
       // Cache the data for 5 minutes
       dataCache.set(cacheKey, activeSuppliers, 5 * 60 * 1000);
     });
@@ -979,7 +1010,7 @@ export const useSuppliers = () => {
         }
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
       }
-      
+
       await createSupplier(supplierData, company.id, createdBy);
     } catch (err) {
       setError(err as Error);
@@ -1026,20 +1057,20 @@ export const useSupplierDebts = () => {
 
   useEffect(() => {
     if (!user || !company) return;
-    
+
     const cacheKey = `supplier_debts_${company.id}`;
-    
+
     // Check cache first
     const cachedDebts = dataCache.get<SupplierDebt[]>(cacheKey);
     if (cachedDebts) {
       setDebts(cachedDebts);
       setLoading(false);
     }
-    
+
     const unsubscribe = subscribeToSupplierDebts(company.id, (data) => {
       setDebts(data);
       setLoading(false);
-      
+
       // Cache the data for 5 minutes
       dataCache.set(cacheKey, data, 5 * 60 * 1000);
     });
@@ -1057,7 +1088,7 @@ export const useSupplierDebts = () => {
     try {
       await addSupplierDebt(supplierId, amount, description, company.id, batchId);
       // Invalidate cache
-      invalidateSpecificCache(`supplier_debts_${company.id}`);
+      dataCache.delete(`supplier_debts_${company.id}`);
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -1074,7 +1105,7 @@ export const useSupplierDebts = () => {
     try {
       await addSupplierRefund(supplierId, amount, description, company.id, refundedDebtId);
       // Invalidate cache
-      invalidateSpecificCache(`supplier_debts_${company.id}`);
+      dataCache.delete(`supplier_debts_${company.id}`);
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -1105,7 +1136,7 @@ export const useSupplierDebts = () => {
 export const useSupplierDebt = (supplierId: string | null) => {
   const [debt, setDebt] = useState<SupplierDebt | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [error] = useState<Error | null>(null);
   const { user, company } = useAuth();
 
   useEffect(() => {
@@ -1114,7 +1145,7 @@ export const useSupplierDebt = (supplierId: string | null) => {
       setLoading(false);
       return;
     }
-    
+
     setLoading(true);
     const unsubscribe = subscribeToSupplierDebt(supplierId, company.id, (data) => {
       setDebt(data);
@@ -1140,7 +1171,7 @@ export const useShops = () => {
 
   useEffect(() => {
     if (!user || !company) return;
-    
+
     const unsubscribe = subscribeToShops(company.id, (data) => {
       setShops(data);
       setLoading(false);
@@ -1168,7 +1199,7 @@ export const useShops = () => {
         }
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
       }
-      
+
       await createShop(shopData, company.id, createdBy);
     } catch (err) {
       setError(err as Error);
@@ -1215,7 +1246,7 @@ export const useWarehouses = () => {
 
   useEffect(() => {
     if (!user || !company) return;
-    
+
     const unsubscribe = subscribeToWarehouses(company.id, (data) => {
       setWarehouses(data);
       setLoading(false);
@@ -1243,7 +1274,7 @@ export const useWarehouses = () => {
         }
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
       }
-      
+
       await createWarehouse(warehouseData, company.id, createdBy);
     } catch (err) {
       setError(err as Error);
@@ -1308,10 +1339,10 @@ export const useStockTransfers = (filters?: {
       setLoading(false);
       return;
     }
-    
+
     console.log('[useStockTransfers] Setting up subscription for company:', company.id);
     setLoading(true);
-    
+
     const unsubscribe = subscribeToStockTransfers(
       company.id,
       (data) => {
@@ -1360,7 +1391,7 @@ export const useStockTransfers = (filters?: {
         }
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
       }
-      
+
       return await transferStockBetweenLocations({
         ...transferData,
         companyId: company.id,
@@ -1459,6 +1490,7 @@ export const useStockReplenishmentRequests = (filters?: {
           productId: requestData.productId,
           quantity: requestData.quantity,
           requestedBy: user.uid,
+          userId: user.uid,
           status: 'pending',
           notes: requestData.notes
         },
@@ -1546,7 +1578,7 @@ export const useNotifications = (filters?: {
         user.uid,
         (data) => {
           if (!isMounted) return;
-          
+
           setNotifications(data);
           setLoading(false);
           setError(null);
@@ -1725,9 +1757,10 @@ export const useProductionFlowSteps = () => {
       // Add userId to stepData for audit log
       const stepDataWithIds = {
         ...stepData,
-        userId: user.uid
+        userId: user.uid,
+        companyId: company.id
       };
-      return await createProductionFlowStep(stepDataWithIds, company.id, createdBy);
+      return await createProductionFlowStep(stepDataWithIds as any, company.id, createdBy);
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -1800,9 +1833,10 @@ export const useProductionFlows = () => {
       // Add userId to flowData for audit log
       const flowDataWithIds = {
         ...flowData,
-        userId: user.uid
+        userId: user.uid,
+        companyId: company.id
       };
-      return await createProductionFlow(flowDataWithIds, company.id, createdBy);
+      return await createProductionFlow(flowDataWithIds as any, company.id, createdBy);
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -1886,9 +1920,10 @@ export const useProductionCategories = () => {
       // Add userId to categoryData for audit log
       const categoryDataWithIds = {
         ...categoryData,
-        userId: user.uid
+        userId: user.uid,
+        companyId: company.id
       };
-      return await createProductionCategory(categoryDataWithIds, company.id, createdBy);
+      return await createProductionCategory(categoryDataWithIds as any, company.id, createdBy);
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -2076,7 +2111,7 @@ export const useProductionCharges = (productionId: string | null) => {
   console.warn('useProductionCharges is deprecated. Use production.charges array directly or use useCharges/useFixedCharges hooks.');
   const [charges, setCharges] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const [error] = useState<Error | null>(null);
 
   // Return empty state - this hook should not be used anymore
   useEffect(() => {
@@ -2167,7 +2202,7 @@ export const useCharges = (type?: 'fixed' | 'custom') => {
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
       }
       return await createCharge(
-        { ...chargeData, userId: user.uid, companyId: company.id },
+        { ...chargeData, userId: user.uid, companyId: company.id } as any,
         company.id,
         createdBy
       );

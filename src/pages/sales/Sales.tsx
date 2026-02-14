@@ -20,11 +20,10 @@ import {
 } from 'lucide-react';
 import Select from 'react-select';
 import { Modal, ModalFooter, Input, PriceInput, Badge, Button, Card, ImageWithSkeleton, SkeletonSalesList, SyncIndicator, DateRangePicker } from '@components/common';
-import { useProducts, useCustomers } from '@hooks/data/useFirestore';
+import { useProducts, useCustomers, useSalesProducts } from '@hooks/data/useFirestore';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
 import { useInfiniteSales } from '@hooks/data/useInfiniteSales';
 import { useCurrency } from '@hooks/useCurrency';
-import { CURRENCIES } from '@constants/currencies';
 import type { Product, OrderStatus, Sale, SaleProduct, Customer, PaymentStatus } from '../../types/models';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import Invoice from '../../components/sales/Invoice';
@@ -78,7 +77,8 @@ const Sales: React.FC = () => {
     removeSaleFromList,
     addSaleToList
   } = useInfiniteSales();
-  const { products, loading: productsLoading } = useProducts();
+  const { products, loading: productsLoading } = useSalesProducts();
+  const { products: availableProductsOnly } = useProducts();
   const { customers } = useCustomers();
   const { activeSources } = useCustomerSources();
   const { user, company } = useAuth();
@@ -709,7 +709,14 @@ const Sales: React.FC = () => {
       return (
         <tr key={sp.productId + idx} className="bg-gray-50">
           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 font-medium">
-            {product ? product.name : t('sales.table.unknownProduct')}
+            <div className="flex flex-col">
+              <span>{product ? product.name : t('sales.table.unknownProduct')}</span>
+              {product?.isDeleted && (
+                <span className="text-[10px] text-red-500 font-bold uppercase tracking-wider">
+                  [{t('common.deleted') || 'Supprimé'}]
+                </span>
+              )}
+            </div>
           </td>
           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{sp.quantity}</td>
           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
@@ -973,12 +980,12 @@ const Sales: React.FC = () => {
   // Filter products with stock > 0 for dropdown
   const availableProducts = React.useMemo(
     () =>
-      (products || []).filter((p) => {
+      (availableProductsOnly || []).filter((p) => {
         if (!p.isAvailable) return false;
         const stock = getEffectiveProductStock(p, stockMap);
         return stock > 0;
       }),
-    [products, stockMap]
+    [availableProductsOnly, stockMap]
   );
 
   // Show skeleton only while loading

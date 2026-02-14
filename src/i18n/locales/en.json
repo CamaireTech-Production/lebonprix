@@ -85,7 +85,9 @@
     "email": "Email",
     "mustBeGreaterThanZero": "must be greater than zero",
     "optional": "Optional",
-    "rememberMe": "Remember me"
+    "rememberMe": "Remember me",
+    "deleted": "Deleted",
+    "unknownProduct": "Unknown Product"
   },
   "auth": {
     "login": "Login",

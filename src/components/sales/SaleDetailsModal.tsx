@@ -514,7 +514,14 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                         return (
                           <tr key={index} className="border-b border-gray-100">
                             <td className="py-2 px-2">
-                              <p className="font-medium text-gray-900">{productData?.name || 'Unknown'}</p>
+                              <div className="flex flex-col">
+                                <p className="font-medium text-gray-900">{productData?.name || t('common.unknownProduct') || 'Unknown'}</p>
+                                {productData?.isDeleted && (
+                                  <span className="text-[10px] text-red-500 font-bold uppercase tracking-wider">
+                                    [{t('common.deleted') || 'Supprimé'}]
+                                  </span>
+                                )}
+                              </div>
                               {product.negotiatedPrice && product.negotiatedPrice !== product.basePrice && (
                                 <p className="text-xs text-gray-500">
                                   Base: {format(product.basePrice)}
@@ -879,7 +886,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                   <div className="space-y-2">
                     {onSettleCredit && (sale.remainingAmount ?? sale.totalAmount) > 0 && (
                       <Button
-                        variant="default"
+                        variant="primary"
                         onClick={() => {
                           onSettleCredit?.(sale.id);
                         }}
