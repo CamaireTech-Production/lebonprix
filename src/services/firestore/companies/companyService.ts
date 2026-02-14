@@ -39,7 +39,7 @@ export const createCompany = async (
     const planType = companyData.planType || 'enterprise';
     const modules: ModuleName[] = getModulesForPlan(planType);
 
-    console.log(`🏢 Création d'une entreprise ${planType.toUpperCase()} pour l'utilisateur ${userId}...`);
+
 
     // 1. Générer un ID unique pour l'entreprise
     const companyId = `company_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -107,7 +107,7 @@ export const createCompany = async (
     let defaultWarehouseId: string | undefined;
 
     try {
-      console.log('🏪 Création de la boutique par défaut...');
+
       const defaultShop = await createShop(
         {
           name: 'Boutique Principale',
@@ -122,7 +122,7 @@ export const createCompany = async (
         null // No createdBy for auto-created default shop
       );
       defaultShopId = defaultShop.id;
-      console.log(`✅ Boutique par défaut créée: ${defaultShopId}`);
+
 
       // Create default warehouse ONLY for enterprise plans
       if (planType === 'enterprise') {
@@ -141,9 +141,8 @@ export const createCompany = async (
           null // No createdBy for auto-created default warehouse
         );
         defaultWarehouseId = defaultWarehouse.id;
-        console.log(`✅ Entrepôt par défaut créé: ${defaultWarehouseId}`);
       } else {
-        console.log('ℹ️ Plan Starter - pas d\'entrepôt par défaut');
+
       }
 
       // 9. Update company with default shop/warehouse IDs
@@ -157,7 +156,7 @@ export const createCompany = async (
         company.defaultShopId = defaultShopId;
         company.defaultWarehouseId = defaultWarehouseId;
         CompanyManager.save(companyId, company);
-        console.log('✅ IDs par défaut sauvegardés sur la compagnie');
+
       }
     } catch (error) {
       // Log error but don't fail company creation
@@ -165,7 +164,7 @@ export const createCompany = async (
       // Continue - company is already created, shop/warehouse can be created later
     }
 
-    console.log(`✅ Entreprise ${companyData.name} (${planType}) créée avec succès`);
+
     return company;
 
   } catch (error: unknown) {
@@ -185,7 +184,7 @@ export const deleteCompany = async (
   companyId: string
 ): Promise<void> => {
   try {
-    console.log(`🗑️ Suppression de l'entreprise ${companyId} par l'utilisateur ${userId}...`);
+
 
     // 1. Vérifier que l'utilisateur est owner
     const user = await getUserById(userId);
@@ -204,17 +203,17 @@ export const deleteCompany = async (
 
     // 2. Supprimer le document entreprise
     await deleteDoc(doc(db, 'companies', companyId));
-    console.log(`✅ Document entreprise ${companyId} supprimé`);
+
 
     // 3. Supprimer la référence de users[].companies[]
     await removeCompanyFromUser(userId, companyId);
-    console.log(`✅ Référence supprimée de users/${userId}.companies[]`);
+
 
     // 4. Nettoyer le cache local
     CompanyManager.remove(companyId);
-    console.log(`✅ Cache local nettoyé`);
 
-    console.log(`✅ Entreprise ${companyId} supprimée avec succès`);
+
+
 
   } catch (error: unknown) {
     console.error('❌ Erreur lors de la suppression de l\'entreprise:', error);

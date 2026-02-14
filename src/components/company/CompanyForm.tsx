@@ -157,7 +157,7 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({ onSuccess, onCancel, i
                 currency: formData.currency
             });
 
-            console.log('✅ Company créée avec succès:', company.id);
+
             setSuccess(true);
 
             // Notify parent after delay or immediately?

@@ -46,7 +46,7 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
    */
   const handleCreateCompany = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user?.uid) {
       console.error('❌ Utilisateur non connecté');
       return;
@@ -54,7 +54,7 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
 
     try {
       setIsCreatingCompany(true);
-      
+
       await createCompany(user.uid, {
         name: companyForm.name,
         description: companyForm.description,
@@ -65,7 +65,7 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
         logo: companyForm.logo
       });
 
-      console.log('✅ Entreprise créée avec succès');
+
       setShowCreateForm(false);
       setCompanyForm({
         name: '',
@@ -76,7 +76,7 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
         location: '',
         logo: ''
       });
-      
+
     } catch (error) {
       console.error('❌ Erreur lors de la création de l\'entreprise:', error);
     } finally {
@@ -88,7 +88,7 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
    * Rendu d'une carte d'entreprise
    */
   const CompanyCard: React.FC<{ company: any }> = ({ company }) => (
-    <div 
+    <div
       className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer p-6 border border-gray-200"
       onClick={() => handleCompanySelect(company.companyId)}
     >
@@ -96,8 +96,8 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
         {/* Logo ou icône par défaut */}
         <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
           {company.logo ? (
-            <img 
-              src={company.logo} 
+            <img
+              src={company.logo}
               alt={company.name}
               className="w-full h-full object-cover rounded-lg"
             />
@@ -105,21 +105,21 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
             <BuildingOfficeIcon className="w-8 h-8 text-white" />
           )}
         </div>
-        
+
         {/* Informations de l'entreprise */}
         <div className="flex-1">
           <h3 className="text-lg font-semibold text-gray-900">{company.name}</h3>
           {company.description && (
             <p className="text-sm text-gray-600 mt-1">{company.description}</p>
           )}
-          
+
           {/* Rôle de l'utilisateur */}
           <div className="flex items-center mt-2">
             <UserIcon className="w-4 h-4 text-gray-400 mr-1" />
             <span className="text-sm text-gray-500 capitalize">
-              {company.role === 'owner' ? 'Propriétaire' : 
-               company.role === 'admin' ? 'Administrateur' :
-               company.role === 'manager' ? 'Gestionnaire' : 'Employé'}
+              {company.role === 'owner' ? 'Propriétaire' :
+                company.role === 'admin' ? 'Administrateur' :
+                  company.role === 'manager' ? 'Gestionnaire' : 'Employé'}
             </span>
           </div>
         </div>
@@ -131,7 +131,7 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
    * Rendu du bouton "Créer entreprise"
    */
   const CreateCompanyCard: React.FC = () => (
-    <div 
+    <div
       className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors cursor-pointer p-6 flex flex-col items-center justify-center min-h-[120px]"
       onClick={() => setShowCreateForm(true)}
     >
@@ -157,7 +157,7 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
           {userCompanies.map((company) => (
             <CompanyCard key={company.companyId} company={company} />
           ))}
-          
+
           {/* Bouton créer entreprise */}
           <CreateCompanyCard />
         </div>
@@ -187,7 +187,7 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <h2 className="text-xl font-semibold mb-4">Créer une entreprise</h2>
-            
+
             <form onSubmit={handleCreateCompany}>
               <div className="space-y-4">
                 <div>
@@ -198,7 +198,7 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
                     type="text"
                     required
                     value={companyForm.name}
-                    onChange={(e) => setCompanyForm({...companyForm, name: e.target.value})}
+                    onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Mon Entreprise"
                   />
@@ -210,7 +210,7 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
                   </label>
                   <textarea
                     value={companyForm.description}
-                    onChange={(e) => setCompanyForm({...companyForm, description: e.target.value})}
+                    onChange={(e) => setCompanyForm({ ...companyForm, description: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={3}
                     placeholder="Description de l'entreprise..."
@@ -226,7 +226,7 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
                       type="tel"
                       required
                       value={companyForm.phone}
-                      onChange={(e) => setCompanyForm({...companyForm, phone: e.target.value})}
+                      onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="+33 1 23 45 67 89"
                     />
@@ -240,7 +240,7 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
                       type="email"
                       required
                       value={companyForm.email}
-                      onChange={(e) => setCompanyForm({...companyForm, email: e.target.value})}
+                      onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="contact@entreprise.com"
                     />
@@ -255,7 +255,7 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
                     type="email"
                     required
                     value={companyForm.report_mail}
-                    onChange={(e) => setCompanyForm({...companyForm, report_mail: e.target.value})}
+                    onChange={(e) => setCompanyForm({ ...companyForm, report_mail: e.target.value })}
                     onBlur={() => {
                       if (companyForm.report_mail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(companyForm.report_mail)) {
                         // Validation silencieuse, l'erreur sera affichée à la soumission
@@ -273,7 +273,7 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
                   <input
                     type="text"
                     value={companyForm.location}
-                    onChange={(e) => setCompanyForm({...companyForm, location: e.target.value})}
+                    onChange={(e) => setCompanyForm({ ...companyForm, location: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Paris, France"
                   />

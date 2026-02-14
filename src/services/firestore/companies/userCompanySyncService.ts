@@ -57,7 +57,7 @@ export async function addUserToCompany(
       updatedAt: serverTimestamp()
     });
 
-    console.log('✅ Company.employees{} mis à jour');
+
 
     // 3. Mettre à jour users/{userId}.companies[] avec arrayUnion
     const userCompanyRef: UserCompanyRef = {
@@ -129,7 +129,7 @@ export async function removeUserFromCompany(
     }
 
     await batch.commit();
-    console.log('✅ Suppression terminée (hard delete atomique)');
+
   } catch (error) {
     logError('Error removing user from company', error);
     throw error;
@@ -146,7 +146,7 @@ export async function updateUserRole(
   newRole: 'owner' | 'admin' | 'manager' | 'staff'
 ): Promise<void> {
   try {
-    console.log('🔄 [updateUserRole] Début de la mise à jour du rôle:', { userId, companyId, newRole });
+
 
     // 1. Mettre à jour l'employeeRef
     await updateDoc(doc(db, 'companies', companyId, 'employeeRefs', userId), {
@@ -162,23 +162,23 @@ export async function updateUserRole(
       updatedAt: serverTimestamp()
     });
 
-    console.log('✅ Company.employees{} mis à jour');
+
 
     // 3. Mettre à jour users.companies[]
     // Récupérer le document, modifier le tableau, et le remplacer complètement
     const userRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userRef);
-    
+
     if (!userDoc.exists()) {
       throw new Error('Utilisateur non trouvé');
     }
 
     const userData = userDoc.data();
     const companies = userData?.companies || [];
-    
+
     // Trouver l'index de la company à modifier
     const companyIndex = companies.findIndex((c: UserCompanyRef) => c.companyId === companyId);
-    
+
     if (companyIndex === -1) {
       throw new Error('Company non trouvée dans user.companies[]');
     }
@@ -193,13 +193,13 @@ export async function updateUserRole(
     };
 
     // Remplacer complètement le tableau companies
-    
+
     await updateDoc(userRef, {
       companies: updatedCompanies,
       updatedAt: serverTimestamp()
     });
 
-    console.log('✅ [updateUserRole] User.companies[] mis à jour avec succès');
+
   } catch (error) {
     logError('Error updating user role', error);
     throw error;
@@ -215,11 +215,11 @@ export async function syncEmployeeRefToUser(
   companyId: string
 ): Promise<void> {
   try {
-    console.log('🔄 Synchronisation employeeRef → user:', { userId, companyId });
+
 
     // 1. Récupérer l'employeeRef
     const employeeRefDoc = await getDoc(doc(db, 'companies', companyId, 'employeeRefs', userId));
-    
+
     if (!employeeRefDoc.exists()) {
       throw new Error('EmployeeRef non trouvé');
     }
@@ -228,7 +228,7 @@ export async function syncEmployeeRefToUser(
 
     // 2. Récupérer les infos de la company
     const companyDoc = await getDoc(doc(db, 'companies', companyId));
-    
+
     if (!companyDoc.exists()) {
       throw new Error('Company non trouvée');
     }
@@ -237,7 +237,7 @@ export async function syncEmployeeRefToUser(
 
     // 3. Récupérer l'utilisateur
     const userDoc = await getDoc(doc(db, 'users', userId));
-    
+
     if (!userDoc.exists()) {
       throw new Error('Utilisateur non trouvé');
     }
