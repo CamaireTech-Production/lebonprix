@@ -7,12 +7,11 @@ import { useProducts } from '@hooks/data/useFirestore';
 import { useCheckoutSettings } from '@hooks/data/useCheckoutSettings';
 import { printPOSBillDirect } from '@utils/pos/posPrint';
 import { showErrorToast, showSuccessToast } from '@utils/core/toast';
-import { formatPrice } from '@utils/formatting/formatPrice';
 import { useCurrency } from '@hooks/useCurrency';
 import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
 import { POSCalculator } from './POSCalculator';
 import Select from 'react-select';
-import { Input, PriceInput, ImageWithSkeleton, Select as CommonSelect } from '@components/common';
+import { Input, PriceInput, ImageWithSkeleton, Select as CommonSelect, PhoneInput } from '@components/common';
 import type { OrderStatus, Customer } from '../../types/models';
 import type { CartItem } from '@hooks/forms/usePOS';
 
@@ -123,9 +122,9 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   // Customer search state
   const [showCustomerDropdown, setShowCustomerDropdown] = useState<boolean>(false);
   const [customerSearch, setCustomerSearch] = useState<string>('');
-  const [foundCustomer, setFoundCustomer] = useState<Customer | null>(null);
+  const [, setFoundCustomer] = useState<Customer | null>(null);
   const [activeSearchField, setActiveSearchField] = useState<'phone' | 'name' | null>(null);
-  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const phoneInputRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   // Sale Info
@@ -577,8 +576,8 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   };
 
   // Handle customer phone change with search functionality
-  const handleCustomerPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
+  const handleCustomerPhoneChange = (e: React.ChangeEvent<HTMLInputElement> | string) => {
+    const value = typeof e === 'string' ? e : e.target.value;
     setCustomerPhone(value);
     setCustomerSearch(value);
     setActiveSearchField('phone');
@@ -1350,12 +1349,10 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
 
                   {paymentMethod === 'mobile_money' && (
                     <div className="mt-4 space-y-3">
-                      <Input
+                      <PhoneInput
                         label={t('pos.payment.mobileMoneyPhone')}
-                        type="tel"
                         value={mobileMoneyPhone}
-                        onChange={(e) => setMobileMoneyPhone(e.target.value)}
-                        placeholder="+237 6XX XXX XXX"
+                        onChange={setMobileMoneyPhone}
                         required
                       />
                       <Input
@@ -1442,20 +1439,30 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                       <User size={20} className="mr-2" />
                       {t('pos.payment.customerInfo')}
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-4">
                       <div className="relative">
-                        <Input
-                          label={t('pos.payment.customerPhone')}
-                          type="tel"
-                          value={customerPhone}
-                          onChange={handleCustomerPhoneChange}
-                          ref={phoneInputRef}
-                        />
+                        <div ref={phoneInputRef}>
+                          <PhoneInput
+                            label={t('pos.payment.customerPhone')}
+                            value={customerPhone}
+                            onChange={handleCustomerPhoneChange}
+                            onFocus={() => setActiveSearchField('phone')}
+                            onBlur={() => {
+                              // Delay hiding the dropdown to allow for clicks on dropdown items
+                              setTimeout(() => {
+                                if (activeSearchField === 'phone') {
+                                  setActiveSearchField(null);
+                                  setShowCustomerDropdown(false);
+                                }
+                              }, 300);
+                            }}
+                          />
+                        </div>
 
                         {/* Customer Dropdown - shown below phone field when phone field is active */}
                         {showCustomerDropdown && activeSearchField === 'phone' && (
                           <div
-                            className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
+                            className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto"
                             data-dropdown="customer"
                           >
                             {customers && customers.length > 0
@@ -1499,111 +1506,122 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                           </div>
                         )}
                       </div>
-                      <div className="relative">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          {t('pos.payment.customerName')}
-                          {saleType === 'credit' && <span className="text-red-600 ml-1">*</span>}
-                        </label>
-                        <Input
-                          type="text"
-                          value={customerName}
-                          onChange={handleCustomerNameChange}
-                          ref={nameInputRef}
-                          error={saleType === 'credit' && (!customerName || customerName.trim() === '') ? (t('sales.messages.errors.customerNameRequiredForCredit') || 'Customer name is required for credit sales') : undefined}
-                          helpText={saleType === 'credit' ? (t('pos.payment.customerNameRequiredForCredit') || 'Required for credit sales') : undefined}
-                          className={saleType === 'credit' && (!customerName || customerName.trim() === '') ? 'border-red-300' : ''}
-                        />
 
-                        {/* Improved Customer Dropdown - Unified search by name AND phone */}
-                        {showCustomerDropdown && activeSearchField === 'name' && (
-                          <div
-                            className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
-                            data-dropdown="customer"
-                          >
-                            {customers && customers.length > 0 ? (() => {
-                              const filteredCustomers = customers
-                                .filter(c => {
-                                  if (!customerSearch.trim()) return true;
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="relative">
+                          <Input
+                            label={t('pos.payment.customerName')}
+                            required={saleType === 'credit'}
+                            type="text"
+                            value={customerName}
+                            onChange={handleCustomerNameChange}
+                            ref={nameInputRef}
+                            onFocus={() => setActiveSearchField('name')}
+                            onBlur={() => {
+                              // Delay hiding the dropdown to allow for clicks on dropdown items
+                              setTimeout(() => {
+                                if (activeSearchField === 'name') {
+                                  setActiveSearchField(null);
+                                  setShowCustomerDropdown(false);
+                                }
+                              }, 300);
+                            }}
+                            error={saleType === 'credit' && (!customerName || customerName.trim() === '') ? (t('sales.messages.errors.customerNameRequiredForCredit') || 'Customer name is required for credit sales') : undefined}
+                            helpText={saleType === 'credit' ? (t('pos.payment.customerNameRequiredForCredit') || 'Required for credit sales') : undefined}
+                            className={saleType === 'credit' && (!customerName || customerName.trim() === '') ? 'border-red-300' : ''}
+                          />
 
-                                  const searchTerm = customerSearch.trim().toLowerCase();
-                                  const normalizedSearch = normalizePhoneForComparison(customerSearch);
+                          {/* Improved Customer Dropdown - Unified search by name AND phone */}
+                          {showCustomerDropdown && activeSearchField === 'name' && (
+                            <div
+                              className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto"
+                              data-dropdown="customer"
+                            >
+                              {customers && customers.length > 0 ? (() => {
+                                const filteredCustomers = customers
+                                  .filter(c => {
+                                    if (!customerSearch.trim()) return true;
 
-                                  // Search by name (case-insensitive, partial match)
-                                  const nameMatch = c.name?.toLowerCase().includes(searchTerm) || false;
-
-                                  // Search by phone (normalized comparison for partial match)
-                                  const phoneMatch = c.phone && normalizedSearch.length >= 1
-                                    ? normalizePhoneForComparison(c.phone).includes(normalizedSearch) ||
-                                    normalizedSearch.includes(normalizePhoneForComparison(c.phone))
-                                    : false;
-
-                                  // Return true if EITHER name OR phone matches
-                                  return nameMatch || phoneMatch;
-                                })
-                                .slice(0, 10);
-
-                              if (filteredCustomers.length === 0) {
-                                return (
-                                  <div className="p-4 text-sm text-gray-500 text-center">
-                                    Aucun client trouvé pour "{customerSearch}"
-                                  </div>
-                                );
-                              }
-
-                              return (
-                                <>
-                                  <div className="p-2 bg-gray-50 border-b sticky top-0">
-                                    <div className="text-xs font-medium text-gray-600">
-                                      {filteredCustomers.length} {filteredCustomers.length === 1 ? 'client trouvé' : 'clients trouvés'} (nom ou téléphone)
-                                    </div>
-                                  </div>
-                                  {filteredCustomers.map((customer) => {
                                     const searchTerm = customerSearch.trim().toLowerCase();
                                     const normalizedSearch = normalizePhoneForComparison(customerSearch);
-                                    const nameMatch = customer.name?.toLowerCase().includes(searchTerm);
-                                    const phoneMatch = customer.phone && normalizePhoneForComparison(customer.phone).includes(normalizedSearch);
 
-                                    return (
-                                      <button
-                                        key={customer.id}
-                                        type="button"
-                                        className="w-full px-4 py-3 text-left hover:bg-emerald-50 border-b border-gray-100 last:border-b-0 transition-colors"
-                                        onClick={() => handleSelectCustomer(customer)}
-                                      >
-                                        <div className="flex items-start gap-2">
-                                          <div className="flex-1">
-                                            <div className="font-medium text-gray-900 flex items-center gap-2">
-                                              {customer.name || 'Client de passage'}
-                                              {nameMatch && <span className="text-xs bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded">Nom</span>}
-                                              {phoneMatch && <span className="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">Tél</span>}
+                                    // Search by name (case-insensitive, partial match)
+                                    const nameMatch = c.name?.toLowerCase().includes(searchTerm) || false;
+
+                                    // Search by phone (normalized comparison for partial match)
+                                    const phoneMatch = c.phone && normalizedSearch.length >= 1
+                                      ? normalizePhoneForComparison(c.phone).includes(normalizedSearch) ||
+                                      normalizedSearch.includes(normalizePhoneForComparison(c.phone))
+                                      : false;
+
+                                    // Return true if EITHER name OR phone matches
+                                    return nameMatch || phoneMatch;
+                                  })
+                                  .slice(0, 10);
+
+                                if (filteredCustomers.length === 0) {
+                                  return (
+                                    <div className="p-4 text-sm text-gray-500 text-center">
+                                      Aucun client trouvé pour "{customerSearch}"
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <>
+                                    <div className="p-2 bg-gray-50 border-b sticky top-0">
+                                      <div className="text-xs font-medium text-gray-600">
+                                        {filteredCustomers.length} {filteredCustomers.length === 1 ? 'client trouvé' : 'clients trouvés'} (nom ou téléphone)
+                                      </div>
+                                    </div>
+                                    {filteredCustomers.map((customer) => {
+                                      const searchTerm = customerSearch.trim().toLowerCase();
+                                      const normalizedSearch = normalizePhoneForComparison(customerSearch);
+                                      const nameMatch = customer.name?.toLowerCase().includes(searchTerm);
+                                      const phoneMatch = customer.phone && normalizePhoneForComparison(customer.phone).includes(normalizedSearch);
+
+                                      return (
+                                        <button
+                                          key={customer.id}
+                                          type="button"
+                                          className="w-full px-4 py-3 text-left hover:bg-emerald-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                                          onClick={() => handleSelectCustomer(customer)}
+                                        >
+                                          <div className="flex items-start gap-2">
+                                            <div className="flex-1">
+                                              <div className="font-medium text-gray-900 flex items-center gap-2">
+                                                {customer.name || 'Client de passage'}
+                                                {nameMatch && <span className="text-xs bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded">Nom</span>}
+                                                {phoneMatch && <span className="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">Tél</span>}
+                                              </div>
+                                              {customer.phone && (
+                                                <div className="text-sm text-gray-600 mt-1">
+                                                  📞 {customer.phone}
+                                                </div>
+                                              )}
+                                              {customer.quarter && (
+                                                <div className="text-xs text-gray-500 mt-1">
+                                                  📍 {customer.quarter}
+                                                </div>
+                                              )}
                                             </div>
-                                            {customer.phone && (
-                                              <div className="text-sm text-gray-600 mt-1">
-                                                📞 {customer.phone}
-                                              </div>
-                                            )}
-                                            {customer.quarter && (
-                                              <div className="text-xs text-gray-500 mt-1">
-                                                📍 {customer.quarter}
-                                              </div>
-                                            )}
                                           </div>
-                                        </div>
-                                      </button>
-                                    );
-                                  })}
-                                </>
-                              );
-                            })() : null}
-                          </div>
-                        )}
+                                        </button>
+                                      );
+                                    })}
+                                  </>
+                                );
+                              })() : null}
+                            </div>
+                          )}
+                        </div>
+                        <Input
+                          label={t('pos.payment.customerQuarter')}
+                          type="text"
+                          value={customerQuarter}
+                          onChange={(e) => setCustomerQuarter(e.target.value)}
+                        />
                       </div>
-                      <Input
-                        label={t('pos.payment.customerQuarter')}
-                        type="text"
-                        value={customerQuarter}
-                        onChange={(e) => setCustomerQuarter(e.target.value)}
-                      />
                       {activeSources.length > 0 && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
