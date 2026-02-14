@@ -300,11 +300,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
         await updateUserLastLogin(userId);
         if (isInitialLoginRef.current) {
-          // 0. Check for invitation - SKIP redirect if invitation is present
-          // The Login page will handle the invitation acceptance
+          // 0. Check for invitation or public/deep links - SKIP redirect
           const searchParams = new URLSearchParams(window.location.search);
-          if (searchParams.get('invite')) {
-            console.log('✉️ Invitation detected, skipping auto-redirect');
+          const pathname = window.location.pathname;
+
+          const isPublicOrDeepLink =
+            pathname.startsWith('/catalogue') ||
+            pathname.startsWith('/track') ||
+            pathname.startsWith('/checkout') ||
+            (pathname.startsWith('/company/') && !pathname.includes('/dashboard'));
+
+          if (searchParams.get('invite') || isPublicOrDeepLink) {
+            console.log('✉️ Invitation or public/deep link detected, skipping auto-redirect');
             isInitialLoginRef.current = false;
             return;
           }
@@ -343,7 +350,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               if (isInitialLoginRef.current) {
                 // Same logic as above for migrated users
                 const searchParams = new URLSearchParams(window.location.search);
-                if (searchParams.get('invite')) {
+                const pathname = window.location.pathname;
+
+                const isPublicOrDeepLink =
+                  pathname.startsWith('/catalogue') ||
+                  pathname.startsWith('/track') ||
+                  pathname.startsWith('/checkout') ||
+                  (pathname.startsWith('/company/') && !pathname.includes('/dashboard'));
+
+                if (searchParams.get('invite') || isPublicOrDeepLink) {
                   isInitialLoginRef.current = false;
                   return;
                 }
@@ -575,9 +590,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const signUp = async (
-    email: string,
-    password: string,
-    companyData: Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'companyId'>
+    _email: string,
+    _password: string,
+    _companyData: Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'companyId'>
   ): Promise<FirebaseUser> => {
     // This signUp function is deprecated - users should be created first, then companies
     // For now, we'll throw an error to force migration to the new pattern

@@ -24,10 +24,10 @@ import { useProducts, useCustomers, useSalesProducts } from '@hooks/data/useFire
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
 import { useInfiniteSales } from '@hooks/data/useInfiniteSales';
 import { useCurrency } from '@hooks/useCurrency';
-import type { Product, OrderStatus, Sale, SaleProduct, Customer, PaymentStatus } from '../../types/models';
+import type { Product, OrderStatus, Sale, SaleProduct, Customer, PaymentStatus } from '@types/models';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
-import Invoice from '../../components/sales/Invoice';
-import { generatePDF, generatePDFBlob } from '@utils/core/pdf';
+import Invoice from '@components/sales/Invoice';
+import { generatePDFBlob } from '@utils/core/pdf';
 import { generateInvoiceFileName } from '@utils/core/fileUtils';
 import { useAuth } from '@contexts/AuthContext';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
@@ -38,12 +38,12 @@ import { useTranslation } from 'react-i18next';
 import { softDeleteSale, updateSaleStatus, cancelCreditSale, refundCreditSale, updateSaleDocument } from '@services/firestore/sales/saleService';
 import { formatCreatorName } from '@utils/business/employeeUtils';
 import { createPortal } from 'react-dom';
-import AddSaleModal from '../../components/sales/AddSaleModal';
-import SaleDetailsModal from '../../components/sales/SaleDetailsModal';
-import ProfitDetailsModal from '../../components/sales/ProfitDetailsModal';
-import SalesReportModal from '../../components/reports/SalesReportModal';
-import { SettleCreditModal } from '../../components/sales/SettleCreditModal';
-import { RefundCreditModal } from '../../components/sales/RefundCreditModal';
+import AddSaleModal from '@components/sales/AddSaleModal';
+import SaleDetailsModal from '@components/sales/SaleDetailsModal';
+import ProfitDetailsModal from '@components/sales/ProfitDetailsModal';
+import SalesReportModal from '@components/reports/SalesReportModal';
+import { SettleCreditModal } from '@components/sales/SettleCreditModal';
+import { RefundCreditModal } from '@components/sales/RefundCreditModal';
 import { format } from 'date-fns';
 import { PermissionButton, usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
@@ -98,7 +98,6 @@ const Sales: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isProfitModalOpen, setIsProfitModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -118,7 +117,6 @@ const Sales: React.FC = () => {
   const [saleToSettle, setSaleToSettle] = useState<Sale | null>(null);
   const [saleToRefund, setSaleToRefund] = useState<Sale | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
-  const [shareableLink] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
@@ -426,9 +424,9 @@ const Sales: React.FC = () => {
 
       setIsStatusChangeConfirmOpen(false);
       setStatusChangeData(null);
-    } catch (error) {
+    } catch (error: unknown) {
       logError('Error updating sale status', error);
-      showErrorToast('Erreur lors du changement de statut');
+      showErrorToast(t('sales.messages.errors.updateStatus') || 'Failed to update sale status');
     } finally {
       setStatusChangeLoading(false);
     }
@@ -474,9 +472,9 @@ const Sales: React.FC = () => {
       showSuccessToast(t('sales.messages.creditSettled') || 'Credit sale marked as paid');
       // Refresh sales list
       refreshSales();
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Error settling credit sale', error);
-      showErrorToast(error.message || t('sales.messages.errors.settleCreditFailed') || 'Failed to settle credit sale');
+      showErrorToast(error instanceof Error ? error.message : t('sales.messages.errors.settleCreditFailed'));
       throw error;
     }
   };
@@ -491,9 +489,9 @@ const Sales: React.FC = () => {
       showSuccessToast(t('sales.messages.creditCancelled') || 'Credit sale cancelled and stock restored');
       // Refresh sales list
       refreshSales();
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Error cancelling credit sale', error);
-      showErrorToast(error.message || t('sales.messages.errors.cancelCreditFailed') || 'Failed to cancel credit sale');
+      showErrorToast(error instanceof Error ? error.message : t('sales.messages.errors.cancelCreditFailed'));
       throw error;
     }
   };
@@ -521,9 +519,9 @@ const Sales: React.FC = () => {
       showSuccessToast(t('sales.refund.success') || 'Refund processed successfully');
       // Refresh sales list
       refreshSales();
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Error refunding credit sale', error);
-      showErrorToast(error.message || t('sales.refund.errors.failed') || 'Failed to process refund');
+      showErrorToast(error instanceof Error ? error.message : t('sales.refund.errors.failed'));
       throw error;
     }
   };
@@ -592,7 +590,7 @@ const Sales: React.FC = () => {
       setCurrentSale(null);
       resetForm();
       showSuccessToast(t('sales.messages.saleUpdated'));
-    } catch (err) {
+    } catch (err: unknown) {
       logError('Failed to update sale', err);
       showErrorToast(t('sales.messages.errors.updateSale'));
     } finally {
@@ -650,7 +648,7 @@ const Sales: React.FC = () => {
             text: `Facture pour la commande de ${sale.customerInfo.name}`,
           });
           showSuccessToast(t('sales.messages.invoiceShared'));
-        } catch (err) {
+        } catch (err: unknown) {
           if (err instanceof Error && err.name !== 'AbortError') {
             const url = URL.createObjectURL(result);
             const a = document.createElement('a');
@@ -690,7 +688,7 @@ const Sales: React.FC = () => {
       setIsDeleteModalOpen(false);
       setCurrentSale(null);
       showSuccessToast(t('sales.messages.saleDeleted'));
-    } catch (err) {
+    } catch (err: unknown) {
       logError('Failed to delete sale', err);
       showErrorToast(t('sales.messages.errors.deleteSale'));
     } finally {
@@ -1319,72 +1317,6 @@ const Sales: React.FC = () => {
           }
         }}
       />
-      <Modal isOpen={isLinkModalOpen} onClose={() => setIsLinkModalOpen(false)} title={t('sales.modals.link.title')} size="lg">
-        {shareableLink && currentSale && (
-          <div className="space-y-6">
-            <div className="bg-emerald-50 p-4 rounded-lg">
-              <p className="text-emerald-700 font-medium">{t('sales.modals.link.success.title')}</p>
-              <p className="text-sm text-emerald-600 mt-1">
-                {t('sales.modals.link.success.customer')}: {currentSale.customerInfo.name}
-              </p>
-              <p className="text-sm text-emerald-600">
-                {t('sales.modals.link.success.totalAmount')}: {formatCurrency(currentSale.totalAmount)}
-              </p>
-            </div>
-            <div className="flex justify-end space-x-2 sticky top-0 bg-white z-10 py-2">
-              <Button
-                variant="outline"
-                icon={<Download size={16} />}
-                onClick={() => {
-                  const filename = generateInvoiceFileName(
-                    currentSale.customerInfo.name,
-                    company?.name || ''
-                  );
-                  generatePDF(currentSale, products || [], company || {}, filename.replace('.pdf', ''));
-                }}
-              >
-                {t('sales.modals.link.actions.downloadPDF')}
-              </Button>
-              <Button variant="outline" icon={<Share size={16} />} onClick={() => handleShareInvoice(currentSale)}>
-                {t('sales.modals.link.actions.shareInvoice')}
-              </Button>
-            </div>
-            <div className="border rounded-lg overflow-hidden">
-              <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
-                <Invoice sale={currentSale} products={products || []} />
-              </div>
-            </div>
-            <div className="space-y-4 sticky bottom-0 bg-white z-10 pt-2 border-t">
-              <p className="font-medium text-gray-900">{t('sales.modals.link.message.title')}</p>
-              <div className="bg-gray-50 p-4 rounded-lg text-sm">
-                <p className="whitespace-pre-line">{t('sales.modals.link.message.preview', { link: shareableLink })}</p>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(shareableLink);
-                    showSuccessToast(t('sales.messages.linkCopied'));
-                  }}
-                  className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors"
-                >
-                  {t('sales.modals.link.actions.copyLinkOnly')}
-                </button>
-                <button
-                  onClick={() => {
-                    const message = t('sales.modals.link.message.preview', { link: shareableLink });
-                    navigator.clipboard.writeText(message);
-                    showSuccessToast(t('sales.messages.messageCopied'));
-                  }}
-                  className="flex-1 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors"
-                >
-                  {t('sales.modals.link.actions.copyWithMessage')}
-                </button>
-              </div>
-              <p className="text-sm text-gray-500">{t('sales.modals.link.message.help')}</p>
-            </div>
-          </div>
-        )}
-      </Modal>
       <Modal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
